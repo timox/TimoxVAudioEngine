@@ -1,0 +1,676 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://vasio.local/schemas/api-v1.json",
+  "title": "VASIO local control API v1 messages",
+  "oneOf": [
+    { "$ref": "#/definitions/state" },
+    { "$ref": "#/definitions/drivers" },
+    { "$ref": "#/definitions/wasapiInventory" },
+    { "$ref": "#/definitions/applicationProfiles" },
+    { "$ref": "#/definitions/applicationProfilesUpdate" },
+    { "$ref": "#/definitions/applyCommand" },
+    { "$ref": "#/definitions/engineStartCommand" },
+    { "$ref": "#/definitions/engineStopCommand" },
+    { "$ref": "#/definitions/engineResetCommand" },
+    { "$ref": "#/definitions/correlationStartCommand" },
+    { "$ref": "#/definitions/correlationStopCommand" },
+    { "$ref": "#/definitions/performanceMeasurementsSetCommand" },
+    { "$ref": "#/definitions/response" },
+    { "$ref": "#/definitions/event" }
+  ],
+  "definitions": {
+    "wasapiFormat": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sampleRate", "channels", "containerBits", "validBits", "blockAlign", "channelMask", "encoding"],
+      "properties": {
+        "sampleRate": {"type":"integer","minimum":1}, "channels":{"type":"integer","minimum":1},
+        "containerBits":{"enum":[8,16,24,32,64]}, "validBits":{"type":"integer","minimum":1,"maximum":64},
+        "blockAlign":{"type":"integer","minimum":1}, "channelMask":{"type":"integer","minimum":0},
+        "encoding":{"enum":["pcmInteger","ieeeFloat"]}
+      }
+    },
+    "wasapiBridgeConfiguration": {
+      "type":"object", "additionalProperties":false, "required":["id","kind"],
+      "oneOf":[{"required":["endpointId"],"not":{"anyOf":[{"required":["defaultRole"]},{"required":["processId"]},{"required":["processCreationTime"]},{"required":["processImagePath"]}]}},{"required":["defaultRole"],"not":{"anyOf":[{"required":["endpointId"]},{"required":["processId"]},{"required":["processCreationTime"]},{"required":["processImagePath"]}]}},{"required":["processId","processCreationTime","processImagePath"],"not":{"anyOf":[{"required":["endpointId"]},{"required":["defaultRole"]}]}}],
+      "allOf":[{"if":{"properties":{"kind":{"enum":["capture","render","endpointLoopback"]}},"required":["kind"]},"then":{"not":{"anyOf":[{"required":["processId"]},{"required":["processCreationTime"]},{"required":["processImagePath"]}]}}},{"if":{"properties":{"kind":{"const":"processLoopback"}},"required":["kind"]},"then":{"required":["processId","processCreationTime","processImagePath"],"not":{"anyOf":[{"required":["endpointId"]},{"required":["defaultRole"]}]}}}],
+      "properties": {
+        "id":{"type":"string","pattern":"^[A-Za-z0-9_-]+$","maxLength":128},
+        "enabled":{"type":"boolean","default":true}, "kind":{"enum":["capture","render","endpointLoopback","processLoopback"],"description":"A processLoopback bridge creates an app audio copy owned by Timox and adds it as a separate graph source; it does not create a Timox ASIO client connection or redirect playback. The same process may also appear separately as an ASIO client if it opens the Timox virtual driver."},
+        "endpointId":{"type":"string","minLength":1,"maxLength":32768,"pattern":"^[^\\u0000]+$"},
+        "processId":{"type":"integer","minimum":1,"maximum":4294967295,"description":"Process whose shared Windows audio Timox copies into a separate graph source. This does not establish that the process opened the Timox ASIO driver."},"processCreationTime":{"type":"string","pattern":"^[0-9]{1,20}$","description":"Decimal process creation timestamp paired with processId to distinguish this process instance from another process reusing the PID."},"processImagePath":{"type":"string","minLength":1,"maxLength":32768,"description":"Executable image path paired with processId and processCreationTime to validate the process selected for copying; it does not identify the process's audio API."},
+        "defaultRole":{"enum":["console","multimedia","communications"]},
+        "bufferDuration100ns":{"type":"integer","minimum":0,"maximum":10000000,"default":0}
+      }
+    },
+    "wasapiBridgeConfigurations": {"type":"array","maxItems":32,"items":{"$ref":"#/definitions/wasapiBridgeConfiguration"},"description":"IDs must be unique (validated transactionally by the server). Omission in apply preserves saved bridges; [] removes all."},
+    "wasapiDevice": {
+      "type":"object","additionalProperties":false,"required":["id","name","flow","state","mixFormat","error"],
+      "properties": {
+        "id":{"type":"string","minLength":1},"name":{"type":"string"},"containerId":{"type":["string","null"],"description":"Windows hardware container ID used to group related capture and render endpoints; null if unavailable."},"flow":{"enum":["capture","render"]},
+        "state":{"type":"integer","minimum":0,"description":"Windows DEVICE_STATE_* bitmask."},
+        "mixFormat":{"oneOf":[{"$ref":"#/definitions/wasapiFormat"},{"type":"null"}]},
+        "error":{"type":["string","null"]}
+      }
+    },
+    "wasapiInventory": {
+      "type":"object","additionalProperties":false,"required":["wasapiDevices","wasapiInventoryError"],
+      "properties":{"wasapiDevices":{"type":"array","items":{"$ref":"#/definitions/wasapiDevice"}},"wasapiInventoryError":{"type":["string","null"]}}
+    },
+    "windowsAudioApplication": {
+      "type":"object","description":"A process with an active render session in the Windows shared audio mixer. This does not indicate whether the process opened TimoxVasio ASIO or which Windows audio API it selected.","additionalProperties":false,"required":["processId","creationTime","imagePath","displayName","renderEndpoints"],
+      "properties":{"processId":{"type":"integer","minimum":1,"description":"PID of the process that owns the shared render session; use with creationTime to distinguish process instances."},"creationTime":{"type":"string","pattern":"^[0-9]+$","description":"Process creation time as a decimal string; paired with processId to identify this process instance."},"imagePath":{"type":"string","description":"Executable image path for the process owning the shared render session."},"displayName":{"type":"string","description":"Windows audio-session display name; it may differ from the executable name."},"renderEndpoints":{"type":"array","description":"Windows output endpoints associated with the shared render session; this does not identify the audio API used by the process.","items":{"type":"string"}}}
+    },
+    "windowsAudioApplicationInventory": {
+      "type":"object","additionalProperties":false,"required":["windowsAudioApplications","windowsAudioApplicationInventoryError"],
+      "properties":{"windowsAudioApplications":{"type":"array","items":{"$ref":"#/definitions/windowsAudioApplication"}},"windowsAudioApplicationInventoryError":{"type":["string","null"],"description":"Null when enumeration succeeded; otherwise contains the inventory error. An empty applications array with an error does not mean that no sessions exist."}}
+    },
+    "wasapiStreamInfo": {
+      "type":"object","additionalProperties":false,
+      "required":["endpointId","kind","format","bufferFrames","streamLatency100ns","defaultPeriod100ns","minimumPeriod100ns"],
+      "properties": {
+        "endpointId":{"type":"string"},"kind":{"enum":["capture","render","endpointLoopback","processLoopback"]},
+        "format":{"$ref":"#/definitions/wasapiFormat"},"bufferFrames":{"type":"integer","minimum":1},
+        "streamLatency100ns":{"type":"integer","minimum":0},"defaultPeriod100ns":{"type":"integer","minimum":0},
+        "minimumPeriod100ns":{"type":"integer","minimum":0}
+      }
+    },
+    "wasapiGraphFormat": {
+      "type":"object","additionalProperties":false,"required":["sampleRate","channels","maxQuantum","capacityFrames"],
+      "properties":{
+        "sampleRate":{"type":"integer","minimum":8000,"maximum":384000},"channels":{"type":"integer","minimum":1,"maximum":256},
+        "maxQuantum":{"type":"integer","minimum":16,"maximum":8192},"capacityFrames":{"type":"integer","minimum":16,"maximum":65536}
+      }
+    },
+    "wasapiBridgeHealth": {
+      "type":"object","additionalProperties":false,
+      "required":["error","mmcssError","mmcssActive","primingTimedOut","capturedFrames","renderedFrames","droppedCaptureFrames","renderSilencedInputFrames","renderSilencedDeviceFrames","discontinuities","timestampErrors","ratio","nominalRatio","correctionPpm","bufferedFrames","rejectedFrames","silencedFrames"],
+      "properties": {
+        "error":{"type":"integer","description":"Signed 32-bit HRESULT; negative values indicate failure."},"mmcssError":{"type":"integer"},
+        "mmcssActive":{"type":"boolean"},"primingTimedOut":{"type":"boolean"},
+        "capturedFrames":{"type":"integer","minimum":0,"description":"Native device frames."},
+        "renderedFrames":{"type":"integer","minimum":0,"description":"Native device frames."},
+        "droppedCaptureFrames":{"type":"integer","minimum":0,"description":"Graph-rate frames dropped."},
+        "renderSilencedInputFrames":{"type":"integer","minimum":0,"description":"Graph-rate frames replaced with zeros."},
+        "renderSilencedDeviceFrames":{"type":"integer","minimum":0,"description":"Native frames silenced during priming."},
+        "discontinuities":{"type":"integer","minimum":0},"timestampErrors":{"type":"integer","minimum":0},
+        "controlBacklogUpdates":{"type":"integer","minimum":0,"description":"Cumulative PI observations forced after 100 ms of unfinished draining in this generation; not an audio-loss count. Optional on earlier API 1.1 engines."},
+        "ratio":{"type":"number","exclusiveMinimum":0,"description":"Actual SRC output/input ratio."},
+        "nominalRatio":{"type":["number","null"],"exclusiveMinimum":0},
+        "correctionPpm":{"type":["number","null"],"description":"(ratio / nominalRatio - 1) * 1e6; null without an effective generation."},
+        "bufferedFrames":{"type":"integer","minimum":0,"description":"Graph-rate FIFO occupancy snapshot."},
+        "rejectedFrames":{"type":"integer","minimum":0,"description":"Graph-rate rejected writes, including retried frames."},
+        "silencedFrames":{"type":"integer","minimum":0,"description":"Graph-rate missing read frames zero-padded by IO."}
+      }
+    },
+    "wasapiBridge": {
+      "type":"object","additionalProperties":false,
+      "required":["id","state","generationId","retryAttempt","retryInMs","effectiveInfo","graphFormat","inputEndpoints","outputEndpoints","health"],
+      "properties": {
+        "id":{"type":"string","pattern":"^[A-Za-z0-9_-]+$","maxLength":128},
+        "state":{"enum":["idle","starting","disabled","priming","running","retrying","failed","stopped"]},
+        "generationId":{"type":"string","pattern":"^[0-9]+$","description":"Decimal uint64 string preserves exact identity in JavaScript. 0 means no generation."},
+        "retryAttempt":{"type":"integer","minimum":0},"retryInMs":{"type":"integer","minimum":0},
+        "effectiveInfo":{"oneOf":[{"$ref":"#/definitions/wasapiStreamInfo"},{"type":"null"}]},
+        "graphFormat":{"oneOf":[{"$ref":"#/definitions/wasapiGraphFormat"},{"type":"null"}]},
+        "inputEndpoints":{"type":"array","items":{"$ref":"#/definitions/endpoint"}},
+        "outputEndpoints":{"type":"array","items":{"$ref":"#/definitions/endpoint"}},
+        "health":{"$ref":"#/definitions/wasapiBridgeHealth"}
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["id", "name", "direction", "channel"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "direction": { "enum": ["input", "output"] },
+        "channel": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "bufferCapabilities": {
+      "type": "object",
+      "required": ["minimumFrames", "maximumFrames", "preferredFrames", "granularity"],
+      "properties": {
+        "minimumFrames": { "type": "integer", "minimum": 1 },
+        "maximumFrames": { "type": "integer", "minimum": 1 },
+        "preferredFrames": { "type": "integer", "minimum": 1 },
+        "granularity": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "physicalDriver": {
+      "type": "object",
+      "required": ["id", "name", "inputEndpoints", "outputEndpoints", "sampleRates", "bufferSizes", "capabilitiesKnown"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "inputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } },
+        "outputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } },
+        "sampleRates": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "uniqueItems": true },
+        "bufferSizes": { "oneOf": [{ "$ref": "#/definitions/bufferCapabilities" }, { "type": "null" }] },
+        "capabilitiesKnown": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "virtualDriver": {
+      "type": "object",
+      "required": ["id", "channelsPerDirection", "sampleRate", "bufferFrames", "clients", "inputEndpoints", "outputEndpoints"],
+      "properties": {
+        "id": { "const": "TimoxVasio" },
+        "channelsPerDirection": { "const": 256 },
+        "sampleRate": { "type": ["integer", "null"], "minimum": 1 },
+        "bufferFrames": { "type": ["integer", "null"], "minimum": 1 },
+        "clients": {
+          "type": "array",
+          "description": "Processes directly attached through TimoxVasio ASIO. A client is listed even when it has not allocated any channels yet; empty inputChannels and outputChannels arrays mean no routable ASIO ports are allocated, not that no client is attached.",
+          "items": {
+            "type": "object",
+            "required": ["pid", "processName", "inputChannels", "outputChannels"],
+            "properties": {
+              "pid": { "type": "integer", "minimum": 1, "description": "Process ID of the application that opened the TimoxVasio ASIO driver." },
+              "processName": { "type": "string", "description": "Executable name of the direct ASIO client process." },
+              "processCpuPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "Windows process CPU averaged across all active logical processors. Null until two process-time samples are available." },
+              "processCpuWindowMs": { "type": ["integer", "null"], "minimum": 1, "description": "Elapsed wall time between process CPU samples. Null until the first measurement." },
+              "inputChannels": { "type": "array", "uniqueItems": true, "description": "ASIO input channels allocated by createBuffers; these are destinations for graph routes. May be empty while the ASIO client remains attached.", "items": { "type": "integer", "minimum": 1, "maximum": 256 } },
+              "outputChannels": { "type": "array", "uniqueItems": true, "description": "ASIO output channels allocated by createBuffers; these are sources for graph routes. May be empty while the ASIO client remains attached.", "items": { "type": "integer", "minimum": 1, "maximum": 256 } },
+              "activity": {
+                "type": "object",
+                "description": "Read-only ASIO client status. Callback and exchange counters are since the most recent client start. An exchanged block may contain silence; these counters do not detect audible signal.",
+                "required": ["available", "stable", "state", "callbackCount", "successfulExchangeCount", "exchangedFrames", "lastCallbackAgeMs", "requestedSampleRate", "requestedBufferFrames"],
+                "properties": {
+                  "available": { "type": "boolean", "description": "Whether the driver's shared client-status record could be read." },
+                  "stable": { "type": "boolean", "description": "Whether the callback counters came from one coherent snapshot." },
+                  "state": { "enum": ["initialized", "buffers-ready", "running", "stopped", "detached", "unknown", null] },
+                  "callbackCount": { "type": ["integer", "null"], "minimum": 0, "description": "ASIO callbacks observed by this client since start." },
+                  "successfulExchangeCount": { "type": ["integer", "null"], "minimum": 0, "description": "Callbacks that exchanged a complete block with the Timox engine." },
+                  "exchangedFrames": { "type": ["integer", "null"], "minimum": 0 },
+                  "lastCallbackAgeMs": { "type": ["integer", "null"], "minimum": 0, "description": "Age of the most recent callback at this API read; null if none was observed or timing is unavailable." },
+                  "requestedSampleRate": { "type": ["integer", "null"], "minimum": 1 },
+                  "requestedBufferFrames": { "type": ["integer", "null"], "minimum": 1 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "inputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } },
+        "outputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } }
+      },
+      "additionalProperties": false
+    },
+    "route": {
+      "type": "object",
+      "required": ["id", "sourceEndpointId", "destinationEndpointId", "gainDb", "mute"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sourceEndpointId": { "type": "string", "minLength": 1 },
+        "destinationEndpointId": { "type": "string", "minLength": 1 },
+        "gainDb": { "type": "number", "minimum": -120, "maximum": 24 },
+        "mute": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string" },
+        "driverId": { "type": "string" },
+        "asioError": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "clockSource": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "enum": ["asio", "software"] } },
+      "additionalProperties": false
+    },
+    "clockCapabilities": {
+      "type": "object",
+      "required": ["sampleRates", "bufferSizes"],
+      "properties": {
+        "sampleRates": { "type": "array", "items": { "type": "number", "minimum": 1 } },
+        "bufferSizes": { "$ref": "#/definitions/bufferCapabilities" }
+      },
+      "additionalProperties": false
+    },
+    "engine": {
+      "type": "object",
+      "required": ["state", "physicalDriverId", "sampleRate", "bufferFrames", "lastError"],
+      "properties": {
+        "state": { "enum": ["stopped", "running", "reconfiguring", "error"] },
+        "clockSource": { "$ref": "#/definitions/clockSource" },
+        "clockCapabilities": { "oneOf": [{ "$ref": "#/definitions/clockCapabilities" }, { "type": "null" }] },
+        "physicalDriverId": { "type": ["string", "null"] },
+        "sampleRate": { "type": ["integer", "null"], "minimum": 1 },
+        "bufferFrames": { "type": ["integer", "null"], "minimum": 1 },
+        "lastError": { "oneOf": [{ "$ref": "#/definitions/error" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "nativeAudio": {
+      "type": "object",
+      "required": ["enabled", "state", "masterRunning", "attached", "epoch", "wireGeneration", "nativeFormat", "graphFormat", "retryAttempt", "retryInMs", "systemError", "health"],
+      "properties": {
+        "enabled": {"type":"boolean"},
+        "state": {"enum":["disabled","starting","running","unavailable","denied","ownedElsewhere","removed","failed"]},
+        "masterRunning": {"type":"boolean"}, "attached": {"type":"boolean"},
+        "epoch": {"type":"string","pattern":"^[0-9]+$"},
+        "wireGeneration": {"type":"string","pattern":"^[0-9]+$"},
+        "nativeFormat": {"type":"object","required":["sampleRate","channels","sampleType"],"properties":{"sampleRate":{"const":48000},"channels":{"const":2},"sampleType":{"const":"pcm32"}},"additionalProperties":false},
+        "graphFormat": {"oneOf":[{"type":"null"},{"type":"object","required":["sampleRate","channels","maxQuantum"],"properties":{"sampleRate":{"type":"integer","minimum":1},"channels":{"const":2},"maxQuantum":{"type":"integer","minimum":1}},"additionalProperties":false}]},
+        "retryAttempt": {"type":"integer","minimum":0}, "retryInMs": {"type":"integer","minimum":0},
+        "systemError": {"type":"integer","minimum":0},
+        "health": {
+          "type":"object",
+          "required":["renderNativeFrames","captureNativeFrames","captureSilencedNativeFrames","captureSilencedGraphFrames","skippedDeadlines","discardedPacingFrames","controlBacklogUpdates","discontinuities","kernelRenderDroppedNativeFrames","kernelCaptureDroppedNativeFrames","kernelCaptureSilencedNativeFrames"],
+          "properties": {
+            "renderNativeFrames":{"type":"integer","minimum":0}, "captureNativeFrames":{"type":"integer","minimum":0},
+            "captureSilencedNativeFrames":{"type":"integer","minimum":0}, "captureSilencedGraphFrames":{"type":"integer","minimum":0},
+            "skippedDeadlines":{"type":"integer","minimum":0}, "discardedPacingFrames":{"type":"integer","minimum":0},
+            "controlBacklogUpdates":{"type":"integer","minimum":0}, "discontinuities":{"type":"integer","minimum":0},
+            "kernelRenderDroppedNativeFrames":{"type":"integer","minimum":0}, "kernelCaptureDroppedNativeFrames":{"type":"integer","minimum":0},
+            "kernelCaptureSilencedNativeFrames":{"type":"integer","minimum":0}
+          },
+          "additionalProperties":false
+        }
+      },
+      "additionalProperties":false
+    },
+    "state": {
+      "type": "object",
+      "required": ["apiVersion", "engine", "physicalDrivers", "virtualDrivers", "routes", "configuredRoutes", "stereoPairs", "bufferHealth", "performanceMeasurements"],
+      "properties": {
+        "apiVersion": { "enum": ["1.0", "1.1"] },
+        "configurationRevision": { "type": "integer", "minimum": 0 },
+        "capabilities": { "type": "object", "properties": { "wasapiProcessLoopback": { "type": "boolean", "description": "Whether the engine can create a separate graph source from one Windows process tree's shared audio." } }, "additionalProperties": false },
+        "engine": { "$ref": "#/definitions/engine" },
+        "physicalDrivers": { "type": "array", "items": { "$ref": "#/definitions/physicalDriver" } },
+        "virtualDrivers": { "type": "array", "items": { "$ref": "#/definitions/virtualDriver" } },
+        "wasapiDevices": {"type":"array","items":{"$ref":"#/definitions/wasapiDevice"}},
+        "wasapiInventoryError": {"type":["string","null"]},
+        "configuredWasapiBridges": {"$ref":"#/definitions/wasapiBridgeConfigurations"},
+        "wasapiBridges": {"type":"array","items":{"$ref":"#/definitions/wasapiBridge"}},
+        "nativeAudio": {"$ref":"#/definitions/nativeAudio"},
+        "routes": { "type": "array", "items": { "$ref": "#/definitions/route" } },
+        "configuredRoutes": { "type": "array", "description": "All saved routes, including application routes waiting for a client with an active channel.", "items": { "$ref": "#/definitions/route" } },
+        "bufferHealth": { "oneOf": [{ "$ref": "#/definitions/bufferHealth" }, { "type": "null" }] },
+        "performanceMeasurements": { "$ref": "#/definitions/performanceMeasurements" },
+        "stereoPairs": { "type": "array", "items": { "$ref": "#/definitions/stereoPair" } }
+      },
+      "additionalProperties": false,
+      "allOf":[{"if":{"properties":{"apiVersion":{"const":"1.1"}}},"then":{"required":["wasapiDevices","wasapiInventoryError","configuredWasapiBridges","wasapiBridges"]}}]
+    },
+    "performanceDuration": {
+      "type": "object",
+      "required": ["samples", "meanNs", "worstNs"],
+      "properties": {
+        "samples": { "type": "integer", "minimum": 1 },
+        "meanNs": { "type": "integer", "minimum": 0 },
+        "worstNs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "performanceMeasurements": {
+      "type": "object",
+      "required": ["enabled", "sampleEveryCallbacks", "window"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sampleEveryCallbacks": { "const": 16 },
+        "window": { "oneOf": [{ "$ref": "#/definitions/performanceWindow" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "performanceWindow": {
+      "type": "object",
+      "required": ["durationMs", "clients", "physical"],
+      "properties": {
+        "durationMs": { "const": 5000 },
+        "clients": { "type": "array", "items": { "$ref": "#/definitions/performanceClient" } },
+        "physical": { "$ref": "#/definitions/performancePhysical" }
+      },
+      "additionalProperties": false
+    },
+    "performanceClient": {
+      "type": "object",
+      "required": ["processId", "driverId", "hostCallback", "ringWrite", "ringWait", "ringWaitDiscardedBlocks"],
+      "properties": {
+        "processId": { "type": "integer", "minimum": 1 },
+        "driverId": { "type": "string", "minLength": 1 },
+        "hostCallback": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] },
+        "ringWrite": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] },
+        "ringWait": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] },
+        "ringWaitDiscardedBlocks": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "performancePhysical": {
+      "type": "object",
+      "required": ["clientRead", "routing", "outputCopy"],
+      "properties": {
+        "clientRead": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] },
+        "routing": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] },
+        "outputCopy": { "oneOf": [{ "$ref": "#/definitions/performanceDuration" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "bufferHealth": {
+      "type": "object",
+      "description": "A completed observation window of the physical ASIO callback. Null when no window has been observed in the current running session. Delayed starts are scheduling observations, not proof of audible dropouts.",
+      "required": ["state", "sampleRate", "bufferFrames", "windowDurationMs", "callbackCount", "delayedStartCount", "processingOverrunCount", "blockPeriodNs", "worstProcessingNs", "worstMarginNs"],
+      "properties": {
+        "state": { "enum": ["insufficient", "healthy", "warning"] },
+        "sampleRate": { "type": "integer", "minimum": 1 },
+        "bufferFrames": { "type": "integer", "minimum": 1 },
+        "windowDurationMs": { "type": "integer", "minimum": 1 },
+        "callbackCount": { "type": "integer", "minimum": 0 },
+        "delayedStartCount": { "type": "integer", "minimum": 0 },
+        "processingOverrunCount": { "type": "integer", "minimum": 0 },
+        "blockPeriodNs": { "type": "integer", "minimum": 1 },
+        "worstProcessingNs": { "type": "integer", "minimum": 0 },
+        "worstMarginNs": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "drivers": {
+      "type": "object",
+      "required": ["physicalDrivers", "virtualDrivers", "stereoPairs"],
+      "properties": {
+        "physicalDrivers": { "type": "array", "items": { "$ref": "#/definitions/physicalDriver" } },
+        "virtualDrivers": { "type": "array", "items": { "$ref": "#/definitions/virtualDriver" } },
+        "stereoPairs": { "type": "array", "items": { "$ref": "#/definitions/stereoPair" } }
+      },
+      "additionalProperties": false
+    },
+    "stereoPair": {
+      "type": "object",
+      "required": ["id", "leftEndpointId", "rightEndpointId", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "leftEndpointId": { "type": "string", "minLength": 1 },
+        "rightEndpointId": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "applicationProfile": {
+      "type": "object",
+      "required": ["processName", "inputChannels", "outputChannels"],
+      "properties": {
+        "processName": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 260,
+          "pattern": "^[^\\\\/:*?\"<>|]+\\.exe$"
+        },
+        "inputChannels": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "outputChannels": { "type": "integer", "minimum": 1, "maximum": 256 }
+      },
+      "additionalProperties": false
+    },
+    "applicationProfiles": {
+      "type": "object",
+      "required": ["profiles"],
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/applicationProfile" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "replaceApplicationProfiles": { "$ref": "#/definitions/applicationProfiles" },
+    "profileRestartClient": {
+      "type": "object",
+      "required": ["pid", "processName"],
+      "properties": {
+        "pid": { "type": "integer", "minimum": 1 },
+        "processName": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "applicationProfilesUpdate": {
+      "type": "object",
+      "required": ["profiles", "restartRequiredClients"],
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/applicationProfile" },
+          "uniqueItems": true
+        },
+        "restartRequiredClients": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/profileRestartClient" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnosticLevel": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {"level": {"enum": ["info", "debug"]}},
+      "additionalProperties": false
+    },
+    "diagnosticEntry": {
+      "type": "object",
+      "required": ["timestamp", "level", "component", "message"],
+      "properties": {
+        "timestamp": {"type": "string", "format": "date-time"},
+        "level": {"enum": ["debug", "info", "warning", "error"]},
+        "component": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "diagnostics": {
+      "type": "object",
+      "required": ["level", "entries"],
+      "properties": {
+        "level": {"enum": ["info", "debug"]},
+        "entries": {"type": "array", "maxItems": 500, "items": {"$ref": "#/definitions/diagnosticEntry"}}
+      },
+      "additionalProperties": false
+    },
+    "applyCommand": {
+      "type": "object",
+      "required": ["id", "command", "payload"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "command": { "const": "configuration.apply" },
+        "payload": {
+          "type": "object",
+          "required": ["physicalDriverId", "sampleRate", "bufferFrames", "routes"],
+          "properties": {
+            "clockSource": { "$ref": "#/definitions/clockSource" },
+            "wasapiBridges": { "$ref": "#/definitions/wasapiBridgeConfigurations" },
+            "physicalDriverId": { "type": ["string", "null"] },
+            "sampleRate": { "type": ["integer", "null"], "minimum": 1 },
+            "bufferFrames": { "type": ["integer", "null"], "minimum": 1 },
+            "routes": { "type": "array", "items": { "$ref": "#/definitions/route" } },
+            "expectedConfigurationRevision": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "engineStopCommand": {
+      "type": "object",
+      "required": ["id", "command"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "command": { "const": "engine.stop" }
+      },
+      "additionalProperties": false
+    },
+    "engineStartCommand": {
+      "type": "object",
+      "required": ["id", "command"],
+      "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 128 }, "command": { "const": "engine.start" } },
+      "additionalProperties": false
+    },
+    "engineResetCommand": {
+      "type": "object",
+      "required": ["id", "command"],
+      "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 128 }, "command": { "const": "engine.reset" } },
+      "additionalProperties": false
+    },
+    "correlationStartCommand": {
+      "type": "object",
+      "required": ["id", "command", "payload"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "command": { "const": "audio.correlation.start" },
+        "payload": { "type": "object", "required": ["stereoPairId"], "properties": { "stereoPairId": { "type": "string", "minLength": 1 } }, "additionalProperties": false }
+      },
+      "additionalProperties": false
+    },
+    "correlationStopCommand": {
+      "type": "object",
+      "required": ["id", "command"],
+      "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 128 }, "command": { "const": "audio.correlation.stop" } },
+      "additionalProperties": false
+    },
+    "performanceMeasurementsSetCommand": {
+      "type": "object",
+      "required": ["id", "command", "payload"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "command": { "const": "performance.measurements.set" },
+        "payload": { "type": "object", "required": ["enabled"], "properties": { "enabled": { "type": "boolean" } }, "additionalProperties": false }
+      },
+      "additionalProperties": false
+    },
+    "clientCommand": {
+      "oneOf": [
+        { "$ref": "#/definitions/applyCommand" },
+        { "$ref": "#/definitions/engineStartCommand" },
+        { "$ref": "#/definitions/engineStopCommand" },
+        { "$ref": "#/definitions/engineResetCommand" },
+        { "$ref": "#/definitions/correlationStartCommand" },
+        { "$ref": "#/definitions/correlationStopCommand" },
+        { "$ref": "#/definitions/performanceMeasurementsSetCommand" }
+      ]
+    },
+    "response": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "success", "result"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "success": { "const": true },
+            "result": { "type": "object", "required": ["accepted"], "properties": { "accepted": { "const": true } }, "additionalProperties": false }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "success", "error"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "success": { "const": false },
+            "error": { "$ref": "#/definitions/error" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "engine.status" },
+            "payload": { "$ref": "#/definitions/engine" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "devices.changed" },
+            "payload": { "$ref": "#/definitions/drivers" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "routes.changed" },
+            "payload": { "type": "object", "required": ["routes"], "properties": { "routes": { "type": "array", "items": { "$ref": "#/definitions/route" } } }, "additionalProperties": false }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "audio.stereoPairs.changed" },
+            "payload": { "type": "object", "required": ["stereoPairs"], "properties": { "stereoPairs": { "type": "array", "items": { "$ref": "#/definitions/stereoPair" } } }, "additionalProperties": false }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "audio.correlation" },
+            "payload": {
+              "type": "object",
+              "required": ["stereoPairId", "leftEndpointId", "rightEndpointId", "correlation", "state"],
+              "properties": {
+                "stereoPairId": { "type": ["string", "null"] },
+                "leftEndpointId": { "type": ["string", "null"] },
+                "rightEndpointId": { "type": ["string", "null"] },
+                "correlation": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "state": { "enum": ["measuring", "no_signal", "stopped"] }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "audio.meter" },
+            "payload": {
+              "type": "object",
+              "required": ["endpointId", "peakDbfs", "shortTermLufs", "lufsWindowSeconds", "underruns", "overruns"],
+              "properties": {
+                "endpointId": { "type": "string", "minLength": 1 },
+                "peakDbfs": { "type": "number", "minimum": -120, "maximum": 0 },
+                "shortTermLufs": { "type": ["number", "null"], "minimum": -120 },
+                "lufsWindowSeconds": { "const": 3 },
+                "underruns": { "type": "integer", "minimum": 0 },
+                "overruns": { "type": "integer", "minimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["event", "payload"],
+          "properties": {
+            "event": { "const": "engine.error" },
+            "payload": { "$ref": "#/definitions/error" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

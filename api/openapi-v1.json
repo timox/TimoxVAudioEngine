@@ -1,0 +1,205 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TimoxVasio Local Control API",
+    "version": "1.1.0",
+    "description": "Control contract for the local TimoxVasio audio engine. API 1.1 retains /api/v1 paths and vasio.api.v1 WebSocket subprotocol. The API binds only to 127.0.0.1. HTTP exposes confirmed state, clockSource (asio or software), clockCapabilities and cached ASIO/WASAPI inventory. Direct TimoxVasio ASIO clients include read-only callback and block-exchange activity; this proves driver callback delivery, not non-silent audio. configuration.apply accepts optional clockSource and wasapiBridges; omission preserves each inside the revision transaction, while wasapiBridges:[] removes all bridges. Bridge arrays replace the complete bridge configuration, with at most 32 unique ASCII IDs of 1..128 letters, digits, underscore or hyphen. Capture, render and endpointLoopback use exactly one explicit endpointId or defaultRole selector. A processLoopback bridge instead requires processId, processCreationTime and processImagePath. It creates a separate Timox-owned graph source by copying shared audio from that process tree; it does not redirect the app's playback or make it a direct Timox ASIO client. If the same app opens TimoxVasio.dll, its ASIO buffers and the copied source remain separate graph objects. Software mode requires physicalDriverId null, integer sampleRate 8000..384000 and bufferFrames 16..8192. configuredWasapiBridges records intent; wasapiBridges reports one status per configured bridge, including disabled or unavailable bridges. generationId is a decimal string; formats and graph ports are available only for allocated generations. Health counters ending in Frames use frames, duration fields use 100 ns, HRESULT errors are signed integers (0 means success), and correctionPpm=(ratio/nominalRatio-1)*1000000. GET state reads cached inventory; GET wasapi-devices explicitly refreshes it. The WebSocket controls audio, routes, measurements and diagnostics. Audio samples use shared memory and never travel through this API."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:{port}",
+      "description": "Loopback only. The engine reports its selected port at startup.",
+      "variables": { "port": { "default": "52525", "description": "Local engine port" } }
+    }
+  ],
+  "paths": {
+    "/api/v1/pwar": {
+      "get": {
+        "operationId": "getPwarSettings",
+        "summary": "Read PWAR network settings from the engine user's pwarASIO.cfg",
+        "responses": {
+          "200": {"description": "Saved network settings or defaults when the file is absent. This does not report whether a PWAR ASIO client is attached or audio is flowing.", "content": {"application/json": {"schema": {
+            "type": "object", "required": ["address", "port", "exists"],
+            "properties": {"address": {"type": "string"}, "port": {"type": "integer"}, "exists": {"type": "boolean"}}
+          }}}},
+          "500": {"$ref": "#/components/responses/ServerError"}
+        }
+      },
+      "put": {
+        "operationId": "savePwarSettings",
+        "summary": "Save PWAR network settings without starting audio",
+        "description": "Saves the Windows PWAR address and port configuration and returns reopenRequired. Restart the PWAR Windows client to load changes. This does not start the client or report network/audio status. UDP destination port requires the patched PWAR driver; older upstream drivers use 8321. The Windows receive port remains 8321. Unknown configuration lines are preserved.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "additionalProperties": false, "required": ["address", "port"],
+          "properties": {"address": {"type": "string", "format": "ipv4"}, "port": {"type": "integer", "minimum": 1, "maximum": 65535}}
+        }}}},
+        "responses": {
+          "200": {"description": "Saved; restart the PWAR Windows client to load the new settings", "content": {"application/json": {"schema": {
+            "type": "object", "required": ["address", "port", "exists", "reopenRequired"],
+            "properties": {"address": {"type": "string"}, "port": {"type": "integer"}, "exists": {"const": true}, "reopenRequired": {"const": true}}
+          }}}},
+          "400": {"description": "Invalid IPv4 address, port or request shape"},
+          "500": {"$ref": "#/components/responses/ServerError"}
+        }
+      }
+    },
+    "/api/v1/wasapi-devices": {
+      "get": {
+        "operationId":"refreshWasapiDevices",
+        "summary":"Refresh WASAPI capture/render endpoint inventory on the controller worker",
+        "description":"Returns endpoint IDs, names, Windows hardware container IDs, state flags and native mix formats. Endpoints that share a container ID belong to the same Windows device. wasapiInventoryError distinguishes a failed enumeration from an empty successful inventory. GET state reads this cache without COM enumeration.",
+        "responses":{"200":{"description":"Updated inventory or explicit enumeration error","content":{"application/json":{"schema":{"$ref":"./schemas/api-v1.json#/definitions/wasapiInventory"}}}}}
+      }
+    },
+    "/api/v1/windows-audio-applications": {
+      "get": {
+        "operationId":"refreshWindowsAudioApplications",
+        "summary":"Refresh active Windows audio applications",
+        "description":"Returns processes with active render sessions in the Windows shared audio mixer. This inventory is separate from the TimoxVasio ASIO client list and does not identify whether a process opened TimoxVasio ASIO or which Windows audio API it selected. The response includes windowsAudioApplicationInventoryError; a non-null value means enumeration failed, even if the applications array is empty.",
+        "responses":{"200":{"description":"Updated application inventory or explicit enumeration error","content":{"application/json":{"schema":{"$ref":"./schemas/api-v1.json#/definitions/windowsAudioApplicationInventory"}}}}}
+      }
+    },
+    "/api/v1/state": {
+      "get": {
+        "operationId": "getEngineState",
+        "summary": "Read the confirmed engine state and complete routing configuration",
+        "responses": {
+          "200": {
+            "description": "Current engine state, inventory, routes, read-only nativeAudio status and the latest physical ASIO buffer observation window (null until observed). nativeAudio distinguishes fixed native PCM32 stereo 48000 Hz from graphFormat (null unless running); epoch and wireGeneration are decimal strings. Native activation is not accepted by configuration.apply pending authenticated API integration.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/State" } } }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/drivers": {
+      "get": {
+        "operationId": "getDriverInventory",
+        "summary": "Read physical ASIO and TimoxVasio driver capabilities",
+        "responses": {
+          "200": {
+            "description": "Discovered driver inventory",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Drivers" } } }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/application-profiles": {
+      "get": {
+        "operationId": "getApplicationProfiles",
+        "summary": "Read per-application ASIO channel compatibility profiles",
+        "description": "Unlisted processes receive 256 input and output channels. The built-in Mixxx profile advertises 255 in both directions. Profiles match the executable basename case-insensitively. A running client must be restarted after its effective profile changes.",
+        "responses": {
+          "200": {
+            "description": "Current application profiles",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationProfiles" } } }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "put": {
+        "operationId": "replaceApplicationProfiles",
+        "summary": "Replace all per-application ASIO channel profiles",
+        "description": "Replaces the complete profile list. An empty list restores the 256-channel default for every application. Existing clients whose effective channel counts changed are returned in restartRequiredClients; their current ASIO instances retain their original getChannels result until restarted.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplaceApplicationProfiles" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Profiles saved and clients requiring restart identified",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationProfilesUpdate" } } }
+          },
+          "400": {
+            "description": "Invalid profile list",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/diagnostics": {
+      "get": {
+        "operationId": "getDiagnostics",
+        "summary": "Read recent engine log entries and the active log level",
+        "parameters": [{"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 200}}],
+        "responses": {
+          "200": {"description": "Recent persistent engine log entries", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Diagnostics"}}}},
+          "400": {"description": "Invalid entry limit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+          "500": {"$ref": "#/components/responses/ServerError"}
+        }
+      },
+      "put": {
+        "operationId": "setDiagnosticLevel",
+        "summary": "Persist the engine log level",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiagnosticLevel"}}}},
+        "responses": {
+          "200": {"description": "Confirmed active level", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiagnosticLevel"}}}},
+          "400": {"description": "Invalid level", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+          "500": {"$ref": "#/components/responses/ServerError"}
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": { "operationId": "getOpenApiDocument", "summary": "Read the OpenAPI document served by the engine", "responses": { "200": { "description": "OpenAPI 3.1 document", "content": { "application/json": { "schema": { "type": "object" } } } } } }
+    },
+    "/api/v1/schemas/api-v1.json": {
+      "get": { "operationId": "getApiJsonSchema", "summary": "Read the normative JSON schema", "responses": { "200": { "description": "JSON Schema document", "content": { "application/json": { "schema": { "type": "object" } } } } } }
+    },
+    "/api/v1/ws": {
+      "get": {
+        "operationId": "controlEngineWebSocket",
+        "summary": "Upgrade to the TimoxVasio control WebSocket",
+        "description": "Connect with the vasio.api.v1 subprotocol. engine.start and engine.stop control audio while leaving the local API available; stopping is refused while a TimoxVasio ASIO client is attached. audio.meter events are sent only for routed endpoints at approximately two updates per second and include peakDbfs plus BS.1770 K-weighted shortTermLufs over a 3-second window (null until the window fills). audio.correlation reports a rolling wide-band L/R correlation for one active routed stereo pair. Audio sample transport remains on the ASIO/shared-memory path. See x-websocket for message schemas.",
+        "responses": { "101": { "description": "WebSocket protocol upgrade" } },
+        "x-websocket": {
+          "subprotocol": "vasio.api.v1",
+          "clientMessages": { "$ref": "#/components/schemas/ClientCommand" },
+          "serverMessages": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/Response" },
+              { "$ref": "#/components/schemas/Event" }
+            ]
+          },
+          "commands": ["engine.start", "engine.stop", "configuration.apply", "audio.correlation.start", "audio.correlation.stop", "performance.measurements.set"],
+          "events": ["engine.status", "devices.changed", "routes.changed", "audio.meter", "audio.stereoPairs.changed", "audio.correlation", "engine.error"]
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "State": { "$ref": "./schemas/api-v1.json#/definitions/state" },
+      "PerformanceMeasurements": { "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurements" },
+      "Drivers": { "$ref": "./schemas/api-v1.json#/definitions/drivers" },
+      "StereoPair": { "$ref": "./schemas/api-v1.json#/definitions/stereoPair" },
+      "ApplicationProfiles": { "$ref": "./schemas/api-v1.json#/definitions/applicationProfiles" },
+      "ReplaceApplicationProfiles": { "$ref": "./schemas/api-v1.json#/definitions/replaceApplicationProfiles" },
+      "ApplicationProfilesUpdate": { "$ref": "./schemas/api-v1.json#/definitions/applicationProfilesUpdate" },
+      "Diagnostics": { "$ref": "./schemas/api-v1.json#/definitions/diagnostics" },
+      "DiagnosticLevel": { "$ref": "./schemas/api-v1.json#/definitions/diagnosticLevel" },
+      "ApplyCommand": { "$ref": "./schemas/api-v1.json#/definitions/applyCommand" },
+      "ClientCommand": { "$ref": "./schemas/api-v1.json#/definitions/clientCommand" },
+      "EngineStartCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineStartCommand" },
+      "EngineStopCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineStopCommand" },
+      "EngineResetCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineResetCommand" },
+      "CorrelationStartCommand": { "$ref": "./schemas/api-v1.json#/definitions/correlationStartCommand" },
+      "CorrelationStopCommand": { "$ref": "./schemas/api-v1.json#/definitions/correlationStopCommand" },
+      "PerformanceMeasurementsSetCommand": { "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurementsSetCommand" },
+      "Response": { "$ref": "./schemas/api-v1.json#/definitions/response" },
+      "Event": { "$ref": "./schemas/api-v1.json#/definitions/event" },
+      "Error": { "$ref": "./schemas/api-v1.json#/definitions/error" }
+    },
+    "responses": {
+      "ServerError": {
+        "description": "The local engine could not serve the request",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  }
+}
