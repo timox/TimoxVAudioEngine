@@ -1,0 +1,2 @@
+# Preserve imported snapshot bytes and their SHA-256 across platforms.
+* -text

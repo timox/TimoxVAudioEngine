@@ -103,3 +103,5 @@ compatibility, hardware behavior and installation/upgrade remain unqualified.
 The root `MIGRATION.md`, `AGENTS.md`, source manifest, verification script,
 dependency lock, PWAR build pin and CMake are extraction additions/changes.
 No source-root files or sibling repositories were modified by this extraction.
+
+Git attributes disable automatic text normalization for this snapshot. This preserves the exact imported bytes and SHA-256 across clones; verify the committed blobs as well as the working tree before updating these pins.

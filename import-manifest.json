@@ -440,7 +440,7 @@
       "target": "MIGRATION.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "f2efeabd188589edcf0fed06ba71d85c2eb1ea11210d4bdac1d788e29fbcdb5f",
+      "targetSha256": "a84090cdec038b4283aa4bf61922a379b2262fc503304ccf3ad0601e67c60797",
       "status": "generated"
     },
     {
@@ -1265,6 +1265,14 @@
       "sha256": null,
       "sourceSha256": null,
       "targetSha256": "08660514d6142c30c6beba56a5102f3fcae210c343b476c331d95cbdba868229",
+      "status": "generated"
+    },
+    {
+      "source": null,
+      "target": ".gitattributes",
+      "sourceSha256": null,
+      "sha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
+      "targetSha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
       "status": "generated"
     }
   ],
