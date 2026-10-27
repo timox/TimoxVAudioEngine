@@ -3,13 +3,18 @@
   "info": {
     "title": "TimoxVasio Local Control API",
     "version": "1.1.0",
-    "description": "Control contract for the local TimoxVasio audio engine. API 1.1 retains /api/v1 paths and vasio.api.v1 WebSocket subprotocol. The API binds only to 127.0.0.1. HTTP exposes confirmed state, clockSource (asio or software), clockCapabilities and cached ASIO/WASAPI inventory. Direct TimoxVasio ASIO clients include read-only callback and block-exchange activity; this proves driver callback delivery, not non-silent audio. configuration.apply accepts optional clockSource and wasapiBridges; omission preserves each inside the revision transaction, while wasapiBridges:[] removes all bridges. Bridge arrays replace the complete bridge configuration, with at most 32 unique ASCII IDs of 1..128 letters, digits, underscore or hyphen. Capture, render and endpointLoopback use exactly one explicit endpointId or defaultRole selector. A processLoopback bridge instead requires processId, processCreationTime and processImagePath. It creates a separate Timox-owned graph source by copying shared audio from that process tree; it does not redirect the app's playback or make it a direct Timox ASIO client. If the same app opens TimoxVasio.dll, its ASIO buffers and the copied source remain separate graph objects. Software mode requires physicalDriverId null, integer sampleRate 8000..384000 and bufferFrames 16..8192. configuredWasapiBridges records intent; wasapiBridges reports one status per configured bridge, including disabled or unavailable bridges. generationId is a decimal string; formats and graph ports are available only for allocated generations. Health counters ending in Frames use frames, duration fields use 100 ns, HRESULT errors are signed integers (0 means success), and correctionPpm=(ratio/nominalRatio-1)*1000000. GET state reads cached inventory; GET wasapi-devices explicitly refreshes it. The WebSocket controls audio, routes, measurements and diagnostics. Audio samples use shared memory and never travel through this API."
+    "description": "API locale du moteur Timox — modèle de supervision / Local engine supervision model.\n\n**Adhérent (adherent)** : processus ou accès à un périphérique. Un adhérent possède un ou plusieurs **nœuds (nodes)** ; leurs ports sont les points de connexion du graphe. **Le moteur gère exclusivement les liens (links)** : établissement, maintenance et retrait. L'adhérent peut demander une connexion et consulter les liens qui le concernent.\n\n**Observations du moteur** : niveaux par canal, compteurs d'activité, CPU et santé des buffers restent centralisés dans le moteur, avec des références vers les nœuds et adhérents concernés. Un compteur de callbacks ne prouve pas un signal sonore. Les capacités de traitement soutenables et MIDI non connues restent null ; aucune politique d'admission ou d'exclusion automatique n'est définie ici.\n\n**Lecture du modèle** : GET /api/v1/state expose supervision.schemaVersion=1, ses adherents, nodes, links et engine.observations. Les composants Supervision, Adherent, ConnectionNode, EngineLink et EngineChannelMeasurement ci-dessous permettent de parcourir ce modèle dans Swagger. Les champs historiques API 1.1 restent présents pour les consommateurs existants.\n\n**Disponibilité et fraîcheur** : null signifie indisponible ou inconnu, jamais silence. readAtUnixMs est la date de lecture API, pas celle d'acquisition audio. availability=observed désigne la dernière valeur disponible sans garantir son âge. Voir les détails de GET /api/v1/state et du WebSocket.\n\nEnglish: an adherent is a process or device access and owns its connection nodes. The engine alone manages links and produces centralized observations referenced to nodes/ports/adherents. Unknown capacity remains null. Supervision is additive to API 1.1; read time does not prove acquisition freshness.\n\nControl contract for the local TimoxVasio audio engine. API 1.1 retains /api/v1 paths and vasio.api.v1 WebSocket subprotocol. The API binds only to 127.0.0.1. HTTP exposes confirmed state, clockSource (asio or software), clockCapabilities and cached ASIO/WASAPI inventory. Direct TimoxVasio ASIO clients include read-only callback and block-exchange activity; this proves driver callback delivery, not non-silent audio. configuration.apply accepts optional clockSource and wasapiBridges; omission preserves each inside the revision transaction, while wasapiBridges:[] removes all bridges. Bridge arrays replace the complete bridge configuration, with at most 32 unique ASCII IDs of 1..128 letters, digits, underscore or hyphen. Capture, render and endpointLoopback use exactly one explicit endpointId or defaultRole selector. A processLoopback bridge instead requires processId, processCreationTime and processImagePath. It creates a separate Timox-owned graph source by copying shared audio from that process tree; it does not redirect the app's playback or make it a direct Timox ASIO client. If the same app opens TimoxVasio.dll, its ASIO buffers and the copied source remain separate graph objects. Software mode requires physicalDriverId null, integer sampleRate 8000..384000 and bufferFrames 16..8192. configuredWasapiBridges records intent; wasapiBridges reports one status per configured bridge, including disabled or unavailable bridges. generationId is a decimal string; formats and graph ports are available only for allocated generations. Health counters ending in Frames use frames, duration fields use 100 ns, HRESULT errors are signed integers (0 means success), and correctionPpm=(ratio/nominalRatio-1)*1000000. GET state reads cached inventory; GET wasapi-devices explicitly refreshes it. The WebSocket controls audio, routes, measurements and diagnostics. Audio samples use shared memory and never travel through this API."
   },
   "servers": [
     {
       "url": "http://127.0.0.1:{port}",
       "description": "Loopback only. The engine reports its selected port at startup.",
-      "variables": { "port": { "default": "52525", "description": "Local engine port" } }
+      "variables": {
+        "port": {
+          "default": "52525",
+          "description": "Local engine port"
+        }
+      }
     }
   ],
   "paths": {
@@ -18,58 +23,165 @@
         "operationId": "getPwarSettings",
         "summary": "Read PWAR network settings from the engine user's pwarASIO.cfg",
         "responses": {
-          "200": {"description": "Saved network settings or defaults when the file is absent. This does not report whether a PWAR ASIO client is attached or audio is flowing.", "content": {"application/json": {"schema": {
-            "type": "object", "required": ["address", "port", "exists"],
-            "properties": {"address": {"type": "string"}, "port": {"type": "integer"}, "exists": {"type": "boolean"}}
-          }}}},
-          "500": {"$ref": "#/components/responses/ServerError"}
+          "200": {
+            "description": "Saved network settings or defaults when the file is absent. This does not report whether a PWAR ASIO client is attached or audio is flowing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "port",
+                    "exists"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       },
       "put": {
         "operationId": "savePwarSettings",
         "summary": "Save PWAR network settings without starting audio",
         "description": "Saves the Windows PWAR address and port configuration and returns reopenRequired. Restart the PWAR Windows client to load changes. This does not start the client or report network/audio status. UDP destination port requires the patched PWAR driver; older upstream drivers use 8321. The Windows receive port remains 8321. Unknown configuration lines are preserved.",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {
-          "type": "object", "additionalProperties": false, "required": ["address", "port"],
-          "properties": {"address": {"type": "string", "format": "ipv4"}, "port": {"type": "integer", "minimum": 1, "maximum": 65535}}
-        }}}},
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "address",
+                  "port"
+                ],
+                "properties": {
+                  "address": {
+                    "type": "string",
+                    "format": "ipv4"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "Saved; restart the PWAR Windows client to load the new settings", "content": {"application/json": {"schema": {
-            "type": "object", "required": ["address", "port", "exists", "reopenRequired"],
-            "properties": {"address": {"type": "string"}, "port": {"type": "integer"}, "exists": {"const": true}, "reopenRequired": {"const": true}}
-          }}}},
-          "400": {"description": "Invalid IPv4 address, port or request shape"},
-          "500": {"$ref": "#/components/responses/ServerError"}
+          "200": {
+            "description": "Saved; restart the PWAR Windows client to load the new settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "port",
+                    "exists",
+                    "reopenRequired"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer"
+                    },
+                    "exists": {
+                      "const": true
+                    },
+                    "reopenRequired": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid IPv4 address, port or request shape"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
     "/api/v1/wasapi-devices": {
       "get": {
-        "operationId":"refreshWasapiDevices",
-        "summary":"Refresh WASAPI capture/render endpoint inventory on the controller worker",
-        "description":"Returns endpoint IDs, names, Windows hardware container IDs, state flags and native mix formats. Endpoints that share a container ID belong to the same Windows device. wasapiInventoryError distinguishes a failed enumeration from an empty successful inventory. GET state reads this cache without COM enumeration.",
-        "responses":{"200":{"description":"Updated inventory or explicit enumeration error","content":{"application/json":{"schema":{"$ref":"./schemas/api-v1.json#/definitions/wasapiInventory"}}}}}
+        "operationId": "refreshWasapiDevices",
+        "summary": "Refresh WASAPI capture/render endpoint inventory on the controller worker",
+        "description": "Returns endpoint IDs, names, Windows hardware container IDs, state flags and native mix formats. Endpoints that share a container ID belong to the same Windows device. wasapiInventoryError distinguishes a failed enumeration from an empty successful inventory. GET state reads this cache without COM enumeration.",
+        "responses": {
+          "200": {
+            "description": "Updated inventory or explicit enumeration error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/api-v1.json#/definitions/wasapiInventory"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/windows-audio-applications": {
       "get": {
-        "operationId":"refreshWindowsAudioApplications",
-        "summary":"Refresh active Windows audio applications",
-        "description":"Returns processes with active render sessions in the Windows shared audio mixer. This inventory is separate from the TimoxVasio ASIO client list and does not identify whether a process opened TimoxVasio ASIO or which Windows audio API it selected. The response includes windowsAudioApplicationInventoryError; a non-null value means enumeration failed, even if the applications array is empty.",
-        "responses":{"200":{"description":"Updated application inventory or explicit enumeration error","content":{"application/json":{"schema":{"$ref":"./schemas/api-v1.json#/definitions/windowsAudioApplicationInventory"}}}}}
+        "operationId": "refreshWindowsAudioApplications",
+        "summary": "Refresh active Windows audio applications",
+        "description": "Returns processes with active render sessions in the Windows shared audio mixer. This inventory is separate from the TimoxVasio ASIO client list and does not identify whether a process opened TimoxVasio ASIO or which Windows audio API it selected. The response includes windowsAudioApplicationInventoryError; a non-null value means enumeration failed, even if the applications array is empty.",
+        "responses": {
+          "200": {
+            "description": "Updated application inventory or explicit enumeration error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/api-v1.json#/definitions/windowsAudioApplicationInventory"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/state": {
       "get": {
         "operationId": "getEngineState",
-        "summary": "Read the confirmed engine state and complete routing configuration",
+        "summary": "Lire le moteur, les adhérents, leurs nœuds et les liens / Read engine supervision",
         "responses": {
           "200": {
-            "description": "Current engine state, inventory, routes, read-only nativeAudio status and the latest physical ASIO buffer observation window (null until observed). nativeAudio distinguishes fixed native PCM32 stereo 48000 Hz from graphFormat (null unless running); epoch and wireGeneration are decimal strings. Native activation is not accepted by configuration.apply pending authenticated API integration.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/State" } } }
+            "description": "Current engine state, inventory, routes, read-only nativeAudio status and the latest physical ASIO buffer observation window (null until observed). nativeAudio distinguishes fixed native PCM32 stereo 48000 Hz from graphFormat (null unless running); epoch and wireGeneration are decimal strings. Native activation is not accepted by configuration.apply pending authenticated API integration. Includes supervision.schemaVersion=1 with authoritative adherents, nodes, engine-managed links and centralized observations; see the Supervision model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/State"
+                }
+              }
+            }
           },
-          "500": { "$ref": "#/components/responses/ServerError" }
-        }
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "description": "Retourne l'état confirmé et la projection **supervision.schemaVersion=1**.\n\n- **adherents** : identité, nature process/device, capacités connues et nodeIds. Une identité de processus prouvée utilise PID et processCreationTime, chaîne décimale Windows FILETIME. Un PID seul reste limité à son accès runtime et ne fusionne pas les accès ASIO/WASAPI. driverAccess identifie un accès pilote, pas nécessairement une carte physique unique ; hardwareIdentity reste null.\n- **nodes** : appartiennent à un adhérent via adherentId ; exposent ports.sources/ports.sinks, état, configuration et format effectif. Plusieurs copies WASAPI peuvent appartenir au même processus tout en conservant des nœuds distincts. Une configuration non ouverte ne crée pas de ports actifs fictifs.\n- **links** : propriété du moteur (owner=engine). requested conserve l'intention, applied décrit la route appliquée. sourceNodeId/destinationNodeId peuvent être null lorsque l'endpoint n'est pas résolu. Un gain configuré n'est pas une mesure indépendante du lien.\n- **engine.observations** : mesures de canaux (meters), activité/CPU, santé buffers et WASAPI/native/PWAR. Les niveaux ne sont pas dupliqués sur les adhérents ou les nœuds. channelPairs décrit les paires de canaux du moteur ; resources renvoie vers les endpoints explicites de profils, paramètres PWAR et diagnostics.\n- **inventory** : inventaires en cache, distincts de la participation. Pour les applications Windows, cached peut être ancien ; unknown/null signifie qu'un cache vide ne prouve pas un inventaire rafraîchi ; unavailable signale une erreur. Cette lecture ne relance pas d'énumération OS.\n\n**Mesures audio** : peakDbfs et shortTermLufs peuvent être null avec availability=unavailable et unavailableReason. Pour une source ASIO (output client vers moteur), statut indisponible, initialized/buffers-ready/stopped/detached ou absence d'échange réussi connue invalident le niveau. Un sink ASIO mesure la production du moteur : l'arrêt du client ne suffit pas à invalider son niveau. Un client disparu rend ses endpoints virtuels indisponibles.\n\n**Limite temporelle** : readAtUnixMs date la lecture. Le runtime conserve une dernière valeur atomique sans timestamp d'acquisition ; même availability=observed ne garantit pas un nouvel échantillon ni un âge maximal. Un arrêt/reprise peut republier une valeur ancienne.\n\nEnglish: this snapshot is the authoritative engine/adherent/node/link projection. Requested configuration, applied topology, cached inventory and observations are distinct. Null is unknown/unavailable, never measured silence; API read time is not audio acquisition time."
       }
     },
     "/api/v1/drivers": {
@@ -79,9 +191,17 @@
         "responses": {
           "200": {
             "description": "Discovered driver inventory",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Drivers" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drivers"
+                }
+              }
+            }
           },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -93,9 +213,17 @@
         "responses": {
           "200": {
             "description": "Current application profiles",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationProfiles" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationProfiles"
+                }
+              }
+            }
           },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       },
       "put": {
@@ -104,18 +232,38 @@
         "description": "Replaces the complete profile list. An empty list restores the 256-channel default for every application. Existing clients whose effective channel counts changed are returned in restartRequiredClients; their current ASIO instances retain their original getChannels result until restarted.",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplaceApplicationProfiles" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceApplicationProfiles"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
             "description": "Profiles saved and clients requiring restart identified",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApplicationProfilesUpdate" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationProfilesUpdate"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid profile list",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -123,80 +271,330 @@
       "get": {
         "operationId": "getDiagnostics",
         "summary": "Read recent engine log entries and the active log level",
-        "parameters": [{"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 200}}],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200
+            }
+          }
+        ],
         "responses": {
-          "200": {"description": "Recent persistent engine log entries", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Diagnostics"}}}},
-          "400": {"description": "Invalid entry limit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
-          "500": {"$ref": "#/components/responses/ServerError"}
+          "200": {
+            "description": "Recent persistent engine log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Diagnostics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid entry limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       },
       "put": {
         "operationId": "setDiagnosticLevel",
         "summary": "Persist the engine log level",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiagnosticLevel"}}}},
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnosticLevel"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "Confirmed active level", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiagnosticLevel"}}}},
-          "400": {"description": "Invalid level", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
-          "500": {"$ref": "#/components/responses/ServerError"}
+          "200": {
+            "description": "Confirmed active level",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticLevel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid level",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
     "/api/v1/openapi.json": {
-      "get": { "operationId": "getOpenApiDocument", "summary": "Read the OpenAPI document served by the engine", "responses": { "200": { "description": "OpenAPI 3.1 document", "content": { "application/json": { "schema": { "type": "object" } } } } } }
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "summary": "Read the OpenAPI document served by the engine",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/v1/schemas/api-v1.json": {
-      "get": { "operationId": "getApiJsonSchema", "summary": "Read the normative JSON schema", "responses": { "200": { "description": "JSON Schema document", "content": { "application/json": { "schema": { "type": "object" } } } } } }
+      "get": {
+        "operationId": "getApiJsonSchema",
+        "summary": "Read the normative JSON schema",
+        "responses": {
+          "200": {
+            "description": "JSON Schema document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/v1/ws": {
       "get": {
         "operationId": "controlEngineWebSocket",
         "summary": "Upgrade to the TimoxVasio control WebSocket",
-        "description": "Connect with the vasio.api.v1 subprotocol. engine.start and engine.stop control audio while leaving the local API available; stopping is refused while a TimoxVasio ASIO client is attached. audio.meter events are sent only for routed endpoints at approximately two updates per second and include peakDbfs plus BS.1770 K-weighted shortTermLufs over a 3-second window (null until the window fills). audio.correlation reports a rolling wide-band L/R correlation for one active routed stereo pair. Audio sample transport remains on the ASIO/shared-memory path. See x-websocket for message schemas.",
-        "responses": { "101": { "description": "WebSocket protocol upgrade" } },
+        "description": "Connect with the vasio.api.v1 subprotocol. engine.start and engine.stop control audio while leaving the local API available; stopping is refused while a TimoxVasio ASIO client is attached. audio.meter events are sent only for routed endpoints at approximately two updates per second and include peakDbfs plus BS.1770 K-weighted shortTermLufs over a 3-second window (null until the window fills). audio.correlation reports a rolling wide-band L/R correlation for one active routed stereo pair. Audio sample transport remains on the ASIO/shared-memory path. See x-websocket for message schemas. Supervision schemaVersion 1 is included additively in state. supervision.observations publishes client activity and CPU every 500 ms independently of devices.changed topology. readAtUnixMs is API read time, not audio acquisition time. Links are exclusively managed by the engine.\n\n**Supervision et niveaux / supervision and levels**\n\n- **devices.changed** : changement de topologie ou d'identité. Les variations de compteurs activity et CPU seules ne déclenchent plus cet événement.\n- **supervision.observations** : environ toutes les 500 ms, y compris pendant les commandes. Payload owner=engine, readAtUnixMs et clients ; chaque observation référence driverId, processId, processCreationTime, nodeId et adherentId. Ce payload décrit l'activité et le CPU, pas les niveaux audio.\n- **audio.meter** : dernière mesure d'un canal moteur routé, à environ 2 Hz. peakDbfs/shortTermLufs peuvent être null ; availability et unavailableReason explicitent l'indisponibilité. Une notification ne prouve pas une nouvelle acquisition. La distinction source ASIO/sink et les limites de fraîcheur sont détaillées dans GET /api/v1/state.\n\nLes consommateurs doivent actualiser l'activité sans effacer les niveaux lorsque la topologie n'a pas changé. L'animation d'un câble à partir du pic source et du gain est une estimation d'affichage, pas une mesure indépendante du lien.\n\nEnglish: topology events and periodic activity/CPU observations are separate. Do not clear unchanged channel levels on activity updates. Levels remain engine-owned channel observations; a read/event timestamp is not an acquisition timestamp.",
+        "responses": {
+          "101": {
+            "description": "WebSocket protocol upgrade"
+          }
+        },
         "x-websocket": {
           "subprotocol": "vasio.api.v1",
-          "clientMessages": { "$ref": "#/components/schemas/ClientCommand" },
+          "clientMessages": {
+            "$ref": "#/components/schemas/ClientCommand"
+          },
           "serverMessages": {
             "oneOf": [
-              { "$ref": "#/components/schemas/Response" },
-              { "$ref": "#/components/schemas/Event" }
+              {
+                "$ref": "#/components/schemas/Response"
+              },
+              {
+                "$ref": "#/components/schemas/Event"
+              }
             ]
           },
-          "commands": ["engine.start", "engine.stop", "configuration.apply", "audio.correlation.start", "audio.correlation.stop", "performance.measurements.set"],
-          "events": ["engine.status", "devices.changed", "routes.changed", "audio.meter", "audio.stereoPairs.changed", "audio.correlation", "engine.error"]
+          "commands": [
+            "engine.start",
+            "engine.stop",
+            "configuration.apply",
+            "audio.correlation.start",
+            "audio.correlation.stop",
+            "performance.measurements.set"
+          ],
+          "events": [
+            "engine.status",
+            "devices.changed",
+            "routes.changed",
+            "audio.meter",
+            "audio.stereoPairs.changed",
+            "audio.correlation",
+            "engine.error",
+            "supervision.observations"
+          ],
+          "supervisionObservationsPayload": {
+            "$ref": "#/components/schemas/SupervisionObservations"
+          }
         }
       }
     }
   },
   "components": {
     "schemas": {
-      "State": { "$ref": "./schemas/api-v1.json#/definitions/state" },
-      "PerformanceMeasurements": { "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurements" },
-      "Drivers": { "$ref": "./schemas/api-v1.json#/definitions/drivers" },
-      "StereoPair": { "$ref": "./schemas/api-v1.json#/definitions/stereoPair" },
-      "ApplicationProfiles": { "$ref": "./schemas/api-v1.json#/definitions/applicationProfiles" },
-      "ReplaceApplicationProfiles": { "$ref": "./schemas/api-v1.json#/definitions/replaceApplicationProfiles" },
-      "ApplicationProfilesUpdate": { "$ref": "./schemas/api-v1.json#/definitions/applicationProfilesUpdate" },
-      "Diagnostics": { "$ref": "./schemas/api-v1.json#/definitions/diagnostics" },
-      "DiagnosticLevel": { "$ref": "./schemas/api-v1.json#/definitions/diagnosticLevel" },
-      "ApplyCommand": { "$ref": "./schemas/api-v1.json#/definitions/applyCommand" },
-      "ClientCommand": { "$ref": "./schemas/api-v1.json#/definitions/clientCommand" },
-      "EngineStartCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineStartCommand" },
-      "EngineStopCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineStopCommand" },
-      "EngineResetCommand": { "$ref": "./schemas/api-v1.json#/definitions/engineResetCommand" },
-      "CorrelationStartCommand": { "$ref": "./schemas/api-v1.json#/definitions/correlationStartCommand" },
-      "CorrelationStopCommand": { "$ref": "./schemas/api-v1.json#/definitions/correlationStopCommand" },
-      "PerformanceMeasurementsSetCommand": { "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurementsSetCommand" },
-      "Response": { "$ref": "./schemas/api-v1.json#/definitions/response" },
-      "Event": { "$ref": "./schemas/api-v1.json#/definitions/event" },
-      "Error": { "$ref": "./schemas/api-v1.json#/definitions/error" }
+      "State": {
+        "$ref": "./schemas/api-v1.json#/definitions/state"
+      },
+      "PerformanceMeasurements": {
+        "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurements"
+      },
+      "Drivers": {
+        "$ref": "./schemas/api-v1.json#/definitions/drivers"
+      },
+      "StereoPair": {
+        "$ref": "./schemas/api-v1.json#/definitions/stereoPair"
+      },
+      "ApplicationProfiles": {
+        "$ref": "./schemas/api-v1.json#/definitions/applicationProfiles"
+      },
+      "ReplaceApplicationProfiles": {
+        "$ref": "./schemas/api-v1.json#/definitions/replaceApplicationProfiles"
+      },
+      "ApplicationProfilesUpdate": {
+        "$ref": "./schemas/api-v1.json#/definitions/applicationProfilesUpdate"
+      },
+      "Diagnostics": {
+        "$ref": "./schemas/api-v1.json#/definitions/diagnostics"
+      },
+      "DiagnosticLevel": {
+        "$ref": "./schemas/api-v1.json#/definitions/diagnosticLevel"
+      },
+      "ApplyCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/applyCommand"
+      },
+      "ClientCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/clientCommand"
+      },
+      "EngineStartCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/engineStartCommand"
+      },
+      "EngineStopCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/engineStopCommand"
+      },
+      "EngineResetCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/engineResetCommand"
+      },
+      "CorrelationStartCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/correlationStartCommand"
+      },
+      "CorrelationStopCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/correlationStopCommand"
+      },
+      "PerformanceMeasurementsSetCommand": {
+        "$ref": "./schemas/api-v1.json#/definitions/performanceMeasurementsSetCommand"
+      },
+      "Response": {
+        "$ref": "./schemas/api-v1.json#/definitions/response"
+      },
+      "Event": {
+        "$ref": "./schemas/api-v1.json#/definitions/event"
+      },
+      "Error": {
+        "$ref": "./schemas/api-v1.json#/definitions/error"
+      },
+      "Supervision": {
+        "description": "Projection autoritative schemaVersion=1 : moteur, adhérents, nœuds, liens et inventaires. / Authoritative engine supervision snapshot.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervision"
+          }
+        ]
+      },
+      "SupervisionEngine": {
+        "description": "Le moteur possède les liens, produit les observations et expose configuration et ressources. / Engine-owned links and observations.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionEngine"
+          }
+        ]
+      },
+      "Adherent": {
+        "description": "Processus ou accès périphérique possédant ses nœuds ; aucune capacité de traitement soutenable n’est inférée. / Process or device access owning its nodes.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionAdherent"
+          }
+        ]
+      },
+      "AdherentIdentity": {
+        "description": "Identité à portée explicite ; processCreationTime est une chaîne décimale, hardwareIdentity peut rester null. / Explicit identity scope, never assume PID or driver access is permanent hardware identity.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionIdentity"
+          }
+        ]
+      },
+      "AdherentCapabilities": {
+        "description": "Capacités effectivement connues. processing et midi restent null lorsqu’inconnus. / Known support is not sustainable processing capacity.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionCapabilities"
+          }
+        ]
+      },
+      "ConnectionNode": {
+        "description": "Point d’accès d’un adhérent au moteur, ports sources/sinks et état effectif. / Adherent-owned connection node with effective ports.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionNode"
+          }
+        ]
+      },
+      "EngineLink": {
+        "description": "Lien géré exclusivement par le moteur ; intention requested séparée de la route applied. / Engine-managed link, requested versus applied.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionLink"
+          }
+        ]
+      },
+      "EngineChannelMeasurement": {
+        "description": "Niveau et compteurs d’un canal moteur, référencé par endpointId/nodeId/adherentId. null est indisponible, pas silence ; observed ne promet pas une acquisition récente. / Engine channel observation with explicit unavailability.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionMeter"
+          }
+        ]
+      },
+      "ClientObservation": {
+        "description": "Observation moteur ciblant un processus/nœud : activité ASIO et CPU, sans déduction de signal sonore. / Activity and CPU observation, not audible-signal detection.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionClient"
+          }
+        ]
+      },
+      "SupervisionObservations": {
+        "description": "Payload de supervision.observations : owner=engine, date de lecture et observations clients, environ toutes les 500 ms. / Periodic client observations payload; not the complete state snapshot.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionObservations"
+          }
+        ]
+      },
+      "WasapiBridgeObservation": {
+        "description": "Santé et état observés d’un bridge, centralisés sous le moteur avec références au nœud. / Central engine observation of a WASAPI bridge.",
+        "allOf": [
+          {
+            "$ref": "./schemas/api-v1.json#/definitions/supervisionBridgeObservation"
+          }
+        ]
+      }
     },
     "responses": {
       "ServerError": {
         "description": "The local engine could not serve the request",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       }

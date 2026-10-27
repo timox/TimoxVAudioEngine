@@ -19,6 +19,967 @@
     { "$ref": "#/definitions/event" }
   ],
   "definitions": {
+    "supervisionClient": {
+      "type": "object",
+      "properties": {
+        "driverId": {
+          "type": "string"
+        },
+        "processId": {
+          "type": "integer"
+        },
+        "processCreationTime": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "adherentId": {
+          "type": "string"
+        },
+        "activity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "description": "Read-only ASIO client status. Callback and exchange counters are since the most recent client start. An exchanged block may contain silence; these counters do not detect audible signal.",
+              "required": [
+                "available",
+                "stable",
+                "state",
+                "callbackCount",
+                "successfulExchangeCount",
+                "exchangedFrames",
+                "lastCallbackAgeMs",
+                "requestedSampleRate",
+                "requestedBufferFrames"
+              ],
+              "properties": {
+                "available": {
+                  "type": "boolean",
+                  "description": "Whether the driver's shared client-status record could be read."
+                },
+                "stable": {
+                  "type": "boolean",
+                  "description": "Whether the callback counters came from one coherent snapshot."
+                },
+                "state": {
+                  "enum": [
+                    "initialized",
+                    "buffers-ready",
+                    "running",
+                    "stopped",
+                    "detached",
+                    "unknown",
+                    null
+                  ]
+                },
+                "callbackCount": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "ASIO callbacks observed by this client since start."
+                },
+                "successfulExchangeCount": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "Callbacks that exchanged a complete block with the Timox engine."
+                },
+                "exchangedFrames": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "lastCallbackAgeMs": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "Age of the most recent callback at this API read; null if none was observed or timing is unavailable."
+                },
+                "requestedSampleRate": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "requestedBufferFrames": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "processCpuPercent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Windows process CPU averaged across all active logical processors. Null until two process-time samples are available."
+        },
+        "processCpuWindowMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Elapsed wall time between process CPU samples. Null until the first measurement."
+        }
+      },
+      "required": [
+        "driverId",
+        "processId",
+        "processCreationTime",
+        "nodeId",
+        "adherentId",
+        "activity",
+        "processCpuPercent",
+        "processCpuWindowMs"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionObservations": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "const": "engine"
+        },
+        "readAtUnixMs": {
+          "type": "integer"
+        },
+        "clients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/supervisionClient"
+          }
+        }
+      },
+      "required": [
+        "owner",
+        "readAtUnixMs",
+        "clients"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionMeter": {
+      "type": "object",
+      "required": [
+        "endpointId",
+        "peakDbfs",
+        "shortTermLufs",
+        "lufsWindowSeconds",
+        "underruns",
+        "overruns",
+        "nodeId",
+        "adherentId"
+      ],
+      "properties": {
+        "endpointId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "peakDbfs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -120,
+          "maximum": 0
+        },
+        "shortTermLufs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -120
+        },
+        "lufsWindowSeconds": {
+          "const": 3
+        },
+        "underruns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "overruns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "availability": {
+          "enum": [
+            "observed",
+            "unavailable"
+          ]
+        },
+        "unavailableReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nodeId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "adherentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "supervisionIdentity": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "processInstance",
+            "runtimePid",
+            "driverAccess",
+            "wasapiEndpoint"
+          ]
+        },
+        "processId": {
+          "type": "integer"
+        },
+        "processCreationTime": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "driverId": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "hardwareIdentity": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionCapabilities": {
+      "type": "object",
+      "properties": {
+        "processing": {
+          "type": "null"
+        },
+        "midi": {
+          "type": "null"
+        },
+        "sampleRates": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bufferSizes": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/bufferCapabilities"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capabilitiesKnown": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "processing",
+        "midi"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionAdherent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "process",
+            "device"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identity": {
+          "$ref": "#/definitions/supervisionIdentity"
+        },
+        "capabilities": {
+          "$ref": "#/definitions/supervisionCapabilities"
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "identity",
+        "capabilities",
+        "nodeIds"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "adherentId": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "asioClient",
+            "asioDevice",
+            "wasapiBridge",
+            "nativeDevice"
+          ]
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ports": {
+          "type": "object",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/endpoint"
+              }
+            },
+            "sinks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/endpoint"
+              }
+            }
+          },
+          "required": [
+            "sources",
+            "sinks"
+          ],
+          "additionalProperties": false
+        },
+        "configuration": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/wasapiBridgeConfiguration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effectiveInfo": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/wasapiStreamInfo"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sampleRate": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "bufferFrames": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "sampleRate",
+                "bufferFrames"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "graphFormat": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "sampleRate",
+                        "channels",
+                        "maxQuantum"
+                      ],
+                      "properties": {
+                        "sampleRate": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "channels": {
+                          "const": 2
+                        },
+                        "maxQuantum": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "nativeFormat": {
+                  "type": "object",
+                  "required": [
+                    "sampleRate",
+                    "channels",
+                    "sampleType"
+                  ],
+                  "properties": {
+                    "sampleRate": {
+                      "const": 48000
+                    },
+                    "channels": {
+                      "const": 2
+                    },
+                    "sampleType": {
+                      "const": "pcm32"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "epoch": {
+                  "type": "string"
+                },
+                "wireGeneration": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "graphFormat",
+                "nativeFormat",
+                "epoch",
+                "wireGeneration"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "adherentId",
+        "kind",
+        "resourceId",
+        "state",
+        "ports",
+        "configuration",
+        "effectiveInfo"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionLink": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "owner": {
+          "const": "engine"
+        },
+        "requested": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "applied": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/route"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "configured",
+            "applied"
+          ]
+        },
+        "sourceEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "destinationEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceNodeId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "destinationNodeId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "owner",
+        "requested",
+        "applied",
+        "state",
+        "sourceEndpointId",
+        "destinationEndpointId",
+        "sourceNodeId",
+        "destinationNodeId"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionBridgeObservation": {
+      "type": "object",
+      "properties": {
+        "nodeId": {
+          "type": ["string", "null"]
+        },
+        "adherentId": {
+          "type": ["string", "null"]
+        },
+        "bridgeId": {
+          "type": "string"
+        },
+        "state": {
+          "type": ["string", "null"]
+        },
+        "health": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/wasapiBridgeHealth"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retryAttempt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "retryInMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "graphFormat": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/wasapiGraphFormat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "nodeId",
+        "adherentId",
+        "bridgeId",
+        "state",
+        "health",
+        "generationId",
+        "retryAttempt",
+        "retryInMs",
+        "graphFormat"
+      ],
+      "additionalProperties": false
+    },
+    "supervisionEngine": {
+      "type": "object",
+      "required": [
+        "state",
+        "physicalDriverId",
+        "sampleRate",
+        "bufferFrames",
+        "lastError",
+        "configuration",
+        "observations",
+        "resources"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "stopped",
+            "running",
+            "reconfiguring",
+            "error"
+          ]
+        },
+        "clockSource": {
+          "$ref": "#/definitions/clockSource"
+        },
+        "clockCapabilities": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/clockCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "physicalDriverId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sampleRate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "bufferFrames": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "lastError": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "configuration": {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "configuredRoutes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/route"
+              }
+            },
+            "configuredWasapiBridges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/wasapiBridgeConfiguration"
+              }
+            },
+            "nativeAudioEnabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "revision",
+            "configuredRoutes",
+            "configuredWasapiBridges"
+          ],
+          "additionalProperties": false
+        },
+        "observations": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "const": "engine"
+            },
+            "readAtUnixMs": {
+              "type": "integer"
+            },
+            "bufferHealth": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/bufferHealth"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "performanceMeasurements": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/performanceMeasurements"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "meters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/supervisionMeter"
+              }
+            },
+            "clients": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/supervisionClient"
+              }
+            },
+            "wasapiBridges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/supervisionBridgeObservation"
+              }
+            },
+            "nativeAudio": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/nativeAudio"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pwarClient": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "Existing supervised PWAR status payload; PID identifies only the current supervisor claim, not a proven process-instance merge."
+            }
+          },
+          "required": [
+            "owner",
+            "readAtUnixMs",
+            "bufferHealth",
+            "performanceMeasurements",
+            "meters",
+            "clients",
+            "wasapiBridges",
+            "nativeAudio",
+            "pwarClient"
+          ],
+          "additionalProperties": false
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "applicationProfiles": {
+              "const": "/api/v1/application-profiles"
+            },
+            "pwarSettings": {
+              "const": "/api/v1/pwar"
+            },
+            "diagnostics": {
+              "const": "/api/v1/diagnostics"
+            }
+          },
+          "required": [
+            "applicationProfiles",
+            "pwarSettings",
+            "diagnostics"
+          ],
+          "additionalProperties": false
+        },
+        "channelPairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/stereoPair"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "supervision": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "readAtUnixMs": {
+          "type": "integer"
+        },
+        "engine": {
+          "$ref": "#/definitions/supervisionEngine"
+        },
+        "adherents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/supervisionAdherent"
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/supervisionNode"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/supervisionLink"
+          }
+        },
+        "inventory": {
+          "type": "object",
+          "properties": {
+            "physicalDrivers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/physicalDriver"
+              }
+            },
+            "wasapiDevices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/wasapiDevice"
+              }
+            },
+            "windowsAudioApplications": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/windowsAudioApplication"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "windowsAudioApplicationsState": {"enum": ["cached", "unknown", "unavailable"]},
+            "windowsAudioApplicationInventoryError": {"type": ["string", "null"]},
+            "wasapiError": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "physicalDrivers",
+            "wasapiDevices",
+            "windowsAudioApplications",
+            "wasapiError"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "readAtUnixMs",
+        "engine",
+        "adherents",
+        "nodes",
+        "links",
+        "inventory"
+      ],
+      "additionalProperties": false
+    },
     "wasapiFormat": {
       "type": "object", "additionalProperties": false,
       "required": ["sampleRate", "channels", "containerBits", "validBits", "blockAlign", "channelMask", "encoding"],
@@ -155,48 +1116,199 @@
     },
     "virtualDriver": {
       "type": "object",
-      "required": ["id", "channelsPerDirection", "sampleRate", "bufferFrames", "clients", "inputEndpoints", "outputEndpoints"],
+      "required": [
+        "id",
+        "channelsPerDirection",
+        "sampleRate",
+        "bufferFrames",
+        "clients",
+        "inputEndpoints",
+        "outputEndpoints"
+      ],
       "properties": {
-        "id": { "const": "TimoxVasio" },
-        "channelsPerDirection": { "const": 256 },
-        "sampleRate": { "type": ["integer", "null"], "minimum": 1 },
-        "bufferFrames": { "type": ["integer", "null"], "minimum": 1 },
+        "id": {
+          "const": "TimoxVasio"
+        },
+        "channelsPerDirection": {
+          "const": 256
+        },
+        "sampleRate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "bufferFrames": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
         "clients": {
           "type": "array",
           "description": "Processes directly attached through TimoxVasio ASIO. A client is listed even when it has not allocated any channels yet; empty inputChannels and outputChannels arrays mean no routable ASIO ports are allocated, not that no client is attached.",
           "items": {
             "type": "object",
-            "required": ["pid", "processName", "inputChannels", "outputChannels"],
+            "required": [
+              "pid",
+              "processName",
+              "inputChannels",
+              "outputChannels"
+            ],
             "properties": {
-              "pid": { "type": "integer", "minimum": 1, "description": "Process ID of the application that opened the TimoxVasio ASIO driver." },
-              "processName": { "type": "string", "description": "Executable name of the direct ASIO client process." },
-              "processCpuPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "Windows process CPU averaged across all active logical processors. Null until two process-time samples are available." },
-              "processCpuWindowMs": { "type": ["integer", "null"], "minimum": 1, "description": "Elapsed wall time between process CPU samples. Null until the first measurement." },
-              "inputChannels": { "type": "array", "uniqueItems": true, "description": "ASIO input channels allocated by createBuffers; these are destinations for graph routes. May be empty while the ASIO client remains attached.", "items": { "type": "integer", "minimum": 1, "maximum": 256 } },
-              "outputChannels": { "type": "array", "uniqueItems": true, "description": "ASIO output channels allocated by createBuffers; these are sources for graph routes. May be empty while the ASIO client remains attached.", "items": { "type": "integer", "minimum": 1, "maximum": 256 } },
+              "pid": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Process ID of the application that opened the TimoxVasio ASIO driver."
+              },
+              "processName": {
+                "type": "string",
+                "description": "Executable name of the direct ASIO client process."
+              },
+              "processCpuPercent": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Windows process CPU averaged across all active logical processors. Null until two process-time samples are available."
+              },
+              "processCpuWindowMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "description": "Elapsed wall time between process CPU samples. Null until the first measurement."
+              },
+              "inputChannels": {
+                "type": "array",
+                "uniqueItems": true,
+                "description": "ASIO input channels allocated by createBuffers; these are destinations for graph routes. May be empty while the ASIO client remains attached.",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                }
+              },
+              "outputChannels": {
+                "type": "array",
+                "uniqueItems": true,
+                "description": "ASIO output channels allocated by createBuffers; these are sources for graph routes. May be empty while the ASIO client remains attached.",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                }
+              },
               "activity": {
                 "type": "object",
                 "description": "Read-only ASIO client status. Callback and exchange counters are since the most recent client start. An exchanged block may contain silence; these counters do not detect audible signal.",
-                "required": ["available", "stable", "state", "callbackCount", "successfulExchangeCount", "exchangedFrames", "lastCallbackAgeMs", "requestedSampleRate", "requestedBufferFrames"],
+                "required": [
+                  "available",
+                  "stable",
+                  "state",
+                  "callbackCount",
+                  "successfulExchangeCount",
+                  "exchangedFrames",
+                  "lastCallbackAgeMs",
+                  "requestedSampleRate",
+                  "requestedBufferFrames"
+                ],
                 "properties": {
-                  "available": { "type": "boolean", "description": "Whether the driver's shared client-status record could be read." },
-                  "stable": { "type": "boolean", "description": "Whether the callback counters came from one coherent snapshot." },
-                  "state": { "enum": ["initialized", "buffers-ready", "running", "stopped", "detached", "unknown", null] },
-                  "callbackCount": { "type": ["integer", "null"], "minimum": 0, "description": "ASIO callbacks observed by this client since start." },
-                  "successfulExchangeCount": { "type": ["integer", "null"], "minimum": 0, "description": "Callbacks that exchanged a complete block with the Timox engine." },
-                  "exchangedFrames": { "type": ["integer", "null"], "minimum": 0 },
-                  "lastCallbackAgeMs": { "type": ["integer", "null"], "minimum": 0, "description": "Age of the most recent callback at this API read; null if none was observed or timing is unavailable." },
-                  "requestedSampleRate": { "type": ["integer", "null"], "minimum": 1 },
-                  "requestedBufferFrames": { "type": ["integer", "null"], "minimum": 1 }
+                  "available": {
+                    "type": "boolean",
+                    "description": "Whether the driver's shared client-status record could be read."
+                  },
+                  "stable": {
+                    "type": "boolean",
+                    "description": "Whether the callback counters came from one coherent snapshot."
+                  },
+                  "state": {
+                    "enum": [
+                      "initialized",
+                      "buffers-ready",
+                      "running",
+                      "stopped",
+                      "detached",
+                      "unknown",
+                      null
+                    ]
+                  },
+                  "callbackCount": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "description": "ASIO callbacks observed by this client since start."
+                  },
+                  "successfulExchangeCount": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "description": "Callbacks that exchanged a complete block with the Timox engine."
+                  },
+                  "exchangedFrames": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "lastCallbackAgeMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "description": "Age of the most recent callback at this API read; null if none was observed or timing is unavailable."
+                  },
+                  "requestedSampleRate": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "requestedBufferFrames": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
                 },
                 "additionalProperties": false
+              },
+              "processCreationTime": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Windows FILETIME decimal string. Null when process identity cannot be read; PID alone is only runtime-scoped."
               }
             },
             "additionalProperties": false
           }
         },
-        "inputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } },
-        "outputEndpoints": { "type": "array", "items": { "$ref": "#/definitions/endpoint" } }
+        "inputEndpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/endpoint"
+          }
+        },
+        "outputEndpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/endpoint"
+          }
+        }
       },
       "additionalProperties": false
     },
@@ -284,27 +1396,133 @@
     },
     "state": {
       "type": "object",
-      "required": ["apiVersion", "engine", "physicalDrivers", "virtualDrivers", "routes", "configuredRoutes", "stereoPairs", "bufferHealth", "performanceMeasurements"],
+      "required": [
+        "apiVersion",
+        "engine",
+        "physicalDrivers",
+        "virtualDrivers",
+        "routes",
+        "configuredRoutes",
+        "stereoPairs",
+        "bufferHealth",
+        "performanceMeasurements"
+      ],
       "properties": {
-        "apiVersion": { "enum": ["1.0", "1.1"] },
-        "configurationRevision": { "type": "integer", "minimum": 0 },
-        "capabilities": { "type": "object", "properties": { "wasapiProcessLoopback": { "type": "boolean", "description": "Whether the engine can create a separate graph source from one Windows process tree's shared audio." } }, "additionalProperties": false },
-        "engine": { "$ref": "#/definitions/engine" },
-        "physicalDrivers": { "type": "array", "items": { "$ref": "#/definitions/physicalDriver" } },
-        "virtualDrivers": { "type": "array", "items": { "$ref": "#/definitions/virtualDriver" } },
-        "wasapiDevices": {"type":"array","items":{"$ref":"#/definitions/wasapiDevice"}},
-        "wasapiInventoryError": {"type":["string","null"]},
-        "configuredWasapiBridges": {"$ref":"#/definitions/wasapiBridgeConfigurations"},
-        "wasapiBridges": {"type":"array","items":{"$ref":"#/definitions/wasapiBridge"}},
-        "nativeAudio": {"$ref":"#/definitions/nativeAudio"},
-        "routes": { "type": "array", "items": { "$ref": "#/definitions/route" } },
-        "configuredRoutes": { "type": "array", "description": "All saved routes, including application routes waiting for a client with an active channel.", "items": { "$ref": "#/definitions/route" } },
-        "bufferHealth": { "oneOf": [{ "$ref": "#/definitions/bufferHealth" }, { "type": "null" }] },
-        "performanceMeasurements": { "$ref": "#/definitions/performanceMeasurements" },
-        "stereoPairs": { "type": "array", "items": { "$ref": "#/definitions/stereoPair" } }
+        "apiVersion": {
+          "enum": [
+            "1.0",
+            "1.1"
+          ]
+        },
+        "configurationRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "wasapiProcessLoopback": {
+              "type": "boolean",
+              "description": "Whether the engine can create a separate graph source from one Windows process tree's shared audio."
+            }
+          },
+          "additionalProperties": false
+        },
+        "engine": {
+          "$ref": "#/definitions/engine"
+        },
+        "physicalDrivers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/physicalDriver"
+          }
+        },
+        "virtualDrivers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/virtualDriver"
+          }
+        },
+        "wasapiDevices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/wasapiDevice"
+          }
+        },
+        "wasapiInventoryError": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "configuredWasapiBridges": {
+          "$ref": "#/definitions/wasapiBridgeConfigurations"
+        },
+        "wasapiBridges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/wasapiBridge"
+          }
+        },
+        "nativeAudio": {
+          "$ref": "#/definitions/nativeAudio"
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/route"
+          }
+        },
+        "configuredRoutes": {
+          "type": "array",
+          "description": "All saved routes, including application routes waiting for a client with an active channel.",
+          "items": {
+            "$ref": "#/definitions/route"
+          }
+        },
+        "bufferHealth": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/bufferHealth"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "performanceMeasurements": {
+          "$ref": "#/definitions/performanceMeasurements"
+        },
+        "stereoPairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/stereoPair"
+          }
+        },
+        "supervision": {
+          "$ref": "#/definitions/supervision"
+        }
       },
       "additionalProperties": false,
-      "allOf":[{"if":{"properties":{"apiVersion":{"const":"1.1"}}},"then":{"required":["wasapiDevices","wasapiInventoryError","configuredWasapiBridges","wasapiBridges"]}}]
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "apiVersion": {
+                "const": "1.1"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "wasapiDevices",
+              "wasapiInventoryError",
+              "configuredWasapiBridges",
+              "wasapiBridges"
+            ]
+          }
+        }
+      ]
     },
     "performanceDuration": {
       "type": "object",
@@ -586,54 +1804,58 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["event", "payload"],
+          "required": [
+            "event",
+            "payload"
+          ],
           "properties": {
-            "event": { "const": "engine.status" },
-            "payload": { "$ref": "#/definitions/engine" }
+            "event": {
+              "const": "engine.status"
+            },
+            "payload": {
+              "$ref": "#/definitions/engine"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["event", "payload"],
+          "required": [
+            "event",
+            "payload"
+          ],
           "properties": {
-            "event": { "const": "devices.changed" },
-            "payload": { "$ref": "#/definitions/drivers" }
+            "event": {
+              "const": "devices.changed"
+            },
+            "payload": {
+              "$ref": "#/definitions/drivers"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["event", "payload"],
+          "required": [
+            "event",
+            "payload"
+          ],
           "properties": {
-            "event": { "const": "routes.changed" },
-            "payload": { "type": "object", "required": ["routes"], "properties": { "routes": { "type": "array", "items": { "$ref": "#/definitions/route" } } }, "additionalProperties": false }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["event", "payload"],
-          "properties": {
-            "event": { "const": "audio.stereoPairs.changed" },
-            "payload": { "type": "object", "required": ["stereoPairs"], "properties": { "stereoPairs": { "type": "array", "items": { "$ref": "#/definitions/stereoPair" } } }, "additionalProperties": false }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["event", "payload"],
-          "properties": {
-            "event": { "const": "audio.correlation" },
+            "event": {
+              "const": "routes.changed"
+            },
             "payload": {
               "type": "object",
-              "required": ["stereoPairId", "leftEndpointId", "rightEndpointId", "correlation", "state"],
+              "required": [
+                "routes"
+              ],
               "properties": {
-                "stereoPairId": { "type": ["string", "null"] },
-                "leftEndpointId": { "type": ["string", "null"] },
-                "rightEndpointId": { "type": ["string", "null"] },
-                "correlation": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
-                "state": { "enum": ["measuring", "no_signal", "stopped"] }
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/route"
+                  }
+                }
               },
               "additionalProperties": false
             }
@@ -642,19 +1864,26 @@
         },
         {
           "type": "object",
-          "required": ["event", "payload"],
+          "required": [
+            "event",
+            "payload"
+          ],
           "properties": {
-            "event": { "const": "audio.meter" },
+            "event": {
+              "const": "audio.stereoPairs.changed"
+            },
             "payload": {
               "type": "object",
-              "required": ["endpointId", "peakDbfs", "shortTermLufs", "lufsWindowSeconds", "underruns", "overruns"],
+              "required": [
+                "stereoPairs"
+              ],
               "properties": {
-                "endpointId": { "type": "string", "minLength": 1 },
-                "peakDbfs": { "type": "number", "minimum": -120, "maximum": 0 },
-                "shortTermLufs": { "type": ["number", "null"], "minimum": -120 },
-                "lufsWindowSeconds": { "const": 3 },
-                "underruns": { "type": "integer", "minimum": 0 },
-                "overruns": { "type": "integer", "minimum": 0 }
+                "stereoPairs": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/stereoPair"
+                  }
+                }
               },
               "additionalProperties": false
             }
@@ -663,11 +1892,162 @@
         },
         {
           "type": "object",
-          "required": ["event", "payload"],
+          "required": [
+            "event",
+            "payload"
+          ],
           "properties": {
-            "event": { "const": "engine.error" },
-            "payload": { "$ref": "#/definitions/error" }
+            "event": {
+              "const": "audio.correlation"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "stereoPairId",
+                "leftEndpointId",
+                "rightEndpointId",
+                "correlation",
+                "state"
+              ],
+              "properties": {
+                "stereoPairId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "leftEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rightEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "correlation": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1,
+                  "maximum": 1
+                },
+                "state": {
+                  "enum": [
+                    "measuring",
+                    "no_signal",
+                    "stopped"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
           },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "event",
+            "payload"
+          ],
+          "properties": {
+            "event": {
+              "const": "audio.meter"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "endpointId",
+                "peakDbfs",
+                "shortTermLufs",
+                "lufsWindowSeconds",
+                "underruns",
+                "overruns"
+              ],
+              "properties": {
+                "endpointId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "peakDbfs": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -120,
+                  "maximum": 0
+                },
+                "shortTermLufs": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -120
+                },
+                "lufsWindowSeconds": {
+                  "const": 3
+                },
+                "underruns": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "overruns": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "availability": {
+                  "enum": [
+                    "observed",
+                    "unavailable"
+                  ]
+                },
+                "unavailableReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "event",
+            "payload"
+          ],
+          "properties": {
+            "event": {
+              "const": "engine.error"
+            },
+            "payload": {
+              "$ref": "#/definitions/error"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "const": "supervision.observations"
+            },
+            "payload": {
+              "$ref": "#/definitions/supervisionObservations"
+            }
+          },
+          "required": [
+            "event",
+            "payload"
+          ],
           "additionalProperties": false
         }
       ]

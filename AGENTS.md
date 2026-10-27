@@ -1,7 +1,7 @@
 # TimoxVAudioEngine
 
 - Confirm `git rev-parse --show-toplevel` and `git status` before builds or installation.
-- This repository owns the technical engine API, configuration persistence, routing, clocks, WASAPI module and PWAR client supervisor. Graph product identities remain a control application concern.
+- This repository owns the technical engine API, configuration persistence, routing, clocks, WASAPI module and PWAR client supervisor. The engine API owns adherent identities, their connection nodes, engine-managed links and supervision observations. Control applications only present this model; they do not infer participant identity or link ownership.
 - Canonical output: `build/Release/TimoxVirtualAsioEngine.exe`, with `openapi-v1.json` and `schemas/` alongside it. Keep this executable name for existing discovery clients.
 - `vendor/timoxvasio/` is an immutable dependency snapshot from canonical TimoxVasio. Update from that repository, with source commit and all SHA-256 pins; never independently edit transport ABI files.
 - `src/driver_version.h` belongs to the same pinned snapshot; the dependency lock covers it too.

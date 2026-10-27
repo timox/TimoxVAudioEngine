@@ -313,3 +313,8 @@ L'état distingue `configuredWasapiBridges` de `wasapiBridges` : ce dernier expo
 `health.controlBacklogUpdates` compte les observations de régulation forcées après 100 ms de traitement inachevé des données en attente. Cumulatif pour la génération courante, ce diagnostic signale une mesure sur une portion du traitement ; il ne compte pas les pertes audio. Son absence sur un ancien moteur API 1.1 signifie « non disponible », pas zéro. `correctionPpm` inclut la réaction au remplissage et ne mesure pas directement la dérive de l'horloge matérielle.
 
 Cette étape prend en charge le mode partagé, le loopback d'endpoint et le loopback par processus du son partagé. Elle ne fournit pas de pilote Windows virtuel natif et ne capture pas les flux exclusifs ou ASIO. Voir le [guide ASIO/WASAPI](ASIO_WASAPI_GUIDE.md) et le schéma JSON pour les champs et limites exacts.
+
+## Supervision des adhérents, nœuds et liens
+
+Voir [le modèle et la matrice de propriétés](SUPERVISION_API.md). GET /api/v1/state expose supervision.schemaVersion=1 ; supervision.observations sépare les compteurs dynamiques des changements de topologie. Les niveaux absents restent null, avec une raison d'indisponibilité.
+

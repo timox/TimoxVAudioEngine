@@ -50,5 +50,29 @@
     "Actual PWAR client launch",
     "Installation/upgrade/release packaging",
     "External network qualification"
-  ]
+  ],
+  "latestSupervision": {
+    "date": "2026-10-26",
+    "buildTargets": [
+      "SupervisionApiTests",
+      "ApplicationProfilesApiTests",
+      "TimoxVirtualAsioEngine"
+    ],
+    "buildExitCode": 0,
+    "tests": [
+      "SupervisionApiTests PASS",
+      "ApplicationProfilesApiTests HTTP/WS PASS",
+      "AJV real state/event + unresolved bridge PASS"
+    ],
+    "engineArtifact": {
+      "size": 1509376,
+      "lastWriteUtc": "2026-10-26T22:57:26.7548249Z",
+      "sha256": "da90a3c24d2bbb601ab259e0f531bdf78089b721a38e2715c122a5757bb6aded"
+    },
+    "limits": [
+      "No new hardware or PWAR network qualification",
+      "Existing running engine unchanged",
+      "Full CTest not rerun for this focused follow-up"
+    ]
+  }
 }

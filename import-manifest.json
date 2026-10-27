@@ -16,24 +16,27 @@
       "target": "AGENTS.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "ebfc031c4261666d7031785a294ff42a2eadf1384b6154274828860f5522996e",
-      "status": "generated"
+      "targetSha256": "51c5a49469036cbaabc4e93173fa42a5c9cf580329ac470e920f335c31ef8a62",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "api/openapi-v1.json",
       "target": "api/openapi-v1.json",
       "sha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
       "sourceSha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
-      "targetSha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
-      "status": "unchanged"
+      "targetSha256": "208dc9c42be9eb0b9449ad89b612c0ecf399c2c478b5848ccc1798e4a7633073",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "api/schemas/api-v1.json",
       "target": "api/schemas/api-v1.json",
       "sha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
       "sourceSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
-      "targetSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
-      "status": "unchanged"
+      "targetSha256": "2eb0630bdb93b81b2061aa58556ae4cbbd90480e0d31b44106796b8a05d07302",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "asiosdk/common/asio.h",
@@ -112,8 +115,9 @@
       "target": "CMakeLists.txt",
       "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
       "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
-      "targetSha256": "79da1b4681c01dd673d3249711824b578b331723008a49c94683aa8798bc7825",
-      "status": "adapted"
+      "targetSha256": "ef84e27b0a2133a7eb125035a7f6ff91345b1eb172934814e4edddfaef65eab6",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "docs/API_QUICKSTART.en.md",
@@ -136,16 +140,18 @@
       "target": "docs/API.en.md",
       "sha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
       "sourceSha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
-      "targetSha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
-      "status": "unchanged"
+      "targetSha256": "b181aabffd2d04cb055d18964b16c987f8148d191adfa921252317ad5eaf17dd",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "docs/API.md",
       "target": "docs/API.md",
       "sha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
       "sourceSha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
-      "targetSha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
-      "status": "unchanged"
+      "targetSha256": "8c10c59046f082686efa2cb13dcef8a0a595e9818f48af3ca1e10247e9c7c6f4",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "docs/ASIO_WASAPI_GUIDE.en.md",
@@ -672,8 +678,9 @@
       "target": "src/control_api_server.cpp",
       "sha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
       "sourceSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
-      "targetSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
-      "status": "unchanged"
+      "targetSha256": "8d993ac545786679fafaf9a61aee87ace01cab346795a6a18868a037c8298810",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "src/drift_resampler.cpp",
@@ -912,8 +919,9 @@
       "target": "tests/application_profiles_api_tests.cpp",
       "sha256": "9201594036d16a4f6768dbe31d35d41f231ee4223d9a175fd0f7247814c14f3f",
       "sourceSha256": "9201594036d16a4f6768dbe31d35d41f231ee4223d9a175fd0f7247814c14f3f",
-      "targetSha256": "10f217163c4aba1c6372dd221e11f40cb7509787cd6ade276359a146590a00f1",
-      "status": "adapted"
+      "targetSha256": "ce21e33d9898627e3d1be65e1c22e52d0f9d21c82287f0035771728df9dcfcb6",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": "tests/asio_buffer_health_tests.cpp",
@@ -1256,8 +1264,9 @@
       "target": "verification-results.json",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "a55d85fd9452e5433d38961d21134ae4749fd0eb5d9be67ca427bf69e6080fca",
-      "status": "generated"
+      "targetSha256": "3c7051f4d96870cfadd2241c384908919913d5e73ea81a87416631a4322c6e73",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     },
     {
       "source": null,
@@ -1274,6 +1283,33 @@
       "sha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
       "targetSha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
       "status": "generated"
+    },
+    {
+      "source": null,
+      "target": "src/supervision_api.h",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "1a37c58e39222ab28c38b6fb42020706d4f8ecac199cf5bceac6d8cef5cf87ec",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "tests/supervision_api_tests.cpp",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "947617a8c85f755d16144abe8316eb6c09707745564456a6896b1d4e26d6b538",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "docs/SUPERVISION_API.md",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "d65e3321a93ac431e27eb60d2ed73e940d6e8749a7f62fc0aefbcb2bed5a331b",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
     }
   ],
   "owner": "TimoxVAudioEngine",

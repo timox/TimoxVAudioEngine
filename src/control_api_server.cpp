@@ -1,3 +1,4 @@
+#include "supervision_api.h"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
@@ -380,9 +381,14 @@ std::uint64_t fileTimeTicks(const FILETIME& value) {
     return (static_cast<std::uint64_t>(value.dwHighDateTime) << 32) | value.dwLowDateTime;
 }
 
+std::int64_t supervisionReadTime() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 struct ProcessCpuReading {
     std::optional<double> percent;
     std::optional<std::uint64_t> windowMs;
+    std::optional<std::string> creationTime;
 };
 
 class ProcessCpuMonitor {
@@ -403,10 +409,10 @@ public:
         if (sample.creationTicks != creationTicks || cpuTicks < sample.cpuTicks ||
             sample.at == std::chrono::steady_clock::time_point{}) {
             sample = {creationTicks, cpuTicks, now, {}, {}};
-            return {};
+            return {{}, {}, std::to_string(creationTicks)};
         }
         const auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - sample.at).count();
-        if (elapsedNs < 1000000000LL) return {sample.percent, sample.windowMs};
+        if (elapsedNs < 1000000000LL) return {sample.percent, sample.windowMs, std::to_string(creationTicks)};
         const auto processors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
         if (!processors) return {};
         const auto deltaTicks = cpuTicks - sample.cpuTicks;
@@ -415,7 +421,7 @@ public:
         sample.windowMs = static_cast<std::uint64_t>(elapsedNs / 1000000);
         sample.cpuTicks = cpuTicks;
         sample.at = now;
-        return {sample.percent, sample.windowMs};
+        return {sample.percent, sample.windowMs, std::to_string(creationTicks)};
     }
 
     void Retain(const std::set<std::uint32_t>& activePids) {
@@ -571,6 +577,7 @@ struct ControlApiServer::Impl {
             };
             clientArray.push_back({{"pid", client.info.processId},
                 {"processName", utf8(client.info.processName)},
+                {"processCreationTime", cpu.creationTime ? Json(*cpu.creationTime) : Json(nullptr)},
                 {"processCpuPercent", cpu.percent ? Json(*cpu.percent) : Json(nullptr)},
                 {"processCpuWindowMs", cpu.windowMs ? Json(*cpu.windowMs) : Json(nullptr)},
                 {"inputChannels", std::move(inputChannels)},
@@ -681,7 +688,7 @@ struct ControlApiServer::Impl {
         Json configuredRoutes = Json::array();
         for (const auto& route : state.configuredRoutes)
             configuredRoutes.push_back(routeJson(route));
-        return Json{{"apiVersion", "1.1"}, {"configurationRevision", state.configurationRevision},
+        Json result{{"apiVersion", "1.1"}, {"configurationRevision", state.configurationRevision},
             {"capabilities", {{"wasapiProcessLoopback", supportsWasapiProcessLoopback()}}},
             {"engine", {{"state", state.state}, {"clockSource", clockSourceJson(state)},
                          {"clockCapabilities", clockCapabilitiesJson(state)}, {"physicalDriverId", std::move(physicalId)},
@@ -698,6 +705,13 @@ struct ControlApiServer::Impl {
                 {"sampleEveryCallbacks", 16}, {"window", std::move(measurementWindow)}}},
             {"routes", std::move(routes)}, {"configuredRoutes", std::move(configuredRoutes)},
             {"stereoPairs", stereoPairsJson()}};
+        Json meters = Json::array();
+        for (const auto& meter : controller.ReadMeters()) meters.push_back(meterEvent(meter)["payload"]);
+        result["supervision"] = SupervisionSnapshot(result, meters,
+            {{"windowsAudioApplications", windowsAudioApplicationsJson(state)},
+             {"windowsAudioApplicationInventoryError", state.wasapiProcessInventoryError.empty() ? Json(nullptr) : Json(state.wasapiProcessInventoryError)},
+             {"pwarClient", pwarClient.Snapshot()}}, supervisionReadTime());
+        return result;
     }
 
     Json applyCommand(const Json& request) {
@@ -1213,9 +1227,9 @@ struct ControlApiServer::Impl {
                     {"payload", pwarClient.Snapshot()}}.dump());
                 auto lastMeterTime = std::chrono::steady_clock::now() - std::chrono::milliseconds(500);
                 auto lastCorrelationTime = std::chrono::steady_clock::now() - std::chrono::milliseconds(100);
-                const auto sendAudioMeters = [&] {
+                const auto sendAudioMeters = [&](const Json& meterDevices) {
                     for (const auto& meter : controller.ReadMeters())
-                        if (!websocket.send(meterEvent(meter).dump())) return false;
+                        if (!websocket.send(Json{{"event", "audio.meter"}, {"payload", SupervisionMeter(meterEvent(meter)["payload"], meterDevices)}}.dump())) return false;
                     return true;
                 };
                 const auto sendStatusChanges = [&] {
@@ -1232,22 +1246,29 @@ struct ControlApiServer::Impl {
                     return true;
                 };
                 auto devices = driversJson();
-                auto lastDevices = devices.dump();
+                auto lastDevices = SupervisionDeviceTopology(devices).dump();
                 websocket.send(Json{{"event", "devices.changed"}, {"payload", devices}}.dump());
                 websocket.send(Json{{"event", "audio.stereoPairs.changed"},
                     {"payload", {{"stereoPairs", stereoPairsJson()}}}}.dump());
+                const auto sendPeriodicObservations = [&] {
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now - lastMeterTime < std::chrono::milliseconds(500)) return true;
+                    lastMeterTime = now;
+                    const auto observedDevices = driversJson();
+                    if (!websocket.send(Json{{"event", "supervision.observations"},
+                        {"payload", {{"owner", "engine"}, {"readAtUnixMs", supervisionReadTime()},
+                            {"clients", SupervisionClientObservations(observedDevices)}}}}.dump())) return false;
+                    return sendAudioMeters(observedDevices);
+                };
                 while (websocket.is_open()) {
+                    if (!sendPeriodicObservations()) break;
                     std::string message;
                     const auto result = websocket.read(message);
                     if (result == httplib::ws::Timeout) {
                         if (!sendStatusChanges()) break;
                         const auto now = std::chrono::steady_clock::now();
-                        if (now - lastMeterTime >= std::chrono::milliseconds(500)) {
-                            lastMeterTime = now;
-                            if (!sendAudioMeters()) break;
-                        }
                         devices = driversJson();
-                        const auto currentDevices = devices.dump();
+                        const auto currentDevices = SupervisionDeviceTopology(devices).dump();
                         if (currentDevices != lastDevices) {
                             lastDevices = currentDevices;
                             if (!websocket.send(Json{{"event", "devices.changed"},
@@ -1282,7 +1303,7 @@ struct ControlApiServer::Impl {
                         auto pending = std::async(std::launch::async,
                             [this, request] { return applyCommand(request); });
                         while (pending.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
-                            if (!sendStatusChanges()) return;
+                            if (!sendStatusChanges() || !sendPeriodicObservations()) return;
                         }
                         reply = pending.get();
                     }

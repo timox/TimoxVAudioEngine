@@ -11,6 +11,8 @@
 #include <atomic>
 #include <cstdio>
 #include <memory>
+#include <fstream>
+#include <cstdlib>
 #include <string>
 
 namespace {
@@ -102,6 +104,10 @@ int wmain() {
         nlohmann::json::parse(initialState->body).at("performanceMeasurements") ==
             nlohmann::json{{"enabled", false}, {"sampleEveryCallbacks", 16}, {"window", nullptr}},
         "GET state exposes disabled measurements with a null window") && passed;
+    passed = require(initialState && nlohmann::json::parse(initialState->body)["supervision"]["schemaVersion"] == 1,
+        "GET state exposes authoritative supervision model") && passed;
+    const auto* fixturePath = std::getenv("TIMOX_API_TEST_FIXTURE");
+    if (fixturePath && initialState) std::ofstream(fixturePath) << initialState->body;
     const auto diagnosticState = client.Get("/api/v1/diagnostics?limit=10");
     passed = require(diagnosticState && diagnosticState->status == 200 &&
         nlohmann::json::parse(diagnosticState->body)["level"] == "info",
@@ -161,6 +167,16 @@ int wmain() {
     websocket.set_read_timeout(2);
     passed = require(static_cast<bool>(websocket.connect()), "WebSocket accepts the documented subprotocol") && passed;
     std::string websocketMessage;
+    bool sawObservations = false;
+    for (int attempt = 0; attempt < 12; ++attempt) {
+        if (websocket.read(websocketMessage) != httplib::ws::Text) break;
+        const auto event = nlohmann::json::parse(websocketMessage);
+        if (event.value("event", std::string{}) != "supervision.observations") continue;
+        sawObservations = event["payload"]["owner"] == "engine" && event["payload"]["clients"].is_array();
+        if (fixturePath) std::ofstream(std::string(fixturePath) + ".event.json") << event.dump();
+        break;
+    }
+    passed = require(sawObservations, "WebSocket publishes independently timed client observations") && passed;
     const auto acknowledged = [&](const char* id) {
         for (int attempt = 0; attempt < 40; ++attempt) {
             if (websocket.read(websocketMessage) != httplib::ws::Text) break;

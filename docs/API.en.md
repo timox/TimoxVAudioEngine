@@ -227,3 +227,8 @@ State separates `configuredWasapiBridges` from `wasapiBridges`: the latter repor
 `health.controlBacklogUpdates` counts control observations forced after 100 ms of unfinished draining. Cumulative within the current generation, it indicates an observation of a partial processing span, not lost audio. Its absence on an older API 1.1 engine means unavailable, not zero. `correctionPpm` includes the response to FIFO occupancy and does not directly measure hardware clock drift.
 
 This stage supports shared mode, endpoint loopback and per-process loopback of shared playback. It does not provide a native Windows virtual driver or capture exclusive-mode and ASIO streams. See the [ASIO/WASAPI guide](ASIO_WASAPI_GUIDE.en.md) and JSON schema for exact fields and limits.
+
+## Adherent, node and link supervision
+
+See the [model and property mapping](SUPERVISION_API.md). GET /api/v1/state exposes supervision.schemaVersion=1; supervision.observations separates dynamic counters from topology changes. Unavailable levels stay null with an explicit unavailable reason.
+
