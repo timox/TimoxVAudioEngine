@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-26",
+  "configuration": "Release x64; Visual Studio 18 2026; Windows SDK 10.0.26100.0",
+  "build": {
+    "command": "cmake --build build --config Release -- /m:6 /verbosity:minimal",
+    "exitCode": 0,
+    "evidence": "build-verified.log; final test-only ApplicationProfilesApiTests rebuild confirmed by parent"
+  },
+  "tests": {
+    "command": "ctest --test-dir build -C Release --output-on-failure",
+    "exitCode": 0,
+    "passed": 30,
+    "total": 30,
+    "durationSeconds": 52.32,
+    "evidence": "Final full CTest executed and inspected by parent agent, unified exec session 76967; all 30 passed",
+    "notableSeconds": {
+      "PwarClientSupervisorProtocolTests": 0.01,
+      "ApplicationProfilesApiTests": 0.42,
+      "WasapiBridgeApiTests": 0.65,
+      "AudioConfigurationStoreTests": 0.05
+    }
+  },
+  "regressions": [
+    {
+      "test": "PwarClientSupervisorProtocolTests",
+      "before": "exit1: missing version accepted client start/status",
+      "after": "pass"
+    },
+    {
+      "test": "AudioConfigurationStoreTests",
+      "before": "exit0xc0000409: missing const JSON defaultRole property",
+      "after": "pass"
+    },
+    {
+      "test": "ApplicationProfilesApiTests",
+      "before": "stage measurement enable ack read initial PWAR event",
+      "after": "pass; test correlates response IDs"
+    }
+  ],
+  "engineArtifact": {
+    "path": "build/Release/TimoxVirtualAsioEngine.exe",
+    "sha256": "6cda07b551b1235264993281ffadf769fbdc04711b0f586751ccfe319045e29d",
+    "size": 4182016,
+    "lastWriteUtc": "2026-10-26T18:47:18.794Z"
+  },
+  "pwarClientSha256": "29D5E3208E10AE5FEBBB7FD3914790A87EAF12D32BE6BEF923F20D7E33566FD3",
+  "notRun": [
+    "Production engine launch",
+    "Physical ASIO/WASAPI audio",
+    "Actual PWAR client launch",
+    "Installation/upgrade/release packaging",
+    "External network qualification"
+  ],
+  "latestSupervision": {
+    "date": "2026-10-26",
+    "buildTargets": [
+      "SupervisionApiTests",
+      "ApplicationProfilesApiTests",
+      "TimoxVirtualAsioEngine"
+    ],
+    "buildExitCode": 0,
+    "tests": [
+      "SupervisionApiTests PASS",
+      "ApplicationProfilesApiTests HTTP/WS PASS",
+      "AJV real state/event + unresolved bridge PASS"
+    ],
+    "engineArtifact": {
+      "size": 1509376,
+      "lastWriteUtc": "2026-10-26T22:57:26.7548249Z",
+      "sha256": "da90a3c24d2bbb601ab259e0f531bdf78089b721a38e2715c122a5757bb6aded"
+    },
+    "limits": [
+      "No new hardware or PWAR network qualification",
+      "Existing running engine unchanged",
+      "Full CTest not rerun for this focused follow-up"
+    ]
+  }
+}

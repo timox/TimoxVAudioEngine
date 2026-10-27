@@ -1,0 +1,1317 @@
+{
+  "sourceRepository": "TimoxVasio",
+  "sourceCommit": "3bcc05f5fed34ea8404e478ef34bb230a2efe39c",
+  "sourceState": "working tree snapshot (includes local changes)",
+  "files": [
+    {
+      "source": null,
+      "target": ".gitignore",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "487b2450dce9bc8a81aa6abb72b35c342dfff71076e5bce18e8b130555922c63",
+      "status": "generated"
+    },
+    {
+      "source": null,
+      "target": "AGENTS.md",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "51c5a49469036cbaabc4e93173fa42a5c9cf580329ac470e920f335c31ef8a62",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "api/openapi-v1.json",
+      "target": "api/openapi-v1.json",
+      "sha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
+      "sourceSha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
+      "targetSha256": "208dc9c42be9eb0b9449ad89b612c0ecf399c2c478b5848ccc1798e4a7633073",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "api/schemas/api-v1.json",
+      "target": "api/schemas/api-v1.json",
+      "sha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
+      "sourceSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
+      "targetSha256": "2eb0630bdb93b81b2061aa58556ae4cbbd90480e0d31b44106796b8a05d07302",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "asiosdk/common/asio.h",
+      "target": "asiosdk/common/asio.h",
+      "sha256": "93d2f80d49b4ac9c963514e7c1307ab5111d8104246192233745beb058534ea1",
+      "sourceSha256": "93d2f80d49b4ac9c963514e7c1307ab5111d8104246192233745beb058534ea1",
+      "targetSha256": "93d2f80d49b4ac9c963514e7c1307ab5111d8104246192233745beb058534ea1",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/common/asiosys.h",
+      "target": "asiosdk/common/asiosys.h",
+      "sha256": "f44a1ed0fd7c056ff047aeebc4c05a8c185f0585a24d8debc55c70107777dbef",
+      "sourceSha256": "f44a1ed0fd7c056ff047aeebc4c05a8c185f0585a24d8debc55c70107777dbef",
+      "targetSha256": "f44a1ed0fd7c056ff047aeebc4c05a8c185f0585a24d8debc55c70107777dbef",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/common/iasiodrv.h",
+      "target": "asiosdk/common/iasiodrv.h",
+      "sha256": "86ad4788452c74823653cf57d4bd557c48bb6542d7e6eb7fff80102c705a066d",
+      "sourceSha256": "86ad4788452c74823653cf57d4bd557c48bb6542d7e6eb7fff80102c705a066d",
+      "targetSha256": "86ad4788452c74823653cf57d4bd557c48bb6542d7e6eb7fff80102c705a066d",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/host/pc/asiolist.cpp",
+      "target": "asiosdk/host/pc/asiolist.cpp",
+      "sha256": "d3f7d83f561eaafed17393c3c95ba077f2ec109e2f7c762dcdf905f0e5c17f02",
+      "sourceSha256": "d3f7d83f561eaafed17393c3c95ba077f2ec109e2f7c762dcdf905f0e5c17f02",
+      "targetSha256": "d3f7d83f561eaafed17393c3c95ba077f2ec109e2f7c762dcdf905f0e5c17f02",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/host/pc/asiolist.h",
+      "target": "asiosdk/host/pc/asiolist.h",
+      "sha256": "daab5066bcb9ca79552541bc2981cf43cde7ac72bd4572286764097c9cc92010",
+      "sourceSha256": "daab5066bcb9ca79552541bc2981cf43cde7ac72bd4572286764097c9cc92010",
+      "targetSha256": "daab5066bcb9ca79552541bc2981cf43cde7ac72bd4572286764097c9cc92010",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/LICENSE.txt",
+      "target": "asiosdk/LICENSE.txt",
+      "sha256": "61e56814f24b32216884b2db0b4dcc317111a5ab354d54d19dd9fc13d71b1c7a",
+      "sourceSha256": "61e56814f24b32216884b2db0b4dcc317111a5ab354d54d19dd9fc13d71b1c7a",
+      "targetSha256": "61e56814f24b32216884b2db0b4dcc317111a5ab354d54d19dd9fc13d71b1c7a",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/README.md",
+      "target": "asiosdk/README.md",
+      "sha256": "50ca264d2f71c877732689a9613a104d9ce75147f9cf4313e4802d0e36922d5f",
+      "sourceSha256": "50ca264d2f71c877732689a9613a104d9ce75147f9cf4313e4802d0e36922d5f",
+      "targetSha256": "50ca264d2f71c877732689a9613a104d9ce75147f9cf4313e4802d0e36922d5f",
+      "status": "unchanged"
+    },
+    {
+      "source": "asiosdk/Steinberg ASIO Licensing Agreement.pdf",
+      "target": "asiosdk/Steinberg ASIO Licensing Agreement.pdf",
+      "sha256": "a567a3cff2e086764e33299868b4f4e4c5bd148f30323a3d2d651f26c89d7240",
+      "sourceSha256": "a567a3cff2e086764e33299868b4f4e4c5bd148f30323a3d2d651f26c89d7240",
+      "targetSha256": "a567a3cff2e086764e33299868b4f4e4c5bd148f30323a3d2d651f26c89d7240",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "cmake/PwarClient.cmake",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "dc16f69b092aa77ddbdb0a514c828b56b325981597916f71092e8bb32ddaa600",
+      "status": "generated"
+    },
+    {
+      "source": "CMakeLists.txt",
+      "target": "CMakeLists.txt",
+      "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
+      "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
+      "targetSha256": "ef84e27b0a2133a7eb125035a7f6ff91345b1eb172934814e4edddfaef65eab6",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "docs/API_QUICKSTART.en.md",
+      "target": "docs/API_QUICKSTART.en.md",
+      "sha256": "672b86403c97169bdf59dac841a2008efd2bde5f0cd5eb48c17b384455593de9",
+      "sourceSha256": "672b86403c97169bdf59dac841a2008efd2bde5f0cd5eb48c17b384455593de9",
+      "targetSha256": "672b86403c97169bdf59dac841a2008efd2bde5f0cd5eb48c17b384455593de9",
+      "status": "unchanged"
+    },
+    {
+      "source": "docs/API_QUICKSTART.md",
+      "target": "docs/API_QUICKSTART.md",
+      "sha256": "38f71770c05b612db54c623e061c0cb839edec41f27cb10da913cbc932962688",
+      "sourceSha256": "38f71770c05b612db54c623e061c0cb839edec41f27cb10da913cbc932962688",
+      "targetSha256": "38f71770c05b612db54c623e061c0cb839edec41f27cb10da913cbc932962688",
+      "status": "unchanged"
+    },
+    {
+      "source": "docs/API.en.md",
+      "target": "docs/API.en.md",
+      "sha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
+      "sourceSha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
+      "targetSha256": "b181aabffd2d04cb055d18964b16c987f8148d191adfa921252317ad5eaf17dd",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "docs/API.md",
+      "target": "docs/API.md",
+      "sha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
+      "sourceSha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
+      "targetSha256": "8c10c59046f082686efa2cb13dcef8a0a595e9818f48af3ca1e10247e9c7c6f4",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "docs/ASIO_WASAPI_GUIDE.en.md",
+      "target": "docs/ASIO_WASAPI_GUIDE.en.md",
+      "sha256": "f61209da0d0373b7e54e4762f6f4c0846e3662b2c9e0656b7011f7807645d9bc",
+      "sourceSha256": "f61209da0d0373b7e54e4762f6f4c0846e3662b2c9e0656b7011f7807645d9bc",
+      "targetSha256": "f61209da0d0373b7e54e4762f6f4c0846e3662b2c9e0656b7011f7807645d9bc",
+      "status": "unchanged"
+    },
+    {
+      "source": "docs/ASIO_WASAPI_GUIDE.md",
+      "target": "docs/ASIO_WASAPI_GUIDE.md",
+      "sha256": "dfc5fd893eab72d27197b00433752a31d065876ec63f183eb46bb0d0ed8b2e64",
+      "sourceSha256": "dfc5fd893eab72d27197b00433752a31d065876ec63f183eb46bb0d0ed8b2e64",
+      "targetSha256": "dfc5fd893eab72d27197b00433752a31d065876ec63f183eb46bb0d0ed8b2e64",
+      "status": "unchanged"
+    },
+    {
+      "source": "docs/WASAPI_BRIDGE_SPEC.en.md",
+      "target": "docs/WASAPI_BRIDGE_SPEC.en.md",
+      "sha256": "82ff782e411ed1f6e927b531ae011666305774d925a25f17b73229515b61bb38",
+      "sourceSha256": "82ff782e411ed1f6e927b531ae011666305774d925a25f17b73229515b61bb38",
+      "targetSha256": "82ff782e411ed1f6e927b531ae011666305774d925a25f17b73229515b61bb38",
+      "status": "unchanged"
+    },
+    {
+      "source": "docs/WASAPI_BRIDGE_SPEC.md",
+      "target": "docs/WASAPI_BRIDGE_SPEC.md",
+      "sha256": "dffffa42382d04b8c56a0eceaad833481e01561eeaa3e6741a9d5edb3ac0984b",
+      "sourceSha256": "dffffa42382d04b8c56a0eceaad833481e01561eeaa3e6741a9d5edb3ac0984b",
+      "targetSha256": "dffffa42382d04b8c56a0eceaad833481e01561eeaa3e6741a9d5edb3ac0984b",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/application_profile.h",
+      "target": "include/application_profile.h",
+      "sha256": "2380147207269936286916d2fa1941813f0ad4cdd6780b836ddfa7a5fcc0353b",
+      "sourceSha256": "2380147207269936286916d2fa1941813f0ad4cdd6780b836ddfa7a5fcc0353b",
+      "targetSha256": "2380147207269936286916d2fa1941813f0ad4cdd6780b836ddfa7a5fcc0353b",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/asio_buffer_health.h",
+      "target": "include/asio_buffer_health.h",
+      "sha256": "88f13e2b8cac7c959c0130e6e9bcf3f67f5d0617d7db95cad467f7717356ad2b",
+      "sourceSha256": "88f13e2b8cac7c959c0130e6e9bcf3f67f5d0617d7db95cad467f7717356ad2b",
+      "targetSha256": "88f13e2b8cac7c959c0130e6e9bcf3f67f5d0617d7db95cad467f7717356ad2b",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/asio_sample_conversion.h",
+      "target": "include/asio_sample_conversion.h",
+      "sha256": "fad763a742d614150df688e38de8815bb9b960a9977d60eafe52e21a47496188",
+      "sourceSha256": "fad763a742d614150df688e38de8815bb9b960a9977d60eafe52e21a47496188",
+      "targetSha256": "fad763a742d614150df688e38de8815bb9b960a9977d60eafe52e21a47496188",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/audio_clock_host.h",
+      "target": "include/audio_clock_host.h",
+      "sha256": "b4613e8171dd5d86e252fdd3ed7ab4bb7bf912c9778f2043805b2c2b177facb1",
+      "sourceSha256": "b4613e8171dd5d86e252fdd3ed7ab4bb7bf912c9778f2043805b2c2b177facb1",
+      "targetSha256": "b4613e8171dd5d86e252fdd3ed7ab4bb7bf912c9778f2043805b2c2b177facb1",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/audio_controller.h",
+      "target": "include/audio_controller.h",
+      "sha256": "93ad44ffb05644429d686ad6690f5996731e2240db445b1fb6384db51a8286fa",
+      "sourceSha256": "93ad44ffb05644429d686ad6690f5996731e2240db445b1fb6384db51a8286fa",
+      "targetSha256": "93ad44ffb05644429d686ad6690f5996731e2240db445b1fb6384db51a8286fa",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/audio_meter.h",
+      "target": "include/audio_meter.h",
+      "sha256": "b1869cf5e121ec9503e80e9896baa2d271d64b6562d587de36abdcaaf7787164",
+      "sourceSha256": "b1869cf5e121ec9503e80e9896baa2d271d64b6562d587de36abdcaaf7787164",
+      "targetSha256": "b1869cf5e121ec9503e80e9896baa2d271d64b6562d587de36abdcaaf7787164",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/audio_routing_runtime.h",
+      "target": "include/audio_routing_runtime.h",
+      "sha256": "879f58d61bbebdfa64ed1ffed044b2af758874a8a561af51e5920ac407e3d96c",
+      "sourceSha256": "879f58d61bbebdfa64ed1ffed044b2af758874a8a561af51e5920ac407e3d96c",
+      "targetSha256": "879f58d61bbebdfa64ed1ffed044b2af758874a8a561af51e5920ac407e3d96c",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/control_api_server.h",
+      "target": "include/control_api_server.h",
+      "sha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
+      "sourceSha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
+      "targetSha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/engine_diagnostics.h",
+      "target": "include/engine_diagnostics.h",
+      "sha256": "ecc1eb6d706226a213b6dc086fa471b370409e9eef40b84c2811a5bf9d1d0ee4",
+      "sourceSha256": "ecc1eb6d706226a213b6dc086fa471b370409e9eef40b84c2811a5bf9d1d0ee4",
+      "targetSha256": "ecc1eb6d706226a213b6dc086fa471b370409e9eef40b84c2811a5bf9d1d0ee4",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_authenticated_channel_win32.h",
+      "target": "include/native_audio_authenticated_channel_win32.h",
+      "sha256": "56240ef960c2ae1a2a8d475044a89222b51e46d8c25d1e98bdc057cee131f25f",
+      "sourceSha256": "56240ef960c2ae1a2a8d475044a89222b51e46d8c25d1e98bdc057cee131f25f",
+      "targetSha256": "56240ef960c2ae1a2a8d475044a89222b51e46d8c25d1e98bdc057cee131f25f",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_backend.h",
+      "target": "include/native_audio_backend.h",
+      "sha256": "6580760c3fe2ac88bde157d58fd72097a66e4b61603eb831ee9a1dba3f3d70e9",
+      "sourceSha256": "6580760c3fe2ac88bde157d58fd72097a66e4b61603eb831ee9a1dba3f3d70e9",
+      "targetSha256": "6580760c3fe2ac88bde157d58fd72097a66e4b61603eb831ee9a1dba3f3d70e9",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_broker_protocol.h",
+      "target": "include/native_audio_broker_protocol.h",
+      "sha256": "49f428cb42323b3c22d79ad7fb5aeda66a997627fb4a40e6ee89d87659fc34ae",
+      "sourceSha256": "49f428cb42323b3c22d79ad7fb5aeda66a997627fb4a40e6ee89d87659fc34ae",
+      "targetSha256": "49f428cb42323b3c22d79ad7fb5aeda66a997627fb4a40e6ee89d87659fc34ae",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_broker_transport.h",
+      "target": "include/native_audio_broker_transport.h",
+      "sha256": "9e83b801bca350e3c62f7dd0b108ea7e347ad9ed055371d5f052183ea54c1ae0",
+      "sourceSha256": "9e83b801bca350e3c62f7dd0b108ea7e347ad9ed055371d5f052183ea54c1ae0",
+      "targetSha256": "9e83b801bca350e3c62f7dd0b108ea7e347ad9ed055371d5f052183ea54c1ae0",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_configuration.h",
+      "target": "include/native_audio_configuration.h",
+      "sha256": "849d7ca87ce329b3933133c44427885b1d4ac6a49682521f7bac3065f8ac76df",
+      "sourceSha256": "849d7ca87ce329b3933133c44427885b1d4ac6a49682521f7bac3065f8ac76df",
+      "targetSha256": "849d7ca87ce329b3933133c44427885b1d4ac6a49682521f7bac3065f8ac76df",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_installed_transport_win32.h",
+      "target": "include/native_audio_installed_transport_win32.h",
+      "sha256": "1f9e3ecf2bc59482e3b957b685ef1cb04ad3c0564f45388b200a279d77eb3656",
+      "sourceSha256": "1f9e3ecf2bc59482e3b957b685ef1cb04ad3c0564f45388b200a279d77eb3656",
+      "targetSha256": "1f9e3ecf2bc59482e3b957b685ef1cb04ad3c0564f45388b200a279d77eb3656",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_manager.h",
+      "target": "include/native_audio_manager.h",
+      "sha256": "c28eb47db860b7900df198d11a2cc113e7b3fe6af162c6aabb5afe659f801a07",
+      "sourceSha256": "c28eb47db860b7900df198d11a2cc113e7b3fe6af162c6aabb5afe659f801a07",
+      "targetSha256": "c28eb47db860b7900df198d11a2cc113e7b3fe6af162c6aabb5afe659f801a07",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/native_audio_transport.h",
+      "target": "include/native_audio_transport.h",
+      "sha256": "79ad50c7836b5812c82b6a84f7ced6dc14ccb76a63b360e96cc3b09fdeef348b",
+      "sourceSha256": "79ad50c7836b5812c82b6a84f7ced6dc14ccb76a63b360e96cc3b09fdeef348b",
+      "targetSha256": "79ad50c7836b5812c82b6a84f7ced6dc14ccb76a63b360e96cc3b09fdeef348b",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/physical_asio_host.h",
+      "target": "include/physical_asio_host.h",
+      "sha256": "21f8289f0c4eb782eba6ce5989cf90c2ec192fe635129abc90f8b2e9260b8a5b",
+      "sourceSha256": "21f8289f0c4eb782eba6ce5989cf90c2ec192fe635129abc90f8b2e9260b8a5b",
+      "targetSha256": "21f8289f0c4eb782eba6ce5989cf90c2ec192fe635129abc90f8b2e9260b8a5b",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/pwar_client_supervisor.h",
+      "target": "include/pwar_client_supervisor.h",
+      "sha256": "787b9c0e376a3215e87ff1e056cd2b9b89be602b18525468f5a4c2c4be843823",
+      "sourceSha256": "787b9c0e376a3215e87ff1e056cd2b9b89be602b18525468f5a4c2c4be843823",
+      "targetSha256": "787b9c0e376a3215e87ff1e056cd2b9b89be602b18525468f5a4c2c4be843823",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/realtime_callback_slot.h",
+      "target": "include/realtime_callback_slot.h",
+      "sha256": "a32576178ab187d1e308331f8238197201e777c62c67420fdd1f3e253b8daeee",
+      "sourceSha256": "a32576178ab187d1e308331f8238197201e777c62c67420fdd1f3e253b8daeee",
+      "targetSha256": "a32576178ab187d1e308331f8238197201e777c62c67420fdd1f3e253b8daeee",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/routing_graph.h",
+      "target": "include/routing_graph.h",
+      "sha256": "ddc8072d56e8dd992fde21583609a084eefd745387b405f8c63209f4602bdfcd",
+      "sourceSha256": "ddc8072d56e8dd992fde21583609a084eefd745387b405f8c63209f4602bdfcd",
+      "targetSha256": "ddc8072d56e8dd992fde21583609a084eefd745387b405f8c63209f4602bdfcd",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/software_clock_host.h",
+      "target": "include/software_clock_host.h",
+      "sha256": "203dcb37924ef44de916116de4c04c6da2c0366d5834e89c16a08eb32820b56c",
+      "sourceSha256": "203dcb37924ef44de916116de4c04c6da2c0366d5834e89c16a08eb32820b56c",
+      "targetSha256": "203dcb37924ef44de916116de4c04c6da2c0366d5834e89c16a08eb32820b56c",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/vasio_client_manager.h",
+      "target": "include/vasio_client_manager.h",
+      "sha256": "1571f72d0b29ef0b9714eca2fb5bbebe7b009d99be89093318aa117a66d332fc",
+      "sourceSha256": "1571f72d0b29ef0b9714eca2fb5bbebe7b009d99be89093318aa117a66d332fc",
+      "targetSha256": "1571f72d0b29ef0b9714eca2fb5bbebe7b009d99be89093318aa117a66d332fc",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_backend.h",
+      "target": "include/wasapi_backend.h",
+      "sha256": "88d3b4b7b91dcb7a77d17f5f30dc24668d7532f8fd2931dda9abf01ff066a8e5",
+      "sourceSha256": "88d3b4b7b91dcb7a77d17f5f30dc24668d7532f8fd2931dda9abf01ff066a8e5",
+      "targetSha256": "88d3b4b7b91dcb7a77d17f5f30dc24668d7532f8fd2931dda9abf01ff066a8e5",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_bridge_configuration.h",
+      "target": "include/wasapi_bridge_configuration.h",
+      "sha256": "1fd25c8812b95a4fe940ac136d6714f7b2ab067696a78ee1b55fb13fe7439294",
+      "sourceSha256": "1fd25c8812b95a4fe940ac136d6714f7b2ab067696a78ee1b55fb13fe7439294",
+      "targetSha256": "1fd25c8812b95a4fe940ac136d6714f7b2ab067696a78ee1b55fb13fe7439294",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_bridge_io.h",
+      "target": "include/wasapi_bridge_io.h",
+      "sha256": "828bf2c4976f58685a456eac39410bdbe4ef831e6dc3f7971c046ff8070394ae",
+      "sourceSha256": "828bf2c4976f58685a456eac39410bdbe4ef831e6dc3f7971c046ff8070394ae",
+      "targetSha256": "828bf2c4976f58685a456eac39410bdbe4ef831e6dc3f7971c046ff8070394ae",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_bridge_manager.h",
+      "target": "include/wasapi_bridge_manager.h",
+      "sha256": "b13705c0542945a6e99a91ff48b040335e426dd8fa20cba7806efcc28e511cf2",
+      "sourceSha256": "b13705c0542945a6e99a91ff48b040335e426dd8fa20cba7806efcc28e511cf2",
+      "targetSha256": "b13705c0542945a6e99a91ff48b040335e426dd8fa20cba7806efcc28e511cf2",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_bridge.h",
+      "target": "include/wasapi_bridge.h",
+      "sha256": "ec1aec960d5f319ad829159e73aad3eeafa35212251d7b40da2b2220df6d9ef9",
+      "sourceSha256": "ec1aec960d5f319ad829159e73aad3eeafa35212251d7b40da2b2220df6d9ef9",
+      "targetSha256": "ec1aec960d5f319ad829159e73aad3eeafa35212251d7b40da2b2220df6d9ef9",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_device_enumerator.h",
+      "target": "include/wasapi_device_enumerator.h",
+      "sha256": "bc42f85b957f7b48ecba7fd43b4ccb746a73034d6cc6b0b3b9bcfd7dd6a8ad9e",
+      "sourceSha256": "bc42f85b957f7b48ecba7fd43b4ccb746a73034d6cc6b0b3b9bcfd7dd6a8ad9e",
+      "targetSha256": "bc42f85b957f7b48ecba7fd43b4ccb746a73034d6cc6b0b3b9bcfd7dd6a8ad9e",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_device_notifications.h",
+      "target": "include/wasapi_device_notifications.h",
+      "sha256": "e5e1e9c35eac56478dd9faebad1f76dac6e058e0c2d80e4b8dd014b8b125d687",
+      "sourceSha256": "e5e1e9c35eac56478dd9faebad1f76dac6e058e0c2d80e4b8dd014b8b125d687",
+      "targetSha256": "e5e1e9c35eac56478dd9faebad1f76dac6e058e0c2d80e4b8dd014b8b125d687",
+      "status": "unchanged"
+    },
+    {
+      "source": "include/wasapi_sample_conversion.h",
+      "target": "include/wasapi_sample_conversion.h",
+      "sha256": "9aaf1b028d49b707aa14858e209724c7eb3a19438182e6b09e5719f5bca59f10",
+      "sourceSha256": "9aaf1b028d49b707aa14858e209724c7eb3a19438182e6b09e5719f5bca59f10",
+      "targetSha256": "9aaf1b028d49b707aa14858e209724c7eb3a19438182e6b09e5719f5bca59f10",
+      "status": "unchanged"
+    },
+    {
+      "source": "LICENSE",
+      "target": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "sourceSha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "targetSha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "MIGRATION.md",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "a84090cdec038b4283aa4bf61922a379b2262fc503304ccf3ad0601e67c60797",
+      "status": "generated"
+    },
+    {
+      "source": "native-windows-audio/broker/byte_stream.h",
+      "target": "native-windows-audio/broker/byte_stream.h",
+      "sha256": "eb0a927d87c04241939048ffd3741966386dc92e13a2c3f744106f1ae8994113",
+      "sourceSha256": "eb0a927d87c04241939048ffd3741966386dc92e13a2c3f744106f1ae8994113",
+      "targetSha256": "eb0a927d87c04241939048ffd3741966386dc92e13a2c3f744106f1ae8994113",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/channel_binding.cpp",
+      "target": "native-windows-audio/broker/channel_binding.cpp",
+      "sha256": "deee3cbeff0d5ce917d3b446caa1a61fd57aa57b9b41886eff3649cdab82c3e5",
+      "sourceSha256": "deee3cbeff0d5ce917d3b446caa1a61fd57aa57b9b41886eff3649cdab82c3e5",
+      "targetSha256": "deee3cbeff0d5ce917d3b446caa1a61fd57aa57b9b41886eff3649cdab82c3e5",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/channel_binding.h",
+      "target": "native-windows-audio/broker/channel_binding.h",
+      "sha256": "fc43e6331567f9588d04e7f110f58f0f9d682e7775f47b37ba806415af160c9f",
+      "sourceSha256": "fc43e6331567f9588d04e7f110f58f0f9d682e7775f47b37ba806415af160c9f",
+      "targetSha256": "fc43e6331567f9588d04e7f110f58f0f9d682e7775f47b37ba806415af160c9f",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/channel_frames.h",
+      "target": "native-windows-audio/broker/channel_frames.h",
+      "sha256": "a67daa9062bdff6c825671bf0fc25dad26eb245e431fece3245a9bf773ade6c1",
+      "sourceSha256": "a67daa9062bdff6c825671bf0fc25dad26eb245e431fece3245a9bf773ade6c1",
+      "targetSha256": "a67daa9062bdff6c825671bf0fc25dad26eb245e431fece3245a9bf773ade6c1",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/pipe_identity_win32.cpp",
+      "target": "native-windows-audio/broker/pipe_identity_win32.cpp",
+      "sha256": "269962a0afc2faa8e143955e37f24c1f119994989a4a2bb4680c327b23ee1858",
+      "sourceSha256": "269962a0afc2faa8e143955e37f24c1f119994989a4a2bb4680c327b23ee1858",
+      "targetSha256": "269962a0afc2faa8e143955e37f24c1f119994989a4a2bb4680c327b23ee1858",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/pipe_identity_win32.h",
+      "target": "native-windows-audio/broker/pipe_identity_win32.h",
+      "sha256": "2eeaf0dd291cc5e8d24d8ce705c3a27888a9f1a755fa59cc1e78dfbe9145471e",
+      "sourceSha256": "2eeaf0dd291cc5e8d24d8ce705c3a27888a9f1a755fa59cc1e78dfbe9145471e",
+      "targetSha256": "2eeaf0dd291cc5e8d24d8ce705c3a27888a9f1a755fa59cc1e78dfbe9145471e",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/schannel_stream_win32.cpp",
+      "target": "native-windows-audio/broker/schannel_stream_win32.cpp",
+      "sha256": "2f2aca35114c520e63b53bccb78a5f56da7ff8e1f11be26cf7d7688efdfe3fab",
+      "sourceSha256": "2f2aca35114c520e63b53bccb78a5f56da7ff8e1f11be26cf7d7688efdfe3fab",
+      "targetSha256": "2f2aca35114c520e63b53bccb78a5f56da7ff8e1f11be26cf7d7688efdfe3fab",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/schannel_stream_win32.h",
+      "target": "native-windows-audio/broker/schannel_stream_win32.h",
+      "sha256": "849c6ac7a96d9c1efcadb5041c4699dbf970640ea6631e14c86020e707c973a6",
+      "sourceSha256": "849c6ac7a96d9c1efcadb5041c4699dbf970640ea6631e14c86020e707c973a6",
+      "targetSha256": "849c6ac7a96d9c1efcadb5041c4699dbf970640ea6631e14c86020e707c973a6",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery_root_win32.cpp",
+      "target": "native-windows-audio/broker/socket_discovery_root_win32.cpp",
+      "sha256": "e5432245013ba5ad550f59a3915ecf74402f0d7de6c6ca28b7538d62fd28f2ad",
+      "sourceSha256": "e5432245013ba5ad550f59a3915ecf74402f0d7de6c6ca28b7538d62fd28f2ad",
+      "targetSha256": "e5432245013ba5ad550f59a3915ecf74402f0d7de6c6ca28b7538d62fd28f2ad",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery_root_win32.h",
+      "target": "native-windows-audio/broker/socket_discovery_root_win32.h",
+      "sha256": "f3b3275dccb4bf9d586bd684a4e141151257143171653c918c01e4635bebcf83",
+      "sourceSha256": "f3b3275dccb4bf9d586bd684a4e141151257143171653c918c01e4635bebcf83",
+      "targetSha256": "f3b3275dccb4bf9d586bd684a4e141151257143171653c918c01e4635bebcf83",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery_win32.cpp",
+      "target": "native-windows-audio/broker/socket_discovery_win32.cpp",
+      "sha256": "c94f5e852cf7ae2a2f6d7df47aa3adac4e5fd7d5e3334592b19ead85271563f9",
+      "sourceSha256": "c94f5e852cf7ae2a2f6d7df47aa3adac4e5fd7d5e3334592b19ead85271563f9",
+      "targetSha256": "c94f5e852cf7ae2a2f6d7df47aa3adac4e5fd7d5e3334592b19ead85271563f9",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery_win32.h",
+      "target": "native-windows-audio/broker/socket_discovery_win32.h",
+      "sha256": "e95e2ee05cd3d858a1e62c46700e432e1a00cd22b7404d0f96f1403b2adf7d06",
+      "sourceSha256": "e95e2ee05cd3d858a1e62c46700e432e1a00cd22b7404d0f96f1403b2adf7d06",
+      "targetSha256": "e95e2ee05cd3d858a1e62c46700e432e1a00cd22b7404d0f96f1403b2adf7d06",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery.cpp",
+      "target": "native-windows-audio/broker/socket_discovery.cpp",
+      "sha256": "05e76c4a5d19d134e32873dd8ab37642c6bb9bff5e123eb70c1f3eebd285d6cd",
+      "sourceSha256": "05e76c4a5d19d134e32873dd8ab37642c6bb9bff5e123eb70c1f3eebd285d6cd",
+      "targetSha256": "05e76c4a5d19d134e32873dd8ab37642c6bb9bff5e123eb70c1f3eebd285d6cd",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/socket_discovery.h",
+      "target": "native-windows-audio/broker/socket_discovery.h",
+      "sha256": "864f7948b8b4ba496b4c36f181c10359001c8142ae89bf95ad7b57fa389f3762",
+      "sourceSha256": "864f7948b8b4ba496b4c36f181c10359001c8142ae89bf95ad7b57fa389f3762",
+      "targetSha256": "864f7948b8b4ba496b4c36f181c10359001c8142ae89bf95ad7b57fa389f3762",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/unix_socket_stream_win32.cpp",
+      "target": "native-windows-audio/broker/unix_socket_stream_win32.cpp",
+      "sha256": "3b8b9feae5a854da5ed74b21882ccc2e7bc78fe266ad9e7eaba15f5e83fe6162",
+      "sourceSha256": "3b8b9feae5a854da5ed74b21882ccc2e7bc78fe266ad9e7eaba15f5e83fe6162",
+      "targetSha256": "3b8b9feae5a854da5ed74b21882ccc2e7bc78fe266ad9e7eaba15f5e83fe6162",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/broker/unix_socket_stream_win32.h",
+      "target": "native-windows-audio/broker/unix_socket_stream_win32.h",
+      "sha256": "644b633d8f54cd3be8fe17e98ff39726c3033fa73f83c938c26c23a7d34e8f62",
+      "sourceSha256": "644b633d8f54cd3be8fe17e98ff39726c3033fa73f83c938c26c23a7d34e8f62",
+      "targetSha256": "644b633d8f54cd3be8fe17e98ff39726c3033fa73f83c938c26c23a7d34e8f62",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/include/native_audio_packet_validation.h",
+      "target": "native-windows-audio/include/native_audio_packet_validation.h",
+      "sha256": "76731f62904d83394dbc23fab9f4c9a371279f405c7e4c664990896b91210fd3",
+      "sourceSha256": "76731f62904d83394dbc23fab9f4c9a371279f405c7e4c664990896b91210fd3",
+      "targetSha256": "76731f62904d83394dbc23fab9f4c9a371279f405c7e4c664990896b91210fd3",
+      "status": "unchanged"
+    },
+    {
+      "source": "native-windows-audio/include/native_audio_protocol.h",
+      "target": "native-windows-audio/include/native_audio_protocol.h",
+      "sha256": "7ed4290df9c4ea188afd5047d433a956bfaff93ec38ddc83a7014969a34f1dc9",
+      "sourceSha256": "7ed4290df9c4ea188afd5047d433a956bfaff93ec38ddc83a7014969a34f1dc9",
+      "targetSha256": "7ed4290df9c4ea188afd5047d433a956bfaff93ec38ddc83a7014969a34f1dc9",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "README.md",
+      "sha256": null,
+      "sourceSha256": null,
+      "status": "generated",
+      "targetSha256": "befc3d40cf0d1730e1bb4aea64cacb6f683a3f1c2f5ec15de6df6a6a0c782d1b"
+    },
+    {
+      "source": "src/application_profile_store_write.cpp",
+      "target": "src/application_profile_store_write.cpp",
+      "sha256": "fea89339730c056f6bc47ded3fc5cec2519bb25239d66c5b99b50c892b4e19c6",
+      "sourceSha256": "fea89339730c056f6bc47ded3fc5cec2519bb25239d66c5b99b50c892b4e19c6",
+      "targetSha256": "fea89339730c056f6bc47ded3fc5cec2519bb25239d66c5b99b50c892b4e19c6",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/application_profile_store.cpp",
+      "target": "src/application_profile_store.cpp",
+      "sha256": "c7942da9cfdb3328f384e4c6cea3d9a10e349aff9ade0854d17317008a491fb0",
+      "sourceSha256": "c7942da9cfdb3328f384e4c6cea3d9a10e349aff9ade0854d17317008a491fb0",
+      "targetSha256": "c7942da9cfdb3328f384e4c6cea3d9a10e349aff9ade0854d17317008a491fb0",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/application_profile_store.h",
+      "target": "src/application_profile_store.h",
+      "sha256": "164c011dca8aeabb125671734bceef2b633883e605a424a6fb8d66cd8c0ee0ba",
+      "sourceSha256": "164c011dca8aeabb125671734bceef2b633883e605a424a6fb8d66cd8c0ee0ba",
+      "targetSha256": "164c011dca8aeabb125671734bceef2b633883e605a424a6fb8d66cd8c0ee0ba",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/asio_error.h",
+      "target": "src/asio_error.h",
+      "sha256": "5ba5f5de3354d326403e0f81934b27271951d492b68677e19334b4d5c1104857",
+      "sourceSha256": "5ba5f5de3354d326403e0f81934b27271951d492b68677e19334b4d5c1104857",
+      "targetSha256": "5ba5f5de3354d326403e0f81934b27271951d492b68677e19334b4d5c1104857",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/asio_sample_conversion.cpp",
+      "target": "src/asio_sample_conversion.cpp",
+      "sha256": "e5a177f61b33e29e69fa2eb273e7a98123b94f00dddaaec6a343a681d234ee7b",
+      "sourceSha256": "e5a177f61b33e29e69fa2eb273e7a98123b94f00dddaaec6a343a681d234ee7b",
+      "targetSha256": "e5a177f61b33e29e69fa2eb273e7a98123b94f00dddaaec6a343a681d234ee7b",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_configuration_store.cpp",
+      "target": "src/audio_configuration_store.cpp",
+      "sha256": "fee8fb12d7cca1bd0d2e0b86af76073c7541b6bc4047f2341091de5db6f1d5c5",
+      "sourceSha256": "fee8fb12d7cca1bd0d2e0b86af76073c7541b6bc4047f2341091de5db6f1d5c5",
+      "targetSha256": "b2e74d26fec1243d78276c8dd8ba9276865dcbb917f866151e9e152daba2399f",
+      "status": "adapted"
+    },
+    {
+      "source": "src/audio_configuration_store.h",
+      "target": "src/audio_configuration_store.h",
+      "sha256": "c70edbf81bf5ea2c4a3ae76f6d56bb9b5f73e62144e922ad09b99be1b3ae9ec3",
+      "sourceSha256": "c70edbf81bf5ea2c4a3ae76f6d56bb9b5f73e62144e922ad09b99be1b3ae9ec3",
+      "targetSha256": "c70edbf81bf5ea2c4a3ae76f6d56bb9b5f73e62144e922ad09b99be1b3ae9ec3",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_controller.cpp",
+      "target": "src/audio_controller.cpp",
+      "sha256": "306a20542d8a9c07f12212ef3dafcf700d4961391580045e5b8fde793e0abae9",
+      "sourceSha256": "306a20542d8a9c07f12212ef3dafcf700d4961391580045e5b8fde793e0abae9",
+      "targetSha256": "306a20542d8a9c07f12212ef3dafcf700d4961391580045e5b8fde793e0abae9",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_routing_runtime.cpp",
+      "target": "src/audio_routing_runtime.cpp",
+      "sha256": "2eede05595fa6eb77a10edb13b680f3eac5be4fe204634f917ddd488c16bc2b0",
+      "sourceSha256": "2eede05595fa6eb77a10edb13b680f3eac5be4fe204634f917ddd488c16bc2b0",
+      "targetSha256": "2eede05595fa6eb77a10edb13b680f3eac5be4fe204634f917ddd488c16bc2b0",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/control_api_server.cpp",
+      "target": "src/control_api_server.cpp",
+      "sha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
+      "sourceSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
+      "targetSha256": "8d993ac545786679fafaf9a61aee87ace01cab346795a6a18868a037c8298810",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "src/drift_resampler.cpp",
+      "target": "src/drift_resampler.cpp",
+      "sha256": "e3511f476f3bd0dfc511f19ec0432ec2db87e9f577fd2d73e1297ea4b30726b7",
+      "sourceSha256": "e3511f476f3bd0dfc511f19ec0432ec2db87e9f577fd2d73e1297ea4b30726b7",
+      "targetSha256": "e3511f476f3bd0dfc511f19ec0432ec2db87e9f577fd2d73e1297ea4b30726b7",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/drift_resampler.h",
+      "target": "src/drift_resampler.h",
+      "sha256": "6af9280a6f285fa16eab353207c082d4aad0a1cab9f8e3a90c42886b519325da",
+      "sourceSha256": "6af9280a6f285fa16eab353207c082d4aad0a1cab9f8e3a90c42886b519325da",
+      "targetSha256": "6af9280a6f285fa16eab353207c082d4aad0a1cab9f8e3a90c42886b519325da",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/driver_version.h",
+      "target": "src/driver_version.h",
+      "sha256": "486aacaf3dd607731d7a1a11878f7fd8a75a6c5348ae7cc6d1404ef56cd101ee",
+      "sourceSha256": "486aacaf3dd607731d7a1a11878f7fd8a75a6c5348ae7cc6d1404ef56cd101ee",
+      "targetSha256": "486aacaf3dd607731d7a1a11878f7fd8a75a6c5348ae7cc6d1404ef56cd101ee",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/engine_diagnostics.cpp",
+      "target": "src/engine_diagnostics.cpp",
+      "sha256": "7c5d308e1053d9d7f3ad5c4f4608c1bbf071889e53e67875a9ef775b3cf279f5",
+      "sourceSha256": "7c5d308e1053d9d7f3ad5c4f4608c1bbf071889e53e67875a9ef775b3cf279f5",
+      "targetSha256": "7c5d308e1053d9d7f3ad5c4f4608c1bbf071889e53e67875a9ef775b3cf279f5",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/engine_instance_guard.h",
+      "target": "src/engine_instance_guard.h",
+      "sha256": "0b85beb0a4efcb1d8a87b5b6f61a65ee8341dc779b35037bb880463f95e21747",
+      "sourceSha256": "0b85beb0a4efcb1d8a87b5b6f61a65ee8341dc779b35037bb880463f95e21747",
+      "targetSha256": "0b85beb0a4efcb1d8a87b5b6f61a65ee8341dc779b35037bb880463f95e21747",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/engine_version.rc",
+      "target": "src/engine_version.rc",
+      "sha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
+      "sourceSha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
+      "targetSha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/main.cpp",
+      "target": "src/main.cpp",
+      "sha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
+      "sourceSha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
+      "targetSha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_api.h",
+      "target": "src/native_audio_api.h",
+      "sha256": "ec59ad88a8e632dc4341b0523a6bc6d31aaa674bf78c24db3d25f0381d727dc7",
+      "sourceSha256": "ec59ad88a8e632dc4341b0523a6bc6d31aaa674bf78c24db3d25f0381d727dc7",
+      "targetSha256": "ec59ad88a8e632dc4341b0523a6bc6d31aaa674bf78c24db3d25f0381d727dc7",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_backend.cpp",
+      "target": "src/native_audio_backend.cpp",
+      "sha256": "8e45d67c8b22cc4f8ec1e06fec04c70c520eef70b5293214f2c9e20277ba47ac",
+      "sourceSha256": "8e45d67c8b22cc4f8ec1e06fec04c70c520eef70b5293214f2c9e20277ba47ac",
+      "targetSha256": "8e45d67c8b22cc4f8ec1e06fec04c70c520eef70b5293214f2c9e20277ba47ac",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_broker_transport.cpp",
+      "target": "src/native_audio_broker_transport.cpp",
+      "sha256": "c5afc727444572899e5cc88081e72e7bfbaea0fa3220955ed9fa6c14674ae029",
+      "sourceSha256": "c5afc727444572899e5cc88081e72e7bfbaea0fa3220955ed9fa6c14674ae029",
+      "targetSha256": "c5afc727444572899e5cc88081e72e7bfbaea0fa3220955ed9fa6c14674ae029",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_installed_transport_win32.cpp",
+      "target": "src/native_audio_installed_transport_win32.cpp",
+      "sha256": "b92fea86a6e3eeac26e484b4f474489340fc7beb75b845e0fd6815d9a4965812",
+      "sourceSha256": "b92fea86a6e3eeac26e484b4f474489340fc7beb75b845e0fd6815d9a4965812",
+      "targetSha256": "b92fea86a6e3eeac26e484b4f474489340fc7beb75b845e0fd6815d9a4965812",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_manager.cpp",
+      "target": "src/native_audio_manager.cpp",
+      "sha256": "932bf757613dfd46ddd7ca04416984b136f622d6712f47251f13cef2ed8489eb",
+      "sourceSha256": "932bf757613dfd46ddd7ca04416984b136f622d6712f47251f13cef2ed8489eb",
+      "targetSha256": "932bf757613dfd46ddd7ca04416984b136f622d6712f47251f13cef2ed8489eb",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/native_audio_socket_channel_win32.cpp",
+      "target": "src/native_audio_socket_channel_win32.cpp",
+      "sha256": "c9fcd0fc215fad7d40eb4a410c14d00ab01ae6c6e8ec5d19ea87458d19575409",
+      "sourceSha256": "c9fcd0fc215fad7d40eb4a410c14d00ab01ae6c6e8ec5d19ea87458d19575409",
+      "targetSha256": "c9fcd0fc215fad7d40eb4a410c14d00ab01ae6c6e8ec5d19ea87458d19575409",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/persistent_routes.h",
+      "target": "src/persistent_routes.h",
+      "sha256": "b06417fe7ddfbeca30b79681df623f0d24fd4c2fdb323e27103871a85f921fbc",
+      "sourceSha256": "b06417fe7ddfbeca30b79681df623f0d24fd4c2fdb323e27103871a85f921fbc",
+      "targetSha256": "b06417fe7ddfbeca30b79681df623f0d24fd4c2fdb323e27103871a85f921fbc",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/physical_asio_host.cpp",
+      "target": "src/physical_asio_host.cpp",
+      "sha256": "73fef54ea63ab6b7a2c24520f53e3f9cb4e595c1192c662550c5fb16d2f73a18",
+      "sourceSha256": "73fef54ea63ab6b7a2c24520f53e3f9cb4e595c1192c662550c5fb16d2f73a18",
+      "targetSha256": "73fef54ea63ab6b7a2c24520f53e3f9cb4e595c1192c662550c5fb16d2f73a18",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/pwar_client_supervisor.cpp",
+      "target": "src/pwar_client_supervisor.cpp",
+      "sha256": "e968d552fe3e191771cc04bc6bd29281aeccb75380d792f782225e2ad0721a98",
+      "sourceSha256": "e968d552fe3e191771cc04bc6bd29281aeccb75380d792f782225e2ad0721a98",
+      "targetSha256": "fbac6675543a91b57488a8bf050d08ea194263f52cff232813ed058742299724",
+      "status": "adapted"
+    },
+    {
+      "source": "src/pwar_configuration_store.h",
+      "target": "src/pwar_configuration_store.h",
+      "sha256": "09fdd3af5e3989e5d8f4b2fae5640e04daa7e0d7865ffbabb49ea7fa3b772644",
+      "sourceSha256": "09fdd3af5e3989e5d8f4b2fae5640e04daa7e0d7865ffbabb49ea7fa3b772644",
+      "targetSha256": "09fdd3af5e3989e5d8f4b2fae5640e04daa7e0d7865ffbabb49ea7fa3b772644",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/routing_graph.cpp",
+      "target": "src/routing_graph.cpp",
+      "sha256": "58fdd4755bd25ba01c4cb596e37b7195bbc507adc1002381435819121a352684",
+      "sourceSha256": "58fdd4755bd25ba01c4cb596e37b7195bbc507adc1002381435819121a352684",
+      "targetSha256": "58fdd4755bd25ba01c4cb596e37b7195bbc507adc1002381435819121a352684",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/software_clock_host.cpp",
+      "target": "src/software_clock_host.cpp",
+      "sha256": "758bc57fdf74d696e343c7ed8470b701beaf251d72a2b1c058df1d88c2abbf70",
+      "sourceSha256": "758bc57fdf74d696e343c7ed8470b701beaf251d72a2b1c058df1d88c2abbf70",
+      "targetSha256": "758bc57fdf74d696e343c7ed8470b701beaf251d72a2b1c058df1d88c2abbf70",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/spsc_audio_ring.h",
+      "target": "src/spsc_audio_ring.h",
+      "sha256": "612de9527b2c08ba5874bde85a37c39425f3e2cf0ebcd45bea7e423efd6c18b3",
+      "sourceSha256": "612de9527b2c08ba5874bde85a37c39425f3e2cf0ebcd45bea7e423efd6c18b3",
+      "targetSha256": "612de9527b2c08ba5874bde85a37c39425f3e2cf0ebcd45bea7e423efd6c18b3",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/vasio_client_manager.cpp",
+      "target": "src/vasio_client_manager.cpp",
+      "sha256": "b8ebaada5c8d90902d94babb13f680a06285889fb3052c307f9bea25880aa1f4",
+      "sourceSha256": "b8ebaada5c8d90902d94babb13f680a06285889fb3052c307f9bea25880aa1f4",
+      "targetSha256": "b8ebaada5c8d90902d94babb13f680a06285889fb3052c307f9bea25880aa1f4",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_backend.cpp",
+      "target": "src/wasapi_backend.cpp",
+      "sha256": "06cfba84a43d81f169496caa921a3d8b647e700f4910877532205ad901f3fc73",
+      "sourceSha256": "06cfba84a43d81f169496caa921a3d8b647e700f4910877532205ad901f3fc73",
+      "targetSha256": "06cfba84a43d81f169496caa921a3d8b647e700f4910877532205ad901f3fc73",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_bridge_configuration.cpp",
+      "target": "src/wasapi_bridge_configuration.cpp",
+      "sha256": "2ea846765af8e39f7db5a2ba48ec27566fe9611fb12a32780fcd42c2b769fc5c",
+      "sourceSha256": "2ea846765af8e39f7db5a2ba48ec27566fe9611fb12a32780fcd42c2b769fc5c",
+      "targetSha256": "2ea846765af8e39f7db5a2ba48ec27566fe9611fb12a32780fcd42c2b769fc5c",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_bridge_manager.cpp",
+      "target": "src/wasapi_bridge_manager.cpp",
+      "sha256": "55cb7f2e1a356875eb43f881b938a76678000f4d663cadfee3884e430500e0c9",
+      "sourceSha256": "55cb7f2e1a356875eb43f881b938a76678000f4d663cadfee3884e430500e0c9",
+      "targetSha256": "55cb7f2e1a356875eb43f881b938a76678000f4d663cadfee3884e430500e0c9",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_bridge.cpp",
+      "target": "src/wasapi_bridge.cpp",
+      "sha256": "be676ff0cded79efdd6b424072411ea981a6266a715dc15c36eb09ac304d3b9c",
+      "sourceSha256": "be676ff0cded79efdd6b424072411ea981a6266a715dc15c36eb09ac304d3b9c",
+      "targetSha256": "be676ff0cded79efdd6b424072411ea981a6266a715dc15c36eb09ac304d3b9c",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_device_enumerator.cpp",
+      "target": "src/wasapi_device_enumerator.cpp",
+      "sha256": "f1130a62e0a38d52fa2aaec844523475949a0a61f4f00b08c269aa0cecdab6df",
+      "sourceSha256": "f1130a62e0a38d52fa2aaec844523475949a0a61f4f00b08c269aa0cecdab6df",
+      "targetSha256": "f1130a62e0a38d52fa2aaec844523475949a0a61f4f00b08c269aa0cecdab6df",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_device_notifications.cpp",
+      "target": "src/wasapi_device_notifications.cpp",
+      "sha256": "963d7f6d0431a946452882f3f29d8d5ef6273c44458ef472351354f347c351f9",
+      "sourceSha256": "963d7f6d0431a946452882f3f29d8d5ef6273c44458ef472351354f347c351f9",
+      "targetSha256": "963d7f6d0431a946452882f3f29d8d5ef6273c44458ef472351354f347c351f9",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/wasapi_sample_conversion.cpp",
+      "target": "src/wasapi_sample_conversion.cpp",
+      "sha256": "b10fed9d49dd7529f76b63110200fa0ad993bff30dc449fe7144f02359d59703",
+      "sourceSha256": "b10fed9d49dd7529f76b63110200fa0ad993bff30dc449fe7144f02359d59703",
+      "targetSha256": "b10fed9d49dd7529f76b63110200fa0ad993bff30dc449fe7144f02359d59703",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/application_profile_store_tests.cpp",
+      "target": "tests/application_profile_store_tests.cpp",
+      "sha256": "a2e4e53193f2223ef6398c64d32f8327653c16055d36fd2bd3a24c66231d5511",
+      "sourceSha256": "a2e4e53193f2223ef6398c64d32f8327653c16055d36fd2bd3a24c66231d5511",
+      "targetSha256": "a2e4e53193f2223ef6398c64d32f8327653c16055d36fd2bd3a24c66231d5511",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/application_profiles_api_tests.cpp",
+      "target": "tests/application_profiles_api_tests.cpp",
+      "sha256": "9201594036d16a4f6768dbe31d35d41f231ee4223d9a175fd0f7247814c14f3f",
+      "sourceSha256": "9201594036d16a4f6768dbe31d35d41f231ee4223d9a175fd0f7247814c14f3f",
+      "targetSha256": "ce21e33d9898627e3d1be65e1c22e52d0f9d21c82287f0035771728df9dcfcb6",
+      "status": "modified",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": "tests/asio_buffer_health_tests.cpp",
+      "target": "tests/asio_buffer_health_tests.cpp",
+      "sha256": "8b6bd454df051d8ee5e099ef209199096b653cc209257ae841b288461e53e2ab",
+      "sourceSha256": "8b6bd454df051d8ee5e099ef209199096b653cc209257ae841b288461e53e2ab",
+      "targetSha256": "8b6bd454df051d8ee5e099ef209199096b653cc209257ae841b288461e53e2ab",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/asio_error_tests.cpp",
+      "target": "tests/asio_error_tests.cpp",
+      "sha256": "9440ba5739b074e4f7f4c871eeb137186ac842fa2399412dacbb337e8569c1cc",
+      "sourceSha256": "9440ba5739b074e4f7f4c871eeb137186ac842fa2399412dacbb337e8569c1cc",
+      "targetSha256": "9440ba5739b074e4f7f4c871eeb137186ac842fa2399412dacbb337e8569c1cc",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/asio_sample_conversion_block_tests.cpp",
+      "target": "tests/asio_sample_conversion_block_tests.cpp",
+      "sha256": "c89383c4ccee7ab8aa698669350e7ef9c3f4141857e83e0b5c2e23aca82d8da9",
+      "sourceSha256": "c89383c4ccee7ab8aa698669350e7ef9c3f4141857e83e0b5c2e23aca82d8da9",
+      "targetSha256": "c89383c4ccee7ab8aa698669350e7ef9c3f4141857e83e0b5c2e23aca82d8da9",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/asio_sample_conversion_tests.cpp",
+      "target": "tests/asio_sample_conversion_tests.cpp",
+      "sha256": "ecb905edb0d197f09c2fde9a8b5dca479919c3d29bed501bd054e191bd50e678",
+      "sourceSha256": "ecb905edb0d197f09c2fde9a8b5dca479919c3d29bed501bd054e191bd50e678",
+      "targetSha256": "ecb905edb0d197f09c2fde9a8b5dca479919c3d29bed501bd054e191bd50e678",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_configuration_store_tests.cpp",
+      "target": "tests/audio_configuration_store_tests.cpp",
+      "sha256": "c03b2c78a98bb48cca5b9c0b97bec2b89fa3296bdf677301a6a8365c5fdaef1e",
+      "sourceSha256": "c03b2c78a98bb48cca5b9c0b97bec2b89fa3296bdf677301a6a8365c5fdaef1e",
+      "targetSha256": "c03b2c78a98bb48cca5b9c0b97bec2b89fa3296bdf677301a6a8365c5fdaef1e",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_controller_clock_tests.cpp",
+      "target": "tests/audio_controller_clock_tests.cpp",
+      "sha256": "8916279ef4031d0f0cb2ca3ca43560a4bca136d90d087a29062666ec58039d93",
+      "sourceSha256": "8916279ef4031d0f0cb2ca3ca43560a4bca136d90d087a29062666ec58039d93",
+      "targetSha256": "8916279ef4031d0f0cb2ca3ca43560a4bca136d90d087a29062666ec58039d93",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_controller_native_tests.cpp",
+      "target": "tests/audio_controller_native_tests.cpp",
+      "sha256": "05a9178a46c24f526cffa4037528ab0d82212c97de28aa6fb1ca0b52a3308d75",
+      "sourceSha256": "05a9178a46c24f526cffa4037528ab0d82212c97de28aa6fb1ca0b52a3308d75",
+      "targetSha256": "05a9178a46c24f526cffa4037528ab0d82212c97de28aa6fb1ca0b52a3308d75",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_controller_persistence_tests.cpp",
+      "target": "tests/audio_controller_persistence_tests.cpp",
+      "sha256": "5343dcaf6057a00d6a0d53485f7e14530837ab50326880a9dbda3ff4c8a5c5b2",
+      "sourceSha256": "5343dcaf6057a00d6a0d53485f7e14530837ab50326880a9dbda3ff4c8a5c5b2",
+      "targetSha256": "5343dcaf6057a00d6a0d53485f7e14530837ab50326880a9dbda3ff4c8a5c5b2",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_controller_wasapi_tests.cpp",
+      "target": "tests/audio_controller_wasapi_tests.cpp",
+      "sha256": "1ca89092a95509a547f7cdbc71a06011a9a75bf88cfccf995e6052774aa70a31",
+      "sourceSha256": "1ca89092a95509a547f7cdbc71a06011a9a75bf88cfccf995e6052774aa70a31",
+      "targetSha256": "1ca89092a95509a547f7cdbc71a06011a9a75bf88cfccf995e6052774aa70a31",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_path_benchmark.cpp",
+      "target": "tests/audio_path_benchmark.cpp",
+      "sha256": "afa7c05d696bcf1c485f4e2df7e08af7ce0d4af70ce994914f93954d281481fb",
+      "sourceSha256": "afa7c05d696bcf1c485f4e2df7e08af7ce0d4af70ce994914f93954d281481fb",
+      "targetSha256": "afa7c05d696bcf1c485f4e2df7e08af7ce0d4af70ce994914f93954d281481fb",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_routing_hot_swap_tests.cpp",
+      "target": "tests/audio_routing_hot_swap_tests.cpp",
+      "sha256": "43df6bd2be73ec5f8f7326073a226099a48193286423dcd9b755dc9774992fc5",
+      "sourceSha256": "43df6bd2be73ec5f8f7326073a226099a48193286423dcd9b755dc9774992fc5",
+      "targetSha256": "43df6bd2be73ec5f8f7326073a226099a48193286423dcd9b755dc9774992fc5",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/audio_routing_runtime_tests.cpp",
+      "target": "tests/audio_routing_runtime_tests.cpp",
+      "sha256": "c3ce054d0a86e8ac7729b2e0699dc78c5ce0cd140281e8b1dbfa3b77a0f27332",
+      "sourceSha256": "c3ce054d0a86e8ac7729b2e0699dc78c5ce0cd140281e8b1dbfa3b77a0f27332",
+      "targetSha256": "c3ce054d0a86e8ac7729b2e0699dc78c5ce0cd140281e8b1dbfa3b77a0f27332",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/drift_resampler_tests.cpp",
+      "target": "tests/drift_resampler_tests.cpp",
+      "sha256": "68ba7af858f7296b1517eea9c44af2c047d6eaf25eafa00df3289fa5f957ffbe",
+      "sourceSha256": "68ba7af858f7296b1517eea9c44af2c047d6eaf25eafa00df3289fa5f957ffbe",
+      "targetSha256": "68ba7af858f7296b1517eea9c44af2c047d6eaf25eafa00df3289fa5f957ffbe",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/engine_diagnostics_tests.cpp",
+      "target": "tests/engine_diagnostics_tests.cpp",
+      "sha256": "48461b14a8b0c06dbf704f38c1d59239e5a39be740313aec3bf24ea517872dd8",
+      "sourceSha256": "48461b14a8b0c06dbf704f38c1d59239e5a39be740313aec3bf24ea517872dd8",
+      "targetSha256": "48461b14a8b0c06dbf704f38c1d59239e5a39be740313aec3bf24ea517872dd8",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/engine_instance_guard_tests.cpp",
+      "target": "tests/engine_instance_guard_tests.cpp",
+      "sha256": "cc0f12746a8b5711e0743ab8358064e1c460543aa9ff46b853bb8539171156b3",
+      "sourceSha256": "cc0f12746a8b5711e0743ab8358064e1c460543aa9ff46b853bb8539171156b3",
+      "targetSha256": "cc0f12746a8b5711e0743ab8358064e1c460543aa9ff46b853bb8539171156b3",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/performance_stage_measurements_tests.cpp",
+      "target": "tests/performance_stage_measurements_tests.cpp",
+      "sha256": "ed4cd482f8c3c396394d150adb45bb3fe84b5d14d656f2406e08bbc3e2e5130a",
+      "sourceSha256": "ed4cd482f8c3c396394d150adb45bb3fe84b5d14d656f2406e08bbc3e2e5130a",
+      "targetSha256": "ed4cd482f8c3c396394d150adb45bb3fe84b5d14d656f2406e08bbc3e2e5130a",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/persistent_routes_tests.cpp",
+      "target": "tests/persistent_routes_tests.cpp",
+      "sha256": "f59e9911f995ba8fecba0f9ca5c066c3a83bee8a5d5997883dacbb29fa4a9244",
+      "sourceSha256": "f59e9911f995ba8fecba0f9ca5c066c3a83bee8a5d5997883dacbb29fa4a9244",
+      "targetSha256": "f59e9911f995ba8fecba0f9ca5c066c3a83bee8a5d5997883dacbb29fa4a9244",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "tests/pwar_client_supervisor_protocol_tests.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "cbeda2528ff678dac1fe3224b65eee8cc424a27aebff40f768aca8ed971c3b5e",
+      "status": "generated"
+    },
+    {
+      "source": "tests/pwar_configuration_store_tests.cpp",
+      "target": "tests/pwar_configuration_store_tests.cpp",
+      "sha256": "c4aea96f92f37243ea9724d675a28ae524e2a4e7b5abdeeaedeaac1a2b986d51",
+      "sourceSha256": "c4aea96f92f37243ea9724d675a28ae524e2a4e7b5abdeeaedeaac1a2b986d51",
+      "targetSha256": "c4aea96f92f37243ea9724d675a28ae524e2a4e7b5abdeeaedeaac1a2b986d51",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/realtime_callback_slot_tests.cpp",
+      "target": "tests/realtime_callback_slot_tests.cpp",
+      "sha256": "557c1ca4d5e5a70801dbfdf4ab3974f78c6f090f1d008956ff403d11bd88b6aa",
+      "sourceSha256": "557c1ca4d5e5a70801dbfdf4ab3974f78c6f090f1d008956ff403d11bd88b6aa",
+      "targetSha256": "557c1ca4d5e5a70801dbfdf4ab3974f78c6f090f1d008956ff403d11bd88b6aa",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/routing_graph_benchmark.cpp",
+      "target": "tests/routing_graph_benchmark.cpp",
+      "sha256": "ac392a60d22a5fc5e17861e5cf3b2eafaf7ee2c087842d386a511dba003b3d2f",
+      "sourceSha256": "ac392a60d22a5fc5e17861e5cf3b2eafaf7ee2c087842d386a511dba003b3d2f",
+      "targetSha256": "ac392a60d22a5fc5e17861e5cf3b2eafaf7ee2c087842d386a511dba003b3d2f",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/routing_graph_tests.cpp",
+      "target": "tests/routing_graph_tests.cpp",
+      "sha256": "9e38d813cf51777295f7125aa8703552eed3bb31ba0f0dad7be0bb305e5cb4fc",
+      "sourceSha256": "9e38d813cf51777295f7125aa8703552eed3bb31ba0f0dad7be0bb305e5cb4fc",
+      "targetSha256": "9e38d813cf51777295f7125aa8703552eed3bb31ba0f0dad7be0bb305e5cb4fc",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/software_clock_host_tests.cpp",
+      "target": "tests/software_clock_host_tests.cpp",
+      "sha256": "fe0198e7abe80ebcac42a9b7a2a9596bdea68ea368b79e53fa17056e1363d53b",
+      "sourceSha256": "fe0198e7abe80ebcac42a9b7a2a9596bdea68ea368b79e53fa17056e1363d53b",
+      "targetSha256": "fe0198e7abe80ebcac42a9b7a2a9596bdea68ea368b79e53fa17056e1363d53b",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/software_clock_routing_tests.cpp",
+      "target": "tests/software_clock_routing_tests.cpp",
+      "sha256": "1a1b61945e88afe70f4bb7e97389a1f1b2d485182676517916d7b01909fe4119",
+      "sourceSha256": "1a1b61945e88afe70f4bb7e97389a1f1b2d485182676517916d7b01909fe4119",
+      "targetSha256": "1a1b61945e88afe70f4bb7e97389a1f1b2d485182676517916d7b01909fe4119",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/spsc_audio_ring_tests.cpp",
+      "target": "tests/spsc_audio_ring_tests.cpp",
+      "sha256": "77bc816256e4e31f5727aba3b8490b0a8eeb006f68f070a720f971ef5c492676",
+      "sourceSha256": "77bc816256e4e31f5727aba3b8490b0a8eeb006f68f070a720f971ef5c492676",
+      "targetSha256": "77bc816256e4e31f5727aba3b8490b0a8eeb006f68f070a720f971ef5c492676",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_backend_tests.cpp",
+      "target": "tests/wasapi_backend_tests.cpp",
+      "sha256": "f7abaf5063109473480d59774bebf156b4d9cde56b27179d0470f63ce3b86e2d",
+      "sourceSha256": "f7abaf5063109473480d59774bebf156b4d9cde56b27179d0470f63ce3b86e2d",
+      "targetSha256": "f7abaf5063109473480d59774bebf156b4d9cde56b27179d0470f63ce3b86e2d",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_bridge_api_tests.cpp",
+      "target": "tests/wasapi_bridge_api_tests.cpp",
+      "sha256": "59d0000cbc0ac4f4a2d376c7573870701d76dbb2e07dc32b7783db0c16b567cc",
+      "sourceSha256": "59d0000cbc0ac4f4a2d376c7573870701d76dbb2e07dc32b7783db0c16b567cc",
+      "targetSha256": "59d0000cbc0ac4f4a2d376c7573870701d76dbb2e07dc32b7783db0c16b567cc",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_bridge_io_tests.cpp",
+      "target": "tests/wasapi_bridge_io_tests.cpp",
+      "sha256": "5476cbfe7184f68eb1991480e7ca7ce25aad50bc69bf62366970e510712374aa",
+      "sourceSha256": "5476cbfe7184f68eb1991480e7ca7ce25aad50bc69bf62366970e510712374aa",
+      "targetSha256": "5476cbfe7184f68eb1991480e7ca7ce25aad50bc69bf62366970e510712374aa",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_bridge_tests.cpp",
+      "target": "tests/wasapi_bridge_tests.cpp",
+      "sha256": "004a9ef3edf336d3f33a4b0bcec6058e284d3781a0c286e1eabd193c813f0216",
+      "sourceSha256": "004a9ef3edf336d3f33a4b0bcec6058e284d3781a0c286e1eabd193c813f0216",
+      "targetSha256": "004a9ef3edf336d3f33a4b0bcec6058e284d3781a0c286e1eabd193c813f0216",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_device_enumerator_tests.cpp",
+      "target": "tests/wasapi_device_enumerator_tests.cpp",
+      "sha256": "7a30666135d6d815ab0de66698769e61730b39d9c35005abad1e62ead8ef8b40",
+      "sourceSha256": "7a30666135d6d815ab0de66698769e61730b39d9c35005abad1e62ead8ef8b40",
+      "targetSha256": "7a30666135d6d815ab0de66698769e61730b39d9c35005abad1e62ead8ef8b40",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_device_notifications_tests.cpp",
+      "target": "tests/wasapi_device_notifications_tests.cpp",
+      "sha256": "5f686e08f388327b0d1efaddd8551cf63213d7f1bf77a08b6cd797f5bffe92ff",
+      "sourceSha256": "5f686e08f388327b0d1efaddd8551cf63213d7f1bf77a08b6cd797f5bffe92ff",
+      "targetSha256": "5f686e08f388327b0d1efaddd8551cf63213d7f1bf77a08b6cd797f5bffe92ff",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_routing_runtime_tests.cpp",
+      "target": "tests/wasapi_routing_runtime_tests.cpp",
+      "sha256": "8d43042cd13ddc5e07e5751e036d5132402506e79316bc8977c8edc9a1fddc8f",
+      "sourceSha256": "8d43042cd13ddc5e07e5751e036d5132402506e79316bc8977c8edc9a1fddc8f",
+      "targetSha256": "8d43042cd13ddc5e07e5751e036d5132402506e79316bc8977c8edc9a1fddc8f",
+      "status": "unchanged"
+    },
+    {
+      "source": "tests/wasapi_sample_conversion_tests.cpp",
+      "target": "tests/wasapi_sample_conversion_tests.cpp",
+      "sha256": "8b089975967957667b0406a37941632c16bc62144964af3eeb843e35e20ce97d",
+      "sourceSha256": "8b089975967957667b0406a37941632c16bc62144964af3eeb843e35e20ce97d",
+      "targetSha256": "8b089975967957667b0406a37941632c16bc62144964af3eeb843e35e20ce97d",
+      "status": "unchanged"
+    },
+    {
+      "source": "vendor/cpp-httplib/httplib.h",
+      "target": "vendor/cpp-httplib/httplib.h",
+      "sha256": "aa14e7e7bd2703694e0a6b6855af3b8c406102ab1fc56ac905fe33619b31faa5",
+      "sourceSha256": "aa14e7e7bd2703694e0a6b6855af3b8c406102ab1fc56ac905fe33619b31faa5",
+      "targetSha256": "aa14e7e7bd2703694e0a6b6855af3b8c406102ab1fc56ac905fe33619b31faa5",
+      "status": "unchanged"
+    },
+    {
+      "source": "vendor/cpp-httplib/LICENSE",
+      "target": "vendor/cpp-httplib/LICENSE",
+      "sha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
+      "sourceSha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
+      "targetSha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
+      "status": "unchanged"
+    },
+    {
+      "source": "vendor/nlohmann/json.hpp",
+      "target": "vendor/nlohmann/json.hpp",
+      "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "sourceSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "targetSha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "status": "unchanged"
+    },
+    {
+      "source": "vendor/nlohmann/LICENSE.MIT",
+      "target": "vendor/nlohmann/LICENSE.MIT",
+      "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603",
+      "sourceSha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603",
+      "targetSha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "vendor/timoxvasio/dependency-lock.json",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "2f82b05e798be1a9ee8ab4083ced856345a9353c18f35906fbe6c63a54f60569",
+      "status": "generated"
+    },
+    {
+      "source": "include/audio_transport.h",
+      "target": "vendor/timoxvasio/include/audio_transport.h",
+      "sha256": "d3846da535d7788aaf2f75d372841611ab9dd90767af9f27367db60a70953850",
+      "sourceSha256": "d3846da535d7788aaf2f75d372841611ab9dd90767af9f27367db60a70953850",
+      "targetSha256": "d3846da535d7788aaf2f75d372841611ab9dd90767af9f27367db60a70953850",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_transport_layout.h",
+      "target": "vendor/timoxvasio/src/audio_transport_layout.h",
+      "sha256": "1f2ba0a5bb70e941fc378bcfc9518b286bc2fcbc8621fcafff143fb257ba0e37",
+      "sourceSha256": "1f2ba0a5bb70e941fc378bcfc9518b286bc2fcbc8621fcafff143fb257ba0e37",
+      "targetSha256": "1f2ba0a5bb70e941fc378bcfc9518b286bc2fcbc8621fcafff143fb257ba0e37",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_transport_status_reader.cpp",
+      "target": "vendor/timoxvasio/src/audio_transport_status_reader.cpp",
+      "sha256": "23e82ba799d90ce46f6d43384e71eba9a7c62e29afcf0f8ade637952753cf6ef",
+      "sourceSha256": "23e82ba799d90ce46f6d43384e71eba9a7c62e29afcf0f8ade637952753cf6ef",
+      "targetSha256": "23e82ba799d90ce46f6d43384e71eba9a7c62e29afcf0f8ade637952753cf6ef",
+      "status": "unchanged"
+    },
+    {
+      "source": "src/audio_transport.cpp",
+      "target": "vendor/timoxvasio/src/audio_transport.cpp",
+      "sha256": "6dfdaf204b68849d6d2c2f0f8e3cf7f8a26cf28bc24f1de7fec440e561b98ba1",
+      "sourceSha256": "6dfdaf204b68849d6d2c2f0f8e3cf7f8a26cf28bc24f1de7fec440e561b98ba1",
+      "targetSha256": "6dfdaf204b68849d6d2c2f0f8e3cf7f8a26cf28bc24f1de7fec440e561b98ba1",
+      "status": "unchanged"
+    },
+    {
+      "source": null,
+      "target": "verification-results.json",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "3c7051f4d96870cfadd2241c384908919913d5e73ea81a87416631a4322c6e73",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "verify-import.cjs",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "08660514d6142c30c6beba56a5102f3fcae210c343b476c331d95cbdba868229",
+      "status": "generated"
+    },
+    {
+      "source": null,
+      "target": ".gitattributes",
+      "sourceSha256": null,
+      "sha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
+      "targetSha256": "e86ec9460f33310aaa782f0e9a84dea1277765bd857560165c520ffdf27e47f0",
+      "status": "generated"
+    },
+    {
+      "source": null,
+      "target": "src/supervision_api.h",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "1a37c58e39222ab28c38b6fb42020706d4f8ecac199cf5bceac6d8cef5cf87ec",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "tests/supervision_api_tests.cpp",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "947617a8c85f755d16144abe8316eb6c09707745564456a6896b1d4e26d6b538",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "docs/SUPERVISION_API.md",
+      "sourceSha256": null,
+      "sha256": null,
+      "targetSha256": "d65e3321a93ac431e27eb60d2ed73e940d6e8749a7f62fc0aefbcb2bed5a331b",
+      "status": "generated",
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    }
+  ],
+  "owner": "TimoxVAudioEngine",
+  "tests": "CMake CTest non-hardware suite; verification-results.json records results"
+}

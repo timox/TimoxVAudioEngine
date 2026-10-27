@@ -1,0 +1,32 @@
+{
+  "canonicalRepository": "TimoxVasio",
+  "sourceCommit": "3bcc05f5fed34ea8404e478ef34bb230a2efe39c",
+  "policy": "Immutable vendored working-tree snapshot. Update only from canonical TimoxVasio; never edit this dependency independently.",
+  "files": [
+    {
+      "source": "include/audio_transport.h",
+      "target": "vendor/timoxvasio/include/audio_transport.h",
+      "sha256": "d3846da535d7788aaf2f75d372841611ab9dd90767af9f27367db60a70953850"
+    },
+    {
+      "source": "src/audio_transport.cpp",
+      "target": "vendor/timoxvasio/src/audio_transport.cpp",
+      "sha256": "6dfdaf204b68849d6d2c2f0f8e3cf7f8a26cf28bc24f1de7fec440e561b98ba1"
+    },
+    {
+      "source": "src/audio_transport_layout.h",
+      "target": "vendor/timoxvasio/src/audio_transport_layout.h",
+      "sha256": "1f2ba0a5bb70e941fc378bcfc9518b286bc2fcbc8621fcafff143fb257ba0e37"
+    },
+    {
+      "source": "src/audio_transport_status_reader.cpp",
+      "target": "vendor/timoxvasio/src/audio_transport_status_reader.cpp",
+      "sha256": "23e82ba799d90ce46f6d43384e71eba9a7c62e29afcf0f8ade637952753cf6ef"
+    },
+    {
+      "source": "src/driver_version.h",
+      "target": "src/driver_version.h",
+      "sha256": "486aacaf3dd607731d7a1a11878f7fd8a75a6c5348ae7cc6d1404ef56cd101ee"
+    }
+  ]
+}
