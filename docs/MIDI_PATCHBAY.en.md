@@ -62,16 +62,32 @@ One misleading case remains: the engine forwards clock from port A to applicatio
 
 The topology appears in `supervision` (`GET /api/v1/state`); counters appear in `engine.observations.midi` and in the `supervision.observations` WebSocket event (about every 500 ms). See [the supervision API](SUPERVISION_API.md). Limit: a loopback does not reveal which process opens it. The adherent is the configured application port, not a proven process.
 
-## MIDI clock locked to the master clock
+## Reference clock and drift
 
-A single master schedules the graph: the physical ASIO driver, or the engine's software clock without a card (`engine.clockSource`). MIDI follows that master. A card has its own real frequency, slightly different from its nominal value (48,000 Hz) and from Windows timers: a few tens of ppm, about 0.1 s per hour. A MIDI clock timed by Windows would therefore drift from the audio. The engine never falls back to Windows timers.
+The **reference clock** is the clock that paces the audio graph (`engine.clockSource`): the physical ASIO driver, or the engine's software clock without a card. It is the timebase for all engine MIDI. Do not confuse it with MIDI clock master/slave roles: those say who sends the ticks; the reference clock says on which time scale they are placed.
 
-- **Timebase.** At each buffer the master publishes its sample position. For ASIO this is the driver's own position (`samplePosition`), not a callback count that would miss dropped buffers. For the software clock it is the block schedule. The position is paired with the Windows performance counter (QPC) time. A linear fit over about 30 s gives the master's real frequency (`timebase.measuredSampleRate`) and its offset in ppm. The counter is only used to convert a sample time into a send timestamp. The measurement is available after about 2 s. `timebase.reference` is `asio`, `software`, or `none` when no master runs.
-- **Engine clock** (`midi:clock:engine`). The engine generates clock by counting master samples: each tick (24 per quarter note) falls at its card time, converted to Windows time with the measured frequency. It is sent ahead with that timestamp and Windows MIDI Services emits it on time, so the clock follows the card and never drifts from the audio. Route it like any source. `PUT /api/v1/midi/clock` sets the tempo (`bpm`, saved) and transport (`start`, `stop`, `continue`, sent to destinations). `start` and `continue` require a running master (`409 NO_MASTER_CLOCK`). If the master stops, the clock waits (`waitingForMasterClock`) without sending ticks, then resumes on the new master.
-- **Reclocked incoming clock** (`reclock: true` on a route). Ticks received from an application or device are no longer forwarded as they arrive. The patchbay re-emits them on a regular grid in card time: a fit over the last 48 ticks (two beats) predicts where each tick belongs; it is sent at that time plus a 2 ms margin. Exactly one tick goes out per tick in: the source tempo and beat position are kept, only jitter (USB, Windows) disappears. Start, stop and continue pass through and reset the grid. Without a running master, ticks pass through unchanged.
-- **Tempo measurement.** The tempo shown for a port is measured in card time, by a fit over the last 48 ticks: it is the tempo the audio recording will show.
+A card has its own real frequency, slightly different from its nominal value (48,000 Hz) and from Windows timers: a few tens of ppm, about 0.1 s per hour. MIDI timed by Windows timers would therefore drift from the audio. The engine never falls back to them.
 
-An incoming clock that truly drifts from the card (a drum machine with its own crystal) cannot be "corrected" without losing sync with it. Reclocking follows it and removes jitter. For a clock strictly locked to the audio, make the engine the master (engine clock) and let the device follow.
+- **Measurement.** At each buffer the reference clock publishes its sample position:
+  - for ASIO, the driver's own position (`samplePosition`), not a callback count that would miss dropped buffers;
+  - for the software clock, the block schedule.
+
+  Each position is paired with the Windows performance counter (QPC) time. A linear fit over about 30 s gives the reference clock's real frequency (`referenceClock.measuredSampleRate`) and its offset in ppm. The counter only converts a sample time into a send timestamp. The measurement is available after about 2 s. `referenceClock.source` is `asio`, `software`, or `none` when it is not running.
+- **Engine clock** (`midi:clock:engine`).
+  - The engine generates a MIDI clock by counting reference clock samples. Each tick (24 per quarter note) is placed at its sample time, converted to a timestamp with the measured frequency, and sent ahead. Windows MIDI Services emits it on time, so this clock never drifts from the audio.
+  - Route it like any source.
+  - `PUT /api/v1/midi/clock` sets the tempo (`bpm`, saved) and transport (`start`, `stop`, `continue`, sent to destinations).
+  - `start` and `continue` require a running reference clock (`409 NO_REFERENCE_CLOCK`).
+  - If the reference clock stops, the engine clock waits (`waitingForReferenceClock`) without sending ticks, then resumes when it returns.
+- **Reclocked incoming clock** (`reclock: true` on a route).
+  - Ticks received from an application or device are no longer forwarded as they arrive: the patchbay re-emits them on a regular grid in reference clock samples.
+  - A fit over the last 48 ticks (two beats) predicts where each tick belongs; it is sent at that time plus a 2 ms margin.
+  - Exactly one tick goes out per tick in: the source tempo and beat position are kept, only jitter (USB, Windows) disappears.
+  - Start, stop and continue pass through and reset the grid.
+  - Without a running reference clock, ticks pass through unchanged.
+- **Tempo measurement.** The tempo shown for a port is measured in reference clock samples, by a fit over the last 48 ticks: it is the tempo the audio recording will show.
+
+An incoming clock whose oscillator is independent of the reference clock (a drum machine with its own crystal) keeps its own tempo: reclocking removes its jitter, not the frequency offset between the two oscillators. The engine clock is built on the reference clock and has no such offset.
 
 ## API
 

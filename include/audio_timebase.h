@@ -5,14 +5,14 @@
 #include <cstddef>
 #include <cstdint>
 
-// Timebase of the graph's master clock, for MIDI. Exactly one master schedules
-// the graph: the physical ASIO driver, or the engine's software clock without
-// a card. At each buffer the master publishes its sample position (the
-// driver's own position for ASIO) and the host time (steady clock, ns). A
-// linear fit over the last ~30 s gives the master's real sample rate, so MIDI
-// timing follows the master's samples and never drifts from the audio. There
-// is no fallback to Windows timers: without a running master, MIDI clock
-// generation waits.
+// Reference clock timebase for MIDI. The reference clock is the clock that
+// paces the audio graph: the physical ASIO driver, or the engine's software
+// clock without a card. (Unrelated to MIDI clock master/slave roles.) At each
+// buffer it publishes its sample position (the driver's own position for ASIO)
+// and the host time (steady clock, ns). A linear fit over the last ~30 s gives
+// its real sample rate, so MIDI timing follows the reference clock's samples
+// and never drifts from the audio. There is no fallback to Windows timers:
+// without a running reference clock, MIDI clock generation waits.
 //
 // Threads: Begin/Publish/End run on the audio callback thread only (lock-free,
 // no allocation). Update runs on one consumer thread only (the MIDI clock
@@ -22,7 +22,7 @@ enum class AudioTimebaseSource : std::uint8_t { None = 0, Asio = 1, Software = 2
 class AudioTimebase {
 public:
     struct Mapping {
-        bool cardLocked = false;     // a master clock is running and has published
+        bool referenceRunning = false;     // the reference clock is running and has published
         AudioTimebaseSource source = AudioTimebaseSource::None;
         double nominalRate = 0;      // rate the card was opened at
         double measuredRate = 0;     // frames per second of host time; nominal until measured

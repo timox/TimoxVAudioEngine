@@ -87,7 +87,7 @@ inline nlohmann::json SupervisionMidiObservations(const nlohmann::json& midi) {
             {"forwarded", field(route, "forwarded")}, {"filtered", field(route, "filtered")}});
     return {{"available", field(midi, "available")}, {"backend", field(midi, "backend")}, {"error", field(midi, "error")},
         {"ports", std::move(ports)}, {"links", std::move(links)}, {"clockSources", std::move(clockSources)},
-        {"timebase", field(midi, "timebase")}, {"engineClock", field(midi, "engineClock")}};
+        {"referenceClock", field(midi, "referenceClock")}, {"engineClock", field(midi, "engineClock")}};
 }
 inline nlohmann::json SupervisionMeter(nlohmann::json meter, const nlohmann::json& devices) {
     using namespace supervision;

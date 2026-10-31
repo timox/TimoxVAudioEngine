@@ -1103,13 +1103,13 @@ struct ControlApiServer::Impl {
             {"error", snapshot.error.empty() ? Json(nullptr) : Json(snapshot.error)},
             {"configuration", std::move(configuration)}, {"ports", std::move(ports)},
             {"routes", std::move(routes)},
-            {"timebase", {{"reference", snapshot.timebase.reference},
-                {"nominalSampleRate", snapshot.timebase.cardLocked ? Json(snapshot.timebase.nominalRate) : Json(nullptr)},
-                {"measuredSampleRate", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.measuredRate) : Json(nullptr)},
-                {"driftPpm", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.driftPpm) : Json(nullptr)},
-                {"measuredOverSeconds", snapshot.timebase.spanSeconds}}},
+            {"referenceClock", {{"source", snapshot.referenceClock.source},
+                {"nominalSampleRate", snapshot.referenceClock.running ? Json(snapshot.referenceClock.nominalRate) : Json(nullptr)},
+                {"measuredSampleRate", snapshot.referenceClock.spanSeconds > 0 ? Json(snapshot.referenceClock.measuredRate) : Json(nullptr)},
+                {"driftPpm", snapshot.referenceClock.spanSeconds > 0 ? Json(snapshot.referenceClock.driftPpm) : Json(nullptr)},
+                {"measuredOverSeconds", snapshot.referenceClock.spanSeconds}}},
             {"engineClock", {{"bpm", snapshot.engineClock.bpm}, {"running", snapshot.engineClock.running},
-                {"waitingForMasterClock", snapshot.engineClock.waitingForMasterClock},
+                {"waitingForReferenceClock", snapshot.engineClock.waitingForReferenceClock},
                 {"ticks", snapshot.engineClock.ticks},
                 {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)}}}};
     }
@@ -1156,10 +1156,10 @@ struct ControlApiServer::Impl {
             if (!applied.success) {
                 const auto state = midi->Snapshot();
                 const bool unavailable = !state.available;
-                const bool noMaster = !unavailable && !state.timebase.cardLocked &&
+                const bool noReference = !unavailable && !state.referenceClock.running &&
                     (transport == "start" || transport == "continue");
-                response.status = unavailable ? 503 : noMaster ? 409 : 400;
-                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : noMaster ? "NO_MASTER_CLOCK" : "INVALID_MIDI_CLOCK"},
+                response.status = unavailable ? 503 : noReference ? 409 : 400;
+                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : noReference ? "NO_REFERENCE_CLOCK" : "INVALID_MIDI_CLOCK"},
                     {"message", applied.error}}.dump(), "application/json; charset=utf-8");
                 return;
             }

@@ -158,7 +158,7 @@ struct PhysicalAsioHost::Session {
         previousCallbackStart = startTick;
         const auto index = static_cast<std::size_t>(bufferIndex);
         const auto frames = bufferFrames;
-        // Master timebase for MIDI: the driver's own sample position of this
+        // Reference clock timebase for MIDI: the driver's own sample position of this
         // buffer (counting callbacks would miss buffers the driver dropped),
         // stamped with the callback's QPC time converted like
         // std::chrono::steady_clock. The driver's systemTime is not used: on

@@ -27,7 +27,7 @@ is not implemented.
 | `PUT /api/v1/application-profiles` | Complete, persistent replacement of profiles |
 | `GET /api/v1/pwar` | PWAR network settings saved in `pwarASIO.cfg` |
 | `PUT /api/v1/pwar` | Saves the Windows PWAR destination address and port |
-| `GET /api/v1/midi` | MIDI 1.0 patchbay: ports, configuration, counters, timebase and engine clock |
+| `GET /api/v1/midi` | MIDI 1.0 patchbay: ports, configuration, counters, reference clock and engine clock |
 | `PUT /api/v1/midi/configuration` | Replaces and saves application ports and MIDI routes |
 | `PUT /api/v1/midi/clock` | Engine MIDI clock tempo (saved) and transport |
 | `ws://127.0.0.1:<port>/api/v1/ws` | Configuration commands and state/audio events |
@@ -242,7 +242,7 @@ The patchbay is MIDI 1.0 only and runs on Windows MIDI Services. Detailed behavi
 
 | Request | Response |
 |---|---|
-| `GET /api/v1/midi` | Ports, configuration, counters, timebase and engine clock |
+| `GET /api/v1/midi` | Ports, configuration, counters, reference clock and engine clock |
 | `PUT /api/v1/midi/configuration` | Replaces and saves application ports, routes and the engine clock tempo |
 | `PUT /api/v1/midi/clock` | Engine MIDI clock tempo (saved) and transport |
 
@@ -254,28 +254,28 @@ The patchbay is MIDI 1.0 only and runs on Windows MIDI Services. Detailed behavi
 **Reading.** `GET /api/v1/midi` re-reads the ports and returns:
 - `ports[]`: direction, state and counters. `activity` excludes clock ticks; `clock` gives the measured tempo, running state, transport and `echoSuspected`.
 - `configuration`, with per-route counters in `routes[]` (`forwarded`, `filtered`, `reclocked`);
-- `timebase` and `engineClock`.
+- `referenceClock` and `engineClock`.
 
 **Configuration.** `PUT /api/v1/midi/configuration` replaces `virtualPorts`, `routes` and `engineClock.bpm`. Route options: `channels`, `messages`, `outputChannel`, `transpose`, `enabled` and `reclock`.
 
-**Timebase (`timebase`).** MIDI follows the graph's single master, defined by `engine.clockSource`:
-- `reference: "asio"`: the sample position supplied by the physical driver;
-- `reference: "software"`: the software clock schedule;
-- `reference: "none"`: no master is running.
+**Reference clock (`referenceClock`).** This is the clock that paces the audio graph (`engine.clockSource`). Do not confuse it with MIDI clock master/slave roles.
+- `source: "asio"`: the sample position supplied by the physical driver;
+- `source: "software"`: the software clock schedule;
+- `source: "none"`: it is not running.
 
-The master's sample position is fitted over about 30 s against the Windows performance counter (`measuredSampleRate`, `driftPpm`). The counter only converts a sample time into a send timestamp: MIDI never follows Windows timers.
+Its sample position is fitted over about 30 s against the Windows performance counter (`measuredSampleRate`, `driftPpm`). The counter only converts a sample time into a send timestamp: MIDI never follows Windows timers.
 
 **Engine clock.** `PUT /api/v1/midi/clock` takes `{"bpm": 20–300}` and/or `{"transport": "start" | "stop" | "continue"}`.
-- Ticks (24 per quarter note) are counted in master samples and sent ahead with their timestamp.
-- `start` and `continue` require a running master; otherwise the response is `409 NO_MASTER_CLOCK`.
-- If the master stops later, `engineClock.waitingForMasterClock` becomes `true` and no tick is sent until it returns.
+- Ticks (24 per quarter note) are counted in reference clock samples and sent ahead with their timestamp.
+- `start` and `continue` require a running reference clock; otherwise the response is `409 NO_REFERENCE_CLOCK`.
+- If it stops later, `engineClock.waitingForReferenceClock` becomes `true` and no tick is sent until it returns.
 
-**Reclock (`reclock: true`).** Received ticks are re-emitted on a regular grid in master samples, one tick out per tick in. Without a master they pass through unchanged.
+**Reclock (`reclock: true`).** Received ticks are re-emitted on a regular grid in reference clock samples, one tick out per tick in. Without a running reference clock they pass through unchanged.
 
-**Errors.** `INVALID_MIDI_CONFIGURATION` and `INVALID_MIDI_CLOCK` (400), `NO_MASTER_CLOCK` (409), `MIDI_CONFIGURATION_FAILED` (500), `MIDI_UNAVAILABLE` (503).
+**Errors.** `INVALID_MIDI_CONFIGURATION` and `INVALID_MIDI_CLOCK` (400), `NO_REFERENCE_CLOCK` (409), `MIDI_CONFIGURATION_FAILED` (500), `MIDI_UNAVAILABLE` (503).
 
 **Supervision.**
 - Application ports, devices and the engine clock appear as adherents and nodes; routes appear as `medium=midi` links.
-- Counters, `clockSources`, `timebase` and `engineClock` are in `engine.observations.midi`, and in the `supervision.observations` WebSocket event, about every 500 ms.
+- Counters, `clockSources`, `referenceClock` and `engineClock` are in `engine.observations.midi`, and in the `supervision.observations` WebSocket event, about every 500 ms.
 
 See [the supervision model](SUPERVISION_API.md).

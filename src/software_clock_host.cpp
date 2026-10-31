@@ -108,7 +108,7 @@ struct SoftwareClockHost::Session {
             // Whole-quantum delays, excluding ordinary sub-quantum timer jitter.
             if (begin.QuadPart - schedule.deadline() >= period)
                 delayedStarts.fetch_add(1, std::memory_order_relaxed);
-            // Master timebase for MIDI: this block's ideal position and deadline,
+            // Reference clock timebase for MIDI: this block's ideal position and deadline,
             // not the wake-up time, so MIDI follows the graph's own schedule.
             {
                 const auto due = static_cast<std::uint64_t>(schedule.deadline());

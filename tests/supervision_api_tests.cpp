@@ -160,7 +160,7 @@ int main() {
                 {{"id", "midi:port:1:gone"}, {"name", ""}, {"kind", "port"}, {"endpointId", "gone"}, {"endpointName", nullptr},
                  {"group", 1}, {"source", false}, {"destination", false}, {"online", false}, {"open", false},
                  {"received", 0}, {"sent", 0}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 0}, {"error", nullptr}}})},
-            {"timebase", {{"reference", "asio"}, {"driftPpm", 12.5}}},
+            {"referenceClock", {{"source", "asio"}, {"driftPpm", 12.5}}},
             {"engineClock", {{"bpm", 120.0}, {"running", true}, {"ticks", 10}, {"transport", "start"}}},
             {"routes", Json::array({{{"id", "to-synth"}, {"active", true}, {"forwarded", 4}, {"filtered", 1}},
                 {{"id", "to-gone"}, {"active", false}, {"forwarded", 0}, {"filtered", 0}}})}};
@@ -197,8 +197,8 @@ int main() {
               midiObservations["clockSources"][1]["bpm"] == 120.0, "ports receiving running clock, and the engine clock, are sources");
         check(midiObservations["ports"][1]["clock"]["ticks"] == 4 && midiObservations["ports"][1]["activity"]["messages"] == 1,
             "clock ticks are reported apart from activity");
-        check(midiObservations["timebase"]["driftPpm"] == 12.5 && midiObservations["engineClock"]["running"] == true,
-            "the sound card timebase and engine clock are observed");
+        check(midiObservations["referenceClock"]["driftPpm"] == 12.5 && midiObservations["engineClock"]["running"] == true,
+            "the reference clock and engine clock are observed");
         Json engineClockNode;
         for (const auto& node : midiModel["nodes"]) if (node["id"] == "midi-engine-clock") engineClockNode = node;
         check(engineClockNode["state"] == "running" && engineClockNode["adherentId"] == "engine:midi-clock",

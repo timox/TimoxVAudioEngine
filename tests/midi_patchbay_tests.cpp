@@ -474,7 +474,7 @@ bool testEngineClockFollowsTheSoundCard() {
     const auto snapshot = patchbay.Snapshot();
     const auto keysPort = findPort(snapshot, "midi:port:1:usb-keys");
     CHECK(keysPort && std::fabs(keysPort->clockBpm - 119.99) < 0.006);
-    CHECK(snapshot.timebase.cardLocked && std::fabs(snapshot.timebase.driftPpm - 100.0) < 5.0);
+    CHECK(snapshot.referenceClock.running && std::fabs(snapshot.referenceClock.driftPpm - 100.0) < 5.0);
     CHECK(snapshot.engineClock.running && snapshot.engineClock.bpm == 120.0 && snapshot.engineClock.ticks >= ticks.size());
     const auto clockPort = findPort(snapshot, "midi:clock:engine");
     CHECK(clockPort && clockPort->clockRunning && clockPort->clockBpm == 120.0 && clockPort->transport == "start");
@@ -573,7 +573,7 @@ bool testEngineClockNeverFallsBackToWindowsTime() {
     SimulatedCard card;
     FakeBackend::State state;
     state.endpoints = endpoints();
-    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("master.json"));
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("reference-clock.json"));
     patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
     patchbay.SetTimebaseForTesting(&card.timebase);
     CHECK(patchbay.Start().success);
@@ -585,21 +585,21 @@ bool testEngineClockNeverFallsBackToWindowsTime() {
     CHECK(patchbay.Apply(configuration).success);
     patchbay.PumpClock(gSteadyNs);
 
-    // No master clock running: the engine clock cannot start, and an incoming
+    // No reference clock running: the engine clock cannot start, and an incoming
     // clock on a reclock route passes through untouched.
     CHECK(!patchbay.SetEngineClock(std::nullopt, "start").success);
-    CHECK(patchbay.Snapshot().timebase.reference == "none");
+    CHECK(patchbay.Snapshot().referenceClock.source == "none");
     const std::uint32_t tick = 0x10F80000u;
     state.handler(cookieOf(state, "usb-keys"), &tick, 1);
     CHECK(state.sent.size() == 1 && state.sent[0].first == cookieOf(state, "virtual:Timox DAW Out") && state.sentAt[0] == 0);
 
-    // The software clock becomes master (no card): the engine clock follows it.
+    // The software clock becomes the reference clock (no card): the engine clock follows it.
     card.actual = card.nominal;
     card.timebase.Begin(card.nominal, AudioTimebaseSource::Software);
     card.startNs = gSteadyNs;
     card.frames = 0;
     for (int ms = 0; ms < 3000; ++ms) { gSteadyNs += 1'000'000; card.Advance(gSteadyNs); if (ms % 2 == 0) patchbay.PumpClock(gSteadyNs); }
-    CHECK(patchbay.Snapshot().timebase.reference == "software");
+    CHECK(patchbay.Snapshot().referenceClock.source == "software");
     CHECK(patchbay.SetEngineClock(120.0, "start").success);
     const auto ticksBetween = [&](int milliseconds) {
         const auto before = state.sent.size();
@@ -610,11 +610,11 @@ bool testEngineClockNeverFallsBackToWindowsTime() {
     };
     CHECK(ticksBetween(1000) >= 47);
 
-    // The master stops: no tick is sent on Windows time; the clock waits.
+    // The reference clock stops: no tick is sent on Windows time; the clock waits.
     card.timebase.End();
     CHECK(ticksBetween(1000) <= 1);  // at most one tick scheduled before the stop was seen
     auto snapshot = patchbay.Snapshot();
-    CHECK(snapshot.engineClock.running && snapshot.engineClock.waitingForMasterClock);
+    CHECK(snapshot.engineClock.running && snapshot.engineClock.waitingForReferenceClock);
     CHECK(!findPort(snapshot, "midi:clock:engine")->clockRunning);
 
     // The card comes back (new session, new sample count): ticks resume on it.
@@ -623,7 +623,7 @@ bool testEngineClockNeverFallsBackToWindowsTime() {
     card.frames = 0;
     CHECK(ticksBetween(1000) >= 47);
     snapshot = patchbay.Snapshot();
-    CHECK(snapshot.timebase.reference == "asio" && !snapshot.engineClock.waitingForMasterClock);
+    CHECK(snapshot.referenceClock.source == "asio" && !snapshot.engineClock.waitingForReferenceClock);
     return true;
 }
 

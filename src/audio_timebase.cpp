@@ -7,13 +7,13 @@ constexpr double kMaximumPlausiblePpm = 1000.0;  // beyond this the fit is broke
 }
 
 double AudioTimebase::Mapping::CardSeconds(std::int64_t hostNs) const noexcept {
-    if (!cardLocked || nominalRate <= 0 || measuredRate <= 0) return static_cast<double>(hostNs) * 1e-9;
+    if (!referenceRunning || nominalRate <= 0 || measuredRate <= 0) return static_cast<double>(hostNs) * 1e-9;
     const double frames = framesAtOrigin + measuredRate * static_cast<double>(hostNs - originNs) * 1e-9;
     return frames / nominalRate;
 }
 
 std::int64_t AudioTimebase::Mapping::HostNs(double cardSeconds) const noexcept {
-    if (!cardLocked || nominalRate <= 0 || measuredRate <= 0) return static_cast<std::int64_t>(std::llround(cardSeconds * 1e9));
+    if (!referenceRunning || nominalRate <= 0 || measuredRate <= 0) return static_cast<std::int64_t>(std::llround(cardSeconds * 1e9));
     const double frames = cardSeconds * nominalRate;
     return originNs + static_cast<std::int64_t>(std::llround((frames - framesAtOrigin) / measuredRate * 1e9));
 }
@@ -85,7 +85,7 @@ AudioTimebase::Mapping AudioTimebase::Update() noexcept {
         Store(mapping);
         return mapping;
     }
-    mapping.cardLocked = true;
+    mapping.referenceRunning = true;
     mapping.source = static_cast<AudioTimebaseSource>(source_.load(std::memory_order_relaxed));
     mapping.nominalRate = nominal;
     // Until enough history exists, extrapolate from the last buffer at the nominal rate.
@@ -129,7 +129,7 @@ AudioTimebase::Mapping AudioTimebase::Update() noexcept {
 void AudioTimebase::Store(const Mapping& mapping) noexcept {
     const auto sequence = sequence_.load(std::memory_order_relaxed);
     sequence_.store(sequence + 1, std::memory_order_relaxed);
-    cardLocked_.store(mapping.cardLocked, std::memory_order_release);
+    cardLocked_.store(mapping.referenceRunning, std::memory_order_release);
     mappedNominal_.store(mapping.nominalRate, std::memory_order_release);
     measuredRate_.store(mapping.measuredRate, std::memory_order_release);
     spanSeconds_.store(mapping.spanSeconds, std::memory_order_release);
@@ -145,7 +145,7 @@ AudioTimebase::Mapping AudioTimebase::Current() const noexcept {
     for (;;) {
         const auto before = sequence_.load(std::memory_order_acquire);
         if (before & 1u) continue;
-        mapping.cardLocked = cardLocked_.load(std::memory_order_acquire);
+        mapping.referenceRunning = cardLocked_.load(std::memory_order_acquire);
         mapping.nominalRate = mappedNominal_.load(std::memory_order_acquire);
         mapping.measuredRate = measuredRate_.load(std::memory_order_acquire);
         mapping.spanSeconds = spanSeconds_.load(std::memory_order_acquire);
@@ -155,7 +155,7 @@ AudioTimebase::Mapping AudioTimebase::Current() const noexcept {
         mapping.source = static_cast<AudioTimebaseSource>(mappedSource_.load(std::memory_order_acquire));
         if (sequence_.load(std::memory_order_acquire) == before) break;
     }
-    mapping.driftPpm = mapping.cardLocked && mapping.nominalRate > 0 && mapping.spanSeconds > 0
+    mapping.driftPpm = mapping.referenceRunning && mapping.nominalRate > 0 && mapping.spanSeconds > 0
         ? (mapping.measuredRate / mapping.nominalRate - 1.0) * 1e6 : 0;
     return mapping;
 }

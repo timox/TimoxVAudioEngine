@@ -62,16 +62,32 @@ Un cas trompeur reste : le moteur transmet l'horloge d'un port A vers une applic
 
 Cette topologie apparaît dans `supervision` (`GET /api/v1/state`), et les compteurs dans `engine.observations.midi` et l'événement WebSocket `supervision.observations` (environ toutes les 500 ms). Voir [l'API de supervision](SUPERVISION_API.md). Limite : un loopback ne révèle pas quel processus l'ouvre. L'adhérent est le port d'application configuré, pas un processus prouvé.
 
-## Horloge MIDI calée sur l'horloge maître
+## Horloge de référence et dérive
 
-Un seul maître cadence le graphe : le pilote ASIO physique, ou l'horloge logicielle du moteur sans carte (`engine.clockSource`). Le MIDI suit ce maître. La carte a sa propre fréquence réelle, légèrement différente de sa valeur nominale (48 000 Hz) et des temporisateurs de Windows : quelques dizaines de ppm, soit environ 0,1 s par heure. Une horloge MIDI cadencée par Windows dériverait donc par rapport à l'audio. Le moteur ne se rabat jamais sur les temporisateurs Windows.
+L'**horloge de référence** est l'horloge qui cadence le graphe audio (`engine.clockSource`) : le pilote ASIO physique, ou l'horloge logicielle du moteur sans carte. Elle sert de base de temps à tout le MIDI du moteur. Il ne faut pas la confondre avec les rôles maître/esclave d'une horloge MIDI : ceux-ci disent qui envoie les ticks, alors que l'horloge de référence dit sur quelle échelle de temps ils sont placés.
 
-- **Base de temps.** À chaque buffer, le maître publie sa position d'échantillons. En ASIO, c'est la position fournie par le pilote (`samplePosition`), et non un compte de callbacks qui manquerait les buffers perdus. Avec l'horloge logicielle, c'est l'échéancier du bloc. La position est associée à l'instant du compteur de performance Windows (QPC). Une régression linéaire sur environ 30 s donne la fréquence réelle du maître (`timebase.measuredSampleRate`) et son écart en ppm. Ce compteur sert uniquement à convertir un instant en échantillons en horodatage d'envoi. La mesure est disponible après environ 2 s. `timebase.reference` vaut `asio`, `software`, ou `none` sans maître en marche.
-- **Horloge du moteur** (`midi:clock:engine`). Le moteur génère l'horloge en comptant les échantillons du maître : chaque tick (24 par noire) tombe à son instant en temps carte, converti en heure Windows avec la fréquence mesurée. Il est envoyé à l'avance avec cet horodatage, et Windows MIDI Services l'émet à l'heure dite : l'horloge suit la carte et ne dérive jamais de l'audio. On la route comme n'importe quelle source. `PUT /api/v1/midi/clock` règle le tempo (`bpm`, enregistré) et le transport (`start`, `stop`, `continue`, envoyés aux destinations). `start` et `continue` exigent un maître en marche (`409 NO_MASTER_CLOCK`). Si le maître s'arrête, l'horloge attend (`waitingForMasterClock`) sans envoyer de tick, puis repart sur le nouveau maître.
-- **Horloge entrante recalée** (`reclock: true` sur une route). Les ticks reçus d'une appli ou d'un appareil ne sont plus transmis à leur arrivée. Le patch bay les réémet sur une grille régulière en temps carte : une régression sur les 48 derniers ticks (deux temps) prédit la place de chaque tick, envoyé à cet instant plus 2 ms de marge. Il y a exactement un tick en sortie par tick en entrée : le tempo et la position des temps de la source sont conservés, seule la gigue (USB, Windows) disparaît. Start, stop et continue sont transmis tels quels et remettent la grille à zéro. Sans maître en marche, les ticks sont transmis tels quels.
-- **Mesure du tempo.** Le tempo affiché pour un port est mesuré en temps carte, par régression sur les 48 derniers ticks : c'est le tempo que l'enregistrement audio montrera.
+Une carte a sa propre fréquence réelle, légèrement différente de sa valeur nominale (48 000 Hz) et des temporisateurs de Windows : quelques dizaines de ppm, soit environ 0,1 s par heure. Un MIDI cadencé par les temporisateurs Windows dériverait donc par rapport à l'audio. Le moteur ne s'y rabat jamais.
 
-Une horloge entrante qui dérive vraiment par rapport à la carte (une boîte à rythmes avec son propre quartz) ne peut pas être « corrigée » sans perdre la synchronisation avec elle. Le recalage la suit en supprimant la gigue. Pour une horloge strictement calée sur l'audio, il faut que le moteur soit maître (horloge du moteur) et que l'appareil suive.
+- **Mesure.** À chaque buffer, l'horloge de référence publie sa position d'échantillons :
+  - en ASIO, la position fournie par le pilote (`samplePosition`), et non un compte de callbacks qui manquerait les buffers perdus ;
+  - avec l'horloge logicielle, l'échéancier du bloc.
+
+  Chaque position est associée à l'instant du compteur de performance Windows (QPC). Une régression linéaire sur environ 30 s donne la fréquence réelle de l'horloge de référence (`referenceClock.measuredSampleRate`) et son écart en ppm. Le compteur sert uniquement à convertir un instant en échantillons en horodatage d'envoi. La mesure est disponible après environ 2 s. `referenceClock.source` vaut `asio`, `software`, ou `none` quand elle ne tourne pas.
+- **Horloge du moteur** (`midi:clock:engine`).
+  - Le moteur génère une horloge MIDI en comptant les échantillons de l'horloge de référence. Chaque tick (24 par noire) est placé à son instant en échantillons, converti en horodatage avec la fréquence mesurée, puis envoyé à l'avance. Windows MIDI Services l'émet à l'heure dite : cette horloge ne dérive jamais de l'audio.
+  - On la route comme n'importe quelle source.
+  - `PUT /api/v1/midi/clock` règle le tempo (`bpm`, enregistré) et le transport (`start`, `stop`, `continue`, envoyés aux destinations).
+  - `start` et `continue` exigent une horloge de référence en marche (`409 NO_REFERENCE_CLOCK`).
+  - Si l'horloge de référence s'arrête, l'horloge du moteur attend (`waitingForReferenceClock`) sans envoyer de tick, puis repart dès qu'elle revient.
+- **Horloge entrante recalée** (`reclock: true` sur une route).
+  - Les ticks reçus d'une appli ou d'un appareil ne sont plus transmis à leur arrivée : le patch bay les réémet sur une grille régulière en échantillons de l'horloge de référence.
+  - Une régression sur les 48 derniers ticks (deux temps) prédit la place de chaque tick ; il est envoyé à cet instant plus 2 ms de marge.
+  - Il y a exactement un tick en sortie par tick en entrée : le tempo et la position des temps de la source sont conservés, seule la gigue (USB, Windows) disparaît.
+  - Start, stop et continue passent tels quels et remettent la grille à zéro.
+  - Sans horloge de référence en marche, les ticks sont transmis tels quels.
+- **Mesure du tempo.** Le tempo affiché pour un port est mesuré en échantillons de l'horloge de référence, par régression sur les 48 derniers ticks : c'est le tempo que l'enregistrement audio montrera.
+
+Une horloge entrante dont l'oscillateur est indépendant de l'horloge de référence (une boîte à rythmes avec son propre quartz) garde son propre tempo : le recalage supprime sa gigue, pas l'écart de fréquence entre les deux oscillateurs. L'horloge du moteur, elle, est construite sur l'horloge de référence et n'a pas cet écart.
 
 ## API
 

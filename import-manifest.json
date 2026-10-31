@@ -25,18 +25,18 @@
       "target": "api/openapi-v1.json",
       "sha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
       "sourceSha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
-      "targetSha256": "3b260ce1f1577640ef15cf162fd3acac4f2d425fb6c3ed9069425898be56986f",
+      "targetSha256": "261a90ce3154ed879750489115e3538d7ac724e8e3c76b9434c20c60c92bc2f8",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "api/schemas/api-v1.json",
       "target": "api/schemas/api-v1.json",
       "sha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
       "sourceSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
-      "targetSha256": "81b71ed904502cfba99691a6cc93266e731f82a5cc6091b896e6b3ae9494b4c7",
+      "targetSha256": "1e854f94156c4d40580c12112111e02e089ca9fea25e9902762c5a566f544198",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "asiosdk/common/asio.h",
@@ -140,18 +140,18 @@
       "target": "docs/API.en.md",
       "sha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
       "sourceSha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
-      "targetSha256": "96dd11ae674d270c3f71ff3f9219fccdd433bd9b9f2ba0fb1e4b3970303e4225",
+      "targetSha256": "01034b3677dce281fa1ef5fdb044d3f77542431e10989497b7cdb3ced6cef133",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "docs/API.md",
       "target": "docs/API.md",
       "sha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
       "sourceSha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
-      "targetSha256": "106c88f377fd6df668ecb0cd08b62572c0b9fef9910c4873eacce4ce34ccc996",
+      "targetSha256": "5305979791185deb25d36278302501695d35b0941eceb06873f399480eeba1bc",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "docs/ASIO_WASAPI_GUIDE.en.md",
@@ -681,9 +681,9 @@
       "target": "src/control_api_server.cpp",
       "sha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
       "sourceSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
-      "targetSha256": "a9a3ae7170766d606663070b7c4ca58d5ae564adc3683416dff97ac1edc21e83",
+      "targetSha256": "767c8b36e83e5d799d36e7c55fbbf5e76e13f2edfe12058770177148f239dcf3",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "src/drift_resampler.cpp",
@@ -803,9 +803,9 @@
       "target": "src/physical_asio_host.cpp",
       "sha256": "73fef54ea63ab6b7a2c24520f53e3f9cb4e595c1192c662550c5fb16d2f73a18",
       "sourceSha256": "73fef54ea63ab6b7a2c24520f53e3f9cb4e595c1192c662550c5fb16d2f73a18",
-      "targetSha256": "f811a1c0db21c07825ffe94d13241c3c166fcb1606b3b621c860adad76ae9352",
+      "targetSha256": "13f14a7ad9f18e69748100e0cc8f194c766cc5242cb5096ebc65dffdb6b4dee3",
       "status": "modified",
-      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "src/pwar_client_supervisor.cpp",
@@ -836,9 +836,9 @@
       "target": "src/software_clock_host.cpp",
       "sha256": "758bc57fdf74d696e343c7ed8470b701beaf251d72a2b1c058df1d88c2abbf70",
       "sourceSha256": "758bc57fdf74d696e343c7ed8470b701beaf251d72a2b1c058df1d88c2abbf70",
-      "targetSha256": "a7c1869779e394b8e2ce0d7562e8d90b6d19ec943ffb8debf908d7c85834dcde",
+      "targetSha256": "9220cb3483c4aa9f79ba22701afe43eaae73b505fc1389aedb872f64c2ebc0c0",
       "status": "modified",
-      "transformation": "MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": "src/spsc_audio_ring.h",
@@ -1295,45 +1295,45 @@
       "target": "src/supervision_api.h",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "fae53b7ab783eb412b9ccfc41b346ca6e2eacf38b37694080d7534236a74652a",
+      "targetSha256": "8c28f99a9d7fdf74314a63c5187cc75dc7a90a2a2b707600028eecc4e6934c9c",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "tests/supervision_api_tests.cpp",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "88dddf1b29d16d78efcba127d6c70919ee852e94c973c23b1f0fdbf25995eedb",
+      "targetSha256": "ec2a2f14c3e8f6452be62610917b23d944523fb544ff0e5dcf7cd3535db18bd1",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/SUPERVISION_API.md",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "76eca67fb18f2d21ed842e8f960423531a60c289b4d31fc8ea42c55ec8e85ee0",
+      "targetSha256": "9f372762e73ef805985c4ebd70d36e470471d9492fe612222273b64e0d6355e4",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/MIDI_PATCHBAY.en.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "5852c32d8c2502e7c3b00b4256c1041a9d4654bbb122aa8067081561ede7bd3f",
+      "targetSha256": "ef13e8460ae00d1c2c75ec5c25f364be1f5b74d1225dadaa8bd0391a134cbc61",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/MIDI_PATCHBAY.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "bddd399c1d39c892d82c3e9e11a147a8de1c3f053ee8bf4ecf62f5c8b9187193",
+      "targetSha256": "365bca305b7716518f1390b3943790892dba7e991b91473be167db5b599464ff",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
@@ -1349,9 +1349,9 @@
       "target": "include/midi_patchbay.h",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "2af21c4ec1ee93efc7080c96473cfded054814c7dca370bc72d60d3c9d7d5ea5",
+      "targetSha256": "6e9afcbe13cf418abb0f1c2278fa709aaa4849da14bc0c1c35a23e542f3e98e5",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
@@ -1385,9 +1385,9 @@
       "target": "src/midi_patchbay.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "e3029cc7442e058ef382f3eb7cafe0bfa5121224c9f7fe316deeb1576088ac59",
+      "targetSha256": "3b5a266f1507e4dddb63ddfbf6caba7809fce9fc68437ae7a4debfc6af97039b",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
@@ -1412,9 +1412,9 @@
       "target": "tests/midi_patchbay_tests.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "569f7f5407076f16b43e8b5196f89092b1ba43d53bd12eea2b0cc7f5390d314d",
+      "targetSha256": "2bc0c3ffce8905d93051d14d0869dfe30504d92d6da97d63a4e82be82329137a",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31; MIDI activity and clock detection, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
@@ -1430,27 +1430,27 @@
       "target": "include/audio_timebase.h",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "ecfbe095f0bea6655ddf0e7bd788861261f68d7013004bca3311b102805f8c3d",
+      "targetSha256": "27799641694a93032bf7f94720c26b17e58542a61547f4e38ba4b51f7e5f3466",
       "status": "generated",
-      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "src/audio_timebase.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "92c3352bf9fa58bcd900d5b5850e94bef721639b153a56b22acde72b883c76c5",
+      "targetSha256": "1ec43b8a46e4e5206a068fc6410be05827337a3294b0413e6055682ca30e41f2",
       "status": "generated",
-      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     },
     {
       "source": null,
       "target": "tests/audio_timebase_tests.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "a7f76c9d16796820c81d645d7249e51d67e13428c0ca27b66af89f31913888b7",
+      "targetSha256": "2681aa6275f926c86ba9b877e1f0cac13cdc42b629f95c0317b233b49f231ba4",
       "status": "generated",
-      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
     }
   ],
   "owner": "TimoxVAudioEngine",

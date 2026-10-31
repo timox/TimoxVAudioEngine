@@ -35,16 +35,16 @@ void runCard(AudioTimebase& timebase, double nominal, double ppm, double seconds
 
 bool testMeasuresCardDriftAgainstHostClock() {
     AudioTimebase timebase;
-    CHECK(!timebase.Update().cardLocked);  // no card: host clock as is
+    CHECK(!timebase.Update().referenceRunning);  // no card: host clock as is
     timebase.Begin(48000.0, AudioTimebaseSource::Asio);
     std::uint64_t frames = 0;
     std::int64_t now = 0;
     runCard(timebase, 48000.0, 40.0, 1.0, 5'000'000'000, frames, now);
     auto mapping = timebase.Current();
-    CHECK(mapping.cardLocked && mapping.measuredRate == 48000.0 && mapping.driftPpm == 0);  // not enough history yet
+    CHECK(mapping.referenceRunning && mapping.measuredRate == 48000.0 && mapping.driftPpm == 0);  // not enough history yet
     runCard(timebase, 48000.0, 40.0, 40.0, 6'000'000'000, frames, now);
     mapping = timebase.Current();
-    CHECK(mapping.cardLocked);
+    CHECK(mapping.referenceRunning);
     CHECK(std::fabs(mapping.driftPpm - 40.0) < 3.0);
     CHECK(mapping.spanSeconds > 25.0);
 
@@ -63,7 +63,7 @@ bool testRestartForgetsThePreviousCard() {
     runCard(timebase, 48000.0, -60.0, 20.0, 1'000'000'000, frames, now);
     CHECK(std::fabs(timebase.Current().driftPpm + 60.0) < 4.0);
     timebase.End();
-    CHECK(!timebase.Update().cardLocked);
+    CHECK(!timebase.Update().referenceRunning);
     timebase.Begin(44100.0, AudioTimebaseSource::Software);
     frames = 0;
     runCard(timebase, 44100.0, 25.0, 20.0, now + 1'000'000'000, frames, now);
@@ -83,7 +83,7 @@ bool testDropoutsDoNotLookLikeDrift() {
     frames = 0;
     runCard(timebase, 48000.0, 0.0, 1.0, now + 10'000'000, frames, now);
     const auto mapping = timebase.Current();
-    CHECK(mapping.cardLocked && std::fabs(mapping.driftPpm) < 1000.0);
+    CHECK(mapping.referenceRunning && std::fabs(mapping.driftPpm) < 1000.0);
     return true;
 }
 }
@@ -102,11 +102,11 @@ bool testConcurrentPublishUpdateAndRead() {
     std::thread reader([&] {  // API and receive threads
         while (!done) {
             const auto mapping = timebase.Current();
-            if (mapping.cardLocked && mapping.nominalRate != 48000.0) torn = true;
+            if (mapping.referenceRunning && mapping.nominalRate != 48000.0) torn = true;
         }
     });
     audio.join(); clock.join(); reader.join();
-    CHECK(!torn && timebase.Current().cardLocked);
+    CHECK(!torn && timebase.Current().referenceRunning);
     return true;
 }
 

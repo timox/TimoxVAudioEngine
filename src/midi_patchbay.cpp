@@ -797,8 +797,8 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
 
     const auto& reclocks = runtime.reclocks[source->second];
     if (reclocks.empty() || midi_ump::Type(words[0]) != 0x1) return;
-    if (!mapping.cardLocked) {
-        // No master clock to reclock on: pass ticks through as they arrive.
+    if (!mapping.referenceRunning) {
+        // No reference clock to reclock on: pass ticks through as they arrive.
         if (((words[0] >> 16) & 0xFF) == 0xF8)
             for (const auto& target : reclocks) sink.Send(target.destination, words, 1);
         return;
@@ -831,12 +831,12 @@ void MidiPatchbay::PumpClock(std::int64_t hostNs) {
     }
     std::lock_guard<std::mutex> clockLock(clockMutex_);
     if (!clockRunning_ || !runtime || !backend_) return;
-    // Ticks are only ever placed on the master clock's samples. Without a
-    // running master the clock waits; Windows timers are never used instead.
-    clockWaiting_ = !mapping.cardLocked;
+    // Ticks are only ever placed on the reference clock's samples. Without a
+    // running reference clock it waits; Windows timers are never used instead.
+    clockWaiting_ = !mapping.referenceRunning;
     if (clockWaiting_) return;
     const double now = mapping.CardSeconds(hostNs);
-    if (mapping.generation != clockGeneration_) {  // the master (re)started: new sample count
+    if (mapping.generation != clockGeneration_) {  // the reference clock (re)started: new sample count
         clockGeneration_ = mapping.generation;
         nextTickCardSeconds_ = now;
     }
@@ -855,8 +855,8 @@ MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const st
     if (bpm && !(*bpm >= 20.0 && *bpm <= 300.0)) return {false, "The engine clock tempo must be between 20 and 300 BPM"};
     if (!transport.empty() && transport != "start" && transport != "stop" && transport != "continue")
         return {false, "transport must be start, stop or continue"};
-    if ((transport == "start" || transport == "continue") && !timebase_->Current().cardLocked)
-        return {false, "No master clock is running: start audio on an ASIO driver or on the software clock"};
+    if ((transport == "start" || transport == "continue") && !timebase_->Current().referenceRunning)
+        return {false, "No reference clock is running: start audio on an ASIO driver or on the software clock"};
     std::lock_guard<std::mutex> lock(controlMutex_);
     if (!backend_) return {false, unavailableReason_};
     if (bpm) {
@@ -880,7 +880,7 @@ MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const st
             EmitEngineClock(*runtime, word, 0);
             clockTransport_ = transport;
             clockRunning_ = transport != "stop";
-            // The first tick follows start/continue by 1 ms, on the master's samples.
+            // The first tick follows start/continue by 1 ms, on the reference clock's samples.
             if (clockRunning_) {
                 const auto mapping = timebase_->Current();
                 nextTickCardSeconds_ = mapping.CardSeconds(steady) + 0.001;
@@ -1011,18 +1011,18 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
     }
 
     const auto mapping = timebase_->Current();
-    snapshot.timebase.cardLocked = mapping.cardLocked;
-    snapshot.timebase.reference = !mapping.cardLocked ? "none"
+    snapshot.referenceClock.running = mapping.referenceRunning;
+    snapshot.referenceClock.source = !mapping.referenceRunning ? "none"
         : mapping.source == AudioTimebaseSource::Software ? "software" : "asio";
-    snapshot.timebase.nominalRate = mapping.nominalRate;
-    snapshot.timebase.measuredRate = mapping.measuredRate;
-    snapshot.timebase.driftPpm = mapping.spanSeconds > 0 ? mapping.driftPpm : 0;
-    snapshot.timebase.spanSeconds = mapping.spanSeconds;
+    snapshot.referenceClock.nominalRate = mapping.nominalRate;
+    snapshot.referenceClock.measuredRate = mapping.measuredRate;
+    snapshot.referenceClock.driftPpm = mapping.spanSeconds > 0 ? mapping.driftPpm : 0;
+    snapshot.referenceClock.spanSeconds = mapping.spanSeconds;
     {
         std::lock_guard<std::mutex> clockLock(clockMutex_);
         snapshot.engineClock.bpm = clockBpm_;
         snapshot.engineClock.running = clockRunning_;
-        snapshot.engineClock.waitingForMasterClock = clockRunning_ && (clockWaiting_ || !mapping.cardLocked);
+        snapshot.engineClock.waitingForReferenceClock = clockRunning_ && (clockWaiting_ || !mapping.referenceRunning);
         snapshot.engineClock.ticks = clockTicks_;
         snapshot.engineClock.transport = clockTransport_;
     }
@@ -1030,7 +1030,7 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         // The engine clock port reports the clock it generates, like a received clock.
         auto& clock = snapshot.ports.front();
         clock.clockTicks = snapshot.engineClock.ticks;
-        clock.clockRunning = snapshot.engineClock.running && !snapshot.engineClock.waitingForMasterClock;
+        clock.clockRunning = snapshot.engineClock.running && !snapshot.engineClock.waitingForReferenceClock;
         clock.clockBpm = clock.clockRunning ? snapshot.engineClock.bpm : 0;
         clock.transport = snapshot.engineClock.transport;
     }
