@@ -26,3 +26,6 @@ Output: `build/Release/TimoxVirtualAsioEngine.exe`, `openapi-v1.json` and
 `schemas/`. A separately verified `PwarAsioClient.exe` must be placed beside the
 engine for PWAR supervision; its pinned SHA-256 is in `cmake/PwarClient.cmake`.
 This repository does not install the ASIO driver or bundle the control GUI.
+
+MIDI patchbay (Windows MIDI Services preview 12, optional build): see
+[docs/MIDI_PATCHBAY.en.md](docs/MIDI_PATCHBAY.en.md).

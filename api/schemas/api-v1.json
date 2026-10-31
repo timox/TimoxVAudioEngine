@@ -8,6 +8,8 @@
     { "$ref": "#/definitions/wasapiInventory" },
     { "$ref": "#/definitions/applicationProfiles" },
     { "$ref": "#/definitions/applicationProfilesUpdate" },
+    { "$ref": "#/definitions/midiPatchbay" },
+    { "$ref": "#/definitions/midiConfiguration" },
     { "$ref": "#/definitions/applyCommand" },
     { "$ref": "#/definitions/engineStartCommand" },
     { "$ref": "#/definitions/engineStopCommand" },
@@ -19,6 +21,281 @@
     { "$ref": "#/definitions/event" }
   ],
   "definitions": {
+    "midiVirtualPort": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "App-to-app MIDI port created by the engine through Windows MIDI Services. Its API port id is midi:virtual:<id>.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,32}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24,
+          "pattern": "^[ -~]*[!-~]$",
+          "description": "Name shown to applications; MIDI 1.0 applications see it followed by the function block name."
+        }
+      }
+    },
+    "midiRoute": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "destination"
+      ],
+      "additionalProperties": false,
+      "description": "Directed MIDI link. Port ids are midi:virtual:<id> or midi:endpoint:<Windows MIDI Services endpoint device id>. Groups and channels are 1-based. Filters apply to the source message; outputGroup/outputChannel rewrite it. Utility and UMP stream messages are never routed.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^midi:(virtual|endpoint):.+"
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^midi:(virtual|endpoint):.+"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "description": "Accepted source groups; default all."
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "description": "Accepted source channels for channel voice messages; default all."
+        },
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "notes",
+              "polyPressure",
+              "controlChange",
+              "programChange",
+              "channelPressure",
+              "pitchBend",
+              "systemRealtime",
+              "systemCommon",
+              "sysex",
+              "flexData"
+            ]
+          },
+          "description": "Accepted message categories; default all."
+        },
+        "outputGroup": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "outputChannel": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transpose": {
+          "type": "integer",
+          "minimum": -127,
+          "maximum": 127,
+          "default": 0,
+          "description": "Semitones applied to note numbers; notes moved out of 0..127 are dropped."
+        }
+      }
+    },
+    "midiConfiguration": {
+      "type": "object",
+      "required": [
+        "virtualPorts",
+        "routes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "virtualPorts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/midiVirtualPort"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/definitions/midiRoute"
+          }
+        }
+      }
+    },
+    "midiPort": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "transport",
+        "online",
+        "open",
+        "clientEndpointId",
+        "error"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "virtual",
+            "endpoint"
+          ]
+        },
+        "transport": {
+          "type": "string"
+        },
+        "online": {
+          "type": "boolean",
+          "description": "Endpoint present, or virtual port created."
+        },
+        "open": {
+          "type": "boolean",
+          "description": "The engine holds a connection; endpoints are opened only when an enabled route uses them."
+        },
+        "clientEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Virtual ports: endpoint id other applications open."
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "midiRouteStatus": {
+      "type": "object",
+      "required": [
+        "id",
+        "active",
+        "forwarded",
+        "filtered"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Enabled and both ports open."
+        },
+        "forwarded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filtered": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "midiPatchbay": {
+      "type": "object",
+      "required": [
+        "available",
+        "backend",
+        "error",
+        "configuration",
+        "ports",
+        "routes"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "configuration": {
+          "$ref": "#/definitions/midiConfiguration"
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/midiPort"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/midiRouteStatus"
+          }
+        }
+      }
+    },
     "supervisionClient": {
       "type": "object",
       "properties": {

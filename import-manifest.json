@@ -25,18 +25,18 @@
       "target": "api/openapi-v1.json",
       "sha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
       "sourceSha256": "243d01272e07b00cfd52819812ba3f96ec083d57207b4498b3490805081ef392",
-      "targetSha256": "208dc9c42be9eb0b9449ad89b612c0ecf399c2c478b5848ccc1798e4a7633073",
+      "targetSha256": "3ca0454906a63db98c5930b8524db1d371d52fc3f0e6f3601fed2fe61a4703a3",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "api/schemas/api-v1.json",
       "target": "api/schemas/api-v1.json",
       "sha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
       "sourceSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
-      "targetSha256": "2eb0630bdb93b81b2061aa58556ae4cbbd90480e0d31b44106796b8a05d07302",
+      "targetSha256": "64d97f918c038ac773b09cfb293b0139cac67f2554ed8554638ad392fdd17a77",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "asiosdk/common/asio.h",
@@ -115,9 +115,9 @@
       "target": "CMakeLists.txt",
       "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
       "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
-      "targetSha256": "ef84e27b0a2133a7eb125035a7f6ff91345b1eb172934814e4edddfaef65eab6",
+      "targetSha256": "ecd71b6d260dc7dad3004d42e996e3c380ac64d8955aaf3e590572dba877dd5e",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "docs/API_QUICKSTART.en.md",
@@ -140,18 +140,18 @@
       "target": "docs/API.en.md",
       "sha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
       "sourceSha256": "d91027d1159608107576480b1218f7c32663c4050ad7cd9e8b6bb12e955b0fb8",
-      "targetSha256": "b181aabffd2d04cb055d18964b16c987f8148d191adfa921252317ad5eaf17dd",
+      "targetSha256": "040af26d612134d43fc43d090e53165baae689f0b72c76686139a5fd5c1c2db5",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "docs/API.md",
       "target": "docs/API.md",
       "sha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
       "sourceSha256": "3bdaf76b83fcff4da8304ae1c91a8757e149ccd87843c7e80473a8092a429f3b",
-      "targetSha256": "8c10c59046f082686efa2cb13dcef8a0a595e9818f48af3ca1e10247e9c7c6f4",
+      "targetSha256": "bf6404e9141b791eb124aa8200857e716004a3c4ea67d7f56b1e5f85e8c4fe15",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "docs/ASIO_WASAPI_GUIDE.en.md",
@@ -246,8 +246,9 @@
       "target": "include/control_api_server.h",
       "sha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
       "sourceSha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
-      "targetSha256": "a3dde9dadb927bfaf4d6f91fb518cb40be6bb0aa79f817539b710274d0b192fb",
-      "status": "unchanged"
+      "targetSha256": "864e358529d927a9ce75574b8e5c6837bf93854a09b0ec71f7b66adb35eaccd6",
+      "status": "modified",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "include/engine_diagnostics.h",
@@ -599,7 +600,8 @@
       "sha256": null,
       "sourceSha256": null,
       "status": "generated",
-      "targetSha256": "befc3d40cf0d1730e1bb4aea64cacb6f683a3f1c2f5ec15de6df6a6a0c782d1b"
+      "targetSha256": "c370685086bdbb48ff8a1506961357e76ae3ff31e9cfd44ee8914d043454d25b",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "src/application_profile_store_write.cpp",
@@ -678,9 +680,9 @@
       "target": "src/control_api_server.cpp",
       "sha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
       "sourceSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
-      "targetSha256": "8d993ac545786679fafaf9a61aee87ace01cab346795a6a18868a037c8298810",
+      "targetSha256": "2f000f71cc57c16d775352d1de2621bf5b988b950acce6603d8db6bac2d8c49a",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "src/drift_resampler.cpp",
@@ -735,8 +737,9 @@
       "target": "src/main.cpp",
       "sha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
       "sourceSha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
-      "targetSha256": "7d320a32a90bc72fdae6bfba61d64cee590049851dd95f34055f9d758a231fea",
-      "status": "unchanged"
+      "targetSha256": "afb298cad8d5c5b933918d970b0752728ddb3339b4c4ef1532136a39b5f648fa",
+      "status": "modified",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
     },
     {
       "source": "src/native_audio_api.h",
@@ -1310,6 +1313,114 @@
       "targetSha256": "d65e3321a93ac431e27eb60d2ed73e940d6e8749a7f62fc0aefbcb2bed5a331b",
       "status": "generated",
       "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+    },
+    {
+      "source": null,
+      "target": "docs/MIDI_PATCHBAY.en.md",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "39cfe3b7dccf4d9f5a7be6a12c89db9b64378c90594b47659cd33e4b08a54da8",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "docs/MIDI_PATCHBAY.md",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "bf974d1553e3dbafbb19621b2a0247bbabddc40b191d20a5bfe2939410a6c5eb",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "include/midi_backend.h",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "97af15bddd7123a5609a28eaa2309e1a5a8a115e929f03a015a2db697993ab9a",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "include/midi_patchbay.h",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "8eda4bd8cf77a64b0ddbfde2f08aa2d8e313a09f7fb9207876965a0229d243c4",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "include/midi_routing_graph.h",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "d44aa224e6043b3583eada2e9d54e417050f5d9ec6f57c8989ae759e9798aaa2",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "include/midi_ump.h",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "100d5ac3c360f2f40083d40711ae984477a14fe451e933563e87da26ea1997ec",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "include/windows_midi_services_backend.h",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "6b772d4f16d3b6e6e3940229178b4455f067581f92d90eb6177e5f15f19949ee",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "src/midi_patchbay.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "0361f62e0c80ad4fb25155ef1849b68ab670810bea59cec56750e408597aa71f",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "src/midi_routing_graph.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "8274caef4b4bfc1eb3bfbe8b43ce098fd5a0b72e78fe05dc37705a1f990f297a",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "src/windows_midi_services_backend.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "d0f371f70adeeb8dc0642e923e188630c5d19208db43cb94a5a5d8292655b9da",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "tests/midi_patchbay_tests.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "b767b6976f6656d5aed9ce933b76a3d674f58806b45767994c4a66759b7c3666",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "tests/midi_routing_graph_tests.cpp",
+      "sha256": null,
+      "sourceSha256": null,
+      "targetSha256": "0b97b595383910cd6084931e496dce968db6ee83e0bbb12653536f6c773bbcad",
+      "status": "generated",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31"
     }
   ],
   "owner": "TimoxVAudioEngine",

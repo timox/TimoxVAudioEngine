@@ -434,6 +434,94 @@
           }
         }
       }
+    },
+    "/api/v1/midi": {
+      "get": {
+        "operationId": "getMidiPatchbay",
+        "summary": "Read the MIDI patchbay: ports, configuration and route counters",
+        "description": "Re-enumerates Windows MIDI Services endpoints, reopens routed endpoints that came back and closes those that disappeared, then returns the current state. Endpoint ports appear whether or not they are routed; routed endpoints that are absent are listed with online false.",
+        "responses": {
+          "200": {
+            "description": "Patchbay state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE: the engine runs without a MIDI patchbay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/midi/configuration": {
+      "put": {
+        "operationId": "replaceMidiConfiguration",
+        "summary": "Replace all virtual MIDI ports and MIDI routes",
+        "description": "Validates, applies and saves the complete MIDI patchbay to %LOCALAPPDATA%\\TimoxVasio\\midi-patchbay.json. Unchanged virtual ports stay open for applications; renamed ports are recreated. If a virtual port cannot be created the previous configuration stays in effect. An endpoint that cannot be opened only leaves its routes inactive and is reported in ports[].error.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MidiConfiguration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied and saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_MIDI_CONFIGURATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MIDI_CONFIGURATION_FAILED: not applied, or applied but not saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE: Windows MIDI Services is missing or the engine was built without it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -585,6 +673,12 @@
             "$ref": "./schemas/api-v1.json#/definitions/supervisionBridgeObservation"
           }
         ]
+      },
+      "MidiPatchbay": {
+        "$ref": "./schemas/api-v1.json#/definitions/midiPatchbay"
+      },
+      "MidiConfiguration": {
+        "$ref": "./schemas/api-v1.json#/definitions/midiConfiguration"
       }
     },
     "responses": {

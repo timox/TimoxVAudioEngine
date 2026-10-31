@@ -11,6 +11,7 @@
 #include "engine_diagnostics.h"
 #include "pwar_configuration_store.h"
 #include "pwar_client_supervisor.h"
+#include "midi_patchbay.h"
 
 #include <windows.h>
 #include <winternl.h>
@@ -464,6 +465,7 @@ struct ControlApiServer::Impl {
     std::mutex correlationMutex;
     std::optional<CorrelationSelection> correlationSelection;
     mutable ProcessCpuMonitor processCpu;
+    MidiPatchbay* midi = nullptr;
 
     Impl(VasioClientManager& manager, AudioController& audioController, EngineDiagnostics& engineDiagnostics,
          std::function<void()> requestStop)
@@ -1065,6 +1067,77 @@ struct ControlApiServer::Impl {
         });
     }
 
+    static Json midiSnapshotJson(const MidiPatchbaySnapshot& snapshot) {
+        Json ports = Json::array();
+        for (const auto& port : snapshot.ports)
+            ports.push_back({{"id", port.id}, {"name", port.name}, {"kind", port.kind},
+                {"transport", port.transport}, {"online", port.online}, {"open", port.open},
+                {"clientEndpointId", port.clientEndpointId.empty() ? Json(nullptr) : Json(port.clientEndpointId)},
+                {"error", port.error.empty() ? Json(nullptr) : Json(port.error)}});
+        Json routes = Json::array();
+        for (const auto& route : snapshot.routes)
+            routes.push_back({{"id", route.id}, {"active", route.active},
+                {"forwarded", route.forwarded}, {"filtered", route.filtered}});
+        auto configuration = Json::parse(midi_patchbay_json::Encode(snapshot.configuration));
+        configuration.erase("version");
+        return Json{{"available", snapshot.available},
+            {"backend", snapshot.backend.empty() ? Json(nullptr) : Json(snapshot.backend)},
+            {"error", snapshot.error.empty() ? Json(nullptr) : Json(snapshot.error)},
+            {"configuration", std::move(configuration)}, {"ports", std::move(ports)},
+            {"routes", std::move(routes)}};
+    }
+
+    void configureMidiRoutes() {
+        server.Get("/api/v1/midi", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            midi->Refresh();
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+        server.Put("/api/v1/midi/configuration", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            MidiPatchbayConfiguration configuration;
+            std::string error;
+            if (!midi_patchbay_json::Decode(request.body, configuration, error) ||
+                !MidiPatchbay::Validate(configuration, error)) {
+                response.status = 400;
+                response.set_content(Json{{"code", "INVALID_MIDI_CONFIGURATION"}, {"message", error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto before = midi->Snapshot();
+            if (!before.available) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"}, {"message", before.error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto applied = midi->Apply(configuration);
+            if (!applied.success) {
+                diagnostics.Write(EngineDiagnostics::Level::Error, "midi", applied.error);
+                response.status = 500;
+                response.set_content(Json{{"code", "MIDI_CONFIGURATION_FAILED"}, {"message", applied.error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            diagnostics.Write(EngineDiagnostics::Level::Info, "midi", "MIDI patchbay applied with " +
+                std::to_string(configuration.virtualPorts.size()) + " virtual ports and " +
+                std::to_string(configuration.routes.size()) + " routes");
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+    }
+
     void configureRoutes() {
         if (configured) return;
         configured = true;
@@ -1190,6 +1263,7 @@ struct ControlApiServer::Impl {
             }
         });
         configureApplicationProfileRoutes();
+        configureMidiRoutes();
         const auto optionsHandler = [](const httplib::Request& request, httplib::Response& response) {
             setCors(request, response);
             response.set_header("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
@@ -1203,6 +1277,8 @@ struct ControlApiServer::Impl {
         server.Options("/api/v1/application-profiles", optionsHandler);
         server.Options("/api/v1/pwar", optionsHandler);
         server.Options("/api/v1/diagnostics", optionsHandler);
+        server.Options("/api/v1/midi", optionsHandler);
+        server.Options("/api/v1/midi/configuration", optionsHandler);
         server.set_pre_request_handler([](const httplib::Request& request, httplib::Response& response) {
             const auto origin = request.get_header_value("Origin");
             if (!validOrigin(origin)) {
@@ -1397,6 +1473,10 @@ ControlApiServer::ControlApiServer(VasioClientManager& clients, AudioController&
     std::function<void()> stopRequest)
     : impl_(std::make_unique<Impl>(clients, controller, diagnostics, std::move(stopRequest))) {}
 ControlApiServer::~ControlApiServer() = default;
+
+void ControlApiServer::AttachMidiPatchbay(MidiPatchbay* patchbay) noexcept {
+    impl_->midi = patchbay;
+}
 
 bool ControlApiServer::Start(std::uint16_t requestedPort, std::uint16_t& boundPort, std::string& error) {
     return impl_->Start(requestedPort, boundPort, error);

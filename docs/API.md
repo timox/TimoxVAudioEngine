@@ -318,3 +318,7 @@ Cette étape prend en charge le mode partagé, le loopback d'endpoint et le loop
 
 Voir [le modèle et la matrice de propriétés](SUPERVISION_API.md). GET /api/v1/state expose supervision.schemaVersion=1 ; supervision.observations sépare les compteurs dynamiques des changements de topologie. Les niveaux absents restent null, avec une raison d'indisponibilité.
 
+
+## Patch bay MIDI
+
+`GET /api/v1/midi` et `PUT /api/v1/midi/configuration` gèrent les ports MIDI virtuels et les routes MIDI via Windows MIDI Services. Voir [le patch bay MIDI](MIDI_PATCHBAY.md).

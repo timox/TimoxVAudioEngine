@@ -12,6 +12,12 @@ enable_testing()
 add_executable(SupervisionApiTests tests/supervision_api_tests.cpp)
 target_include_directories(SupervisionApiTests PRIVATE src vendor)
 add_test(NAME SupervisionApiTests COMMAND SupervisionApiTests)
+add_executable(MidiRoutingGraphTests tests/midi_routing_graph_tests.cpp src/midi_routing_graph.cpp)
+target_include_directories(MidiRoutingGraphTests PRIVATE include)
+add_test(NAME MidiRoutingGraphTests COMMAND MidiRoutingGraphTests)
+add_executable(MidiPatchbayTests tests/midi_patchbay_tests.cpp src/midi_patchbay.cpp src/midi_routing_graph.cpp)
+target_include_directories(MidiPatchbayTests PRIVATE include vendor)
+add_test(NAME MidiPatchbayTests COMMAND MidiPatchbayTests)
 include(cmake/PwarClient.cmake)
 string(LENGTH "${TIMOX_PWAR_CLIENT_SHA256}" pwar_hash_length)
 if(NOT pwar_hash_length EQUAL 64 OR NOT TIMOX_PWAR_CLIENT_SHA256 MATCHES "^[0-9A-F]+$")
@@ -59,6 +65,9 @@ set(SOURCES
     ${SRC_DIR}/application_profile_store.cpp
     ${SRC_DIR}/application_profile_store_write.cpp
     ${SRC_DIR}/engine_diagnostics.cpp
+    ${SRC_DIR}/midi_routing_graph.cpp
+    ${SRC_DIR}/midi_patchbay.cpp
+    ${SRC_DIR}/windows_midi_services_backend.cpp
     ${SRC_DIR}/engine_version.rc
 )
 
@@ -175,6 +184,35 @@ if(WIN32)
     target_compile_definitions(TimoxVirtualAsioEngine PRIVATE SECURITY_WIN32)
     if(VASIO_ENABLE_CRASH_DUMP)
         target_link_libraries(TimoxVirtualAsioEngine PRIVATE dbghelp)
+    endif()
+
+    # Optional MIDI patchbay backend for Windows MIDI Services (preview 12
+    # runtime). The projection is generated from the Windows.Devices.Midi2
+    # NuGet metadata (0.99.92-preview.11); builds never download it.
+    option(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES "Build the Windows MIDI Services patchbay backend" OFF)
+    set(TIMOX_MIDI2_WINMD "" CACHE FILEPATH "Windows.Devices.Midi2.winmd from the Windows.Devices.Midi2 NuGet package")
+    if(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES)
+        if(NOT EXISTS "${TIMOX_MIDI2_WINMD}")
+            message(FATAL_ERROR "Set TIMOX_MIDI2_WINMD to Windows.Devices.Midi2.winmd (NuGet Windows.Devices.Midi2 0.99.92-preview.11)")
+        endif()
+        find_program(TIMOX_CPPWINRT cppwinrt HINTS
+            "${CMAKE_WINDOWS_KITS_10_DIR}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
+            "$ENV{WindowsSdkVerBinPath}/x64")
+        if(NOT TIMOX_CPPWINRT)
+            message(FATAL_ERROR "cppwinrt.exe was not found in the Windows SDK; set TIMOX_CPPWINRT")
+        endif()
+        set(midi2_projection "${CMAKE_BINARY_DIR}/generated/midi2-cppwinrt")
+        add_custom_command(OUTPUT "${midi2_projection}/winrt/Windows.Devices.Midi2.h"
+            COMMAND "${TIMOX_CPPWINRT}" -input sdk -input "${TIMOX_MIDI2_WINMD}" -output "${midi2_projection}"
+            DEPENDS "${TIMOX_MIDI2_WINMD}"
+            COMMENT "Generating the C++/WinRT projection for Windows MIDI Services...")
+        add_custom_target(Midi2Projection DEPENDS "${midi2_projection}/winrt/Windows.Devices.Midi2.h")
+        add_dependencies(TimoxVirtualAsioEngine Midi2Projection)
+        set_source_files_properties(${SRC_DIR}/windows_midi_services_backend.cpp PROPERTIES
+            COMPILE_DEFINITIONS TIMOX_ENABLE_WINDOWS_MIDI_SERVICES=1
+            COMPILE_OPTIONS "/bigobj;/permissive-")
+        target_include_directories(TimoxVirtualAsioEngine BEFORE PRIVATE "${midi2_projection}")
+        target_link_libraries(TimoxVirtualAsioEngine PRIVATE windowsapp)
     endif()
 
     add_executable(AsioBufferHealthTests tests/asio_buffer_health_tests.cpp)
@@ -341,6 +379,8 @@ if(WIN32)
     add_executable(ApplicationProfilesApiTests
         ${CMAKE_SOURCE_DIR}/tests/application_profiles_api_tests.cpp
         ${SRC_DIR}/control_api_server.cpp
+        ${SRC_DIR}/midi_patchbay.cpp
+        ${SRC_DIR}/midi_routing_graph.cpp
         ${SRC_DIR}/engine_diagnostics.cpp
         ${SRC_DIR}/audio_controller.cpp
         ${SRC_DIR}/audio_configuration_store.cpp

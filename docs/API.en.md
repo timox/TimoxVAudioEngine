@@ -232,3 +232,7 @@ This stage supports shared mode, endpoint loopback and per-process loopback of s
 
 See the [model and property mapping](SUPERVISION_API.md). GET /api/v1/state exposes supervision.schemaVersion=1; supervision.observations separates dynamic counters from topology changes. Unavailable levels stay null with an explicit unavailable reason.
 
+
+## MIDI patchbay
+
+`GET /api/v1/midi` and `PUT /api/v1/midi/configuration` manage virtual MIDI ports and MIDI routes through Windows MIDI Services. See [the MIDI patchbay](MIDI_PATCHBAY.en.md).
