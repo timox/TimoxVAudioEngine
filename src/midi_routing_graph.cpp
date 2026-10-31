@@ -23,16 +23,16 @@ bool MidiRoutingGraph::ValidateRoute(const MidiRoute& route, std::string& error)
         error = "MIDI route " + route.id + " cannot send a port back to itself";
         return false;
     }
-    if (route.groupMask == 0 || route.channelMask == 0) {
-        error = "MIDI route " + route.id + " must accept at least one group and one channel";
+    if (route.channelMask == 0) {
+        error = "MIDI route " + route.id + " must accept at least one channel";
         return false;
     }
     if (route.messages == 0 || (route.messages & ~static_cast<std::uint32_t>(midi_ump::AllCategories)) != 0) {
         error = "MIDI route " + route.id + " has an invalid message filter";
         return false;
     }
-    if ((route.outputGroup && *route.outputGroup > 15) || (route.outputChannel && *route.outputChannel > 15)) {
-        error = "MIDI route " + route.id + " output group and channel must be 1 to 16";
+    if (route.outputChannel && *route.outputChannel > 15) {
+        error = "MIDI route " + route.id + " output channel must be 1 to 16";
         return false;
     }
     if (route.transpose < -127 || route.transpose > 127) {
@@ -77,9 +77,8 @@ std::unique_ptr<MidiRoutingGraph> MidiRoutingGraph::Create(const std::vector<std
         const auto destination = portIndices.find(route.destinationPortId);
         if (!route.enabled || source == portIndices.end() || destination == portIndices.end()) continue;
         graph->active_[i] = true;
-        graph->bySource_[source->second].push_back({i, destination->second, route.groupMask,
+        graph->bySource_[source->second].push_back({i, destination->second,
             route.channelMask, route.messages,
-            route.outputGroup ? static_cast<int>(*route.outputGroup) : -1,
             route.outputChannel ? static_cast<int>(*route.outputChannel) : -1,
             route.transpose});
     }
@@ -105,14 +104,12 @@ void MidiRoutingGraph::ProcessMessage(std::size_t sourceIndex, const std::uint32
     const std::uint32_t word0 = words[0];
     const std::uint32_t category = midi_ump::Category(word0);
     if (category == 0) return;
-    const bool grouped = midi_ump::HasGroup(word0);
     const bool channelVoice = midi_ump::IsChannelVoice(word0);
     const bool hasNote = midi_ump::CarriesNoteNumber(word0);
 
     std::array<std::uint32_t, 4> output{};
     for (const auto& route : routes) {
         bool pass = (route.messages & category) != 0;
-        if (pass && grouped) pass = (route.groupMask >> midi_ump::Group(word0)) & 1u;
         if (pass && channelVoice) pass = (route.channelMask >> midi_ump::Channel(word0)) & 1u;
         std::uint32_t first = word0;
         if (pass && hasNote && route.transpose != 0) {
@@ -126,8 +123,6 @@ void MidiRoutingGraph::ProcessMessage(std::size_t sourceIndex, const std::uint32
             filtered_[route.routeIndex].fetch_add(1, std::memory_order_relaxed);
             continue;
         }
-        if (grouped && route.outputGroup >= 0)
-            first = midi_ump::WithGroup(first, static_cast<std::uint8_t>(route.outputGroup));
         if (channelVoice && route.outputChannel >= 0)
             first = midi_ump::WithChannel(first, static_cast<std::uint8_t>(route.outputChannel));
         output[0] = first;

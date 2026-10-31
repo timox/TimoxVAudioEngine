@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -25,7 +26,6 @@ constexpr CategoryName kCategories[] = {
     {"systemRealtime", midi_ump::SystemRealtime},
     {"systemCommon", midi_ump::SystemCommon},
     {"sysex", midi_ump::SysEx},
-    {"flexData", midi_ump::FlexData},
 };
 
 bool startsWith(const std::string& value, const char* prefix) {
@@ -83,8 +83,8 @@ bool decodeOptionalNumber(const Json& value, std::optional<std::uint8_t>& result
 }
 
 bool decodeRoute(const Json& item, MidiRoute& route, std::string& error) {
-    static const std::set<std::string> allowed{"id", "source", "destination", "enabled", "groups",
-        "channels", "messages", "outputGroup", "outputChannel", "transpose"};
+    static const std::set<std::string> allowed{"id", "source", "destination", "enabled",
+        "channels", "messages", "outputChannel", "transpose"};
     if (!item.is_object()) { error = "Each MIDI route must be an object"; return false; }
     for (const auto& entry : item.items())
         if (!allowed.count(entry.key())) { error = "Unknown MIDI route field " + entry.key(); return false; }
@@ -101,7 +101,6 @@ bool decodeRoute(const Json& item, MidiRoute& route, std::string& error) {
         if (!item["enabled"].is_boolean()) { error = "enabled must be a boolean"; return false; }
         route.enabled = item["enabled"].get<bool>();
     }
-    if (item.contains("groups") && !decodeMask(item["groups"], route.groupMask, "groups", error)) return false;
     if (item.contains("channels") && !decodeMask(item["channels"], route.channelMask, "channels", error)) return false;
     if (item.contains("messages")) {
         const auto& messages = item["messages"];
@@ -115,8 +114,6 @@ bool decodeRoute(const Json& item, MidiRoute& route, std::string& error) {
             if (!known) { error = "Unknown MIDI message category " + name.dump(); return false; }
         }
     }
-    if (item.contains("outputGroup") && !decodeOptionalNumber(item["outputGroup"], route.outputGroup, "outputGroup", error))
-        return false;
     if (item.contains("outputChannel") && !decodeOptionalNumber(item["outputChannel"], route.outputChannel, "outputChannel", error))
         return false;
     if (item.contains("transpose")) {
@@ -135,23 +132,47 @@ Json encodeRoute(const MidiRoute& route) {
     for (const auto& category : kCategories)
         if (route.messages & category.bit) messages.push_back(category.name);
     return Json{{"id", route.id}, {"source", route.sourcePortId}, {"destination", route.destinationPortId},
-        {"enabled", route.enabled}, {"groups", encodeMask(route.groupMask)},
+        {"enabled", route.enabled},
         {"channels", encodeMask(route.channelMask)}, {"messages", std::move(messages)},
-        {"outputGroup", route.outputGroup ? Json(*route.outputGroup + 1) : Json(nullptr)},
         {"outputChannel", route.outputChannel ? Json(*route.outputChannel + 1) : Json(nullptr)},
         {"transpose", route.transpose}};
 }
 
+struct PortTarget {
+    std::uint64_t cookie = 0;
+    std::uint8_t group = 0;
+    bool destination = false;
+};
+
+// Sends to the destination port's connection, on that port's group.
 class BackendSink final : public MidiOutputSink {
 public:
-    BackendSink(MidiBackend& backend, const std::vector<std::uint64_t>& cookies)
-        : backend_(backend), cookies_(cookies) {}
+    BackendSink(MidiBackend& backend, const std::vector<PortTarget>& targets)
+        : backend_(backend), targets_(targets) {}
     void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept override {
-        if (destinationIndex < cookies_.size()) backend_.Send(cookies_[destinationIndex], words, count);
+        if (destinationIndex >= targets_.size() || !targets_[destinationIndex].destination || count == 0 || count > 4)
+            return;
+        std::uint32_t message[4];
+        for (std::size_t i = 0; i < count; ++i) message[i] = words[i];
+        message[0] = midi_ump::WithGroup(message[0], targets_[destinationIndex].group);
+        backend_.Send(targets_[destinationIndex].cookie, message, count);
     }
 private:
     MidiBackend& backend_;
-    const std::vector<std::uint64_t>& cookies_;
+    const std::vector<PortTarget>& targets_;
+};
+
+std::uint64_t sourceKey(std::uint64_t cookie, std::uint8_t group) {
+    return (cookie << 4) | (group & 0x0F);
+}
+
+std::string endpointKey(const std::string& endpointId) { return "endpoint:" + endpointId; }
+
+struct PresentPort {
+    std::string endpointId;
+    std::uint8_t group = 0;
+    bool source = false;
+    bool destination = false;
 };
 }
 
@@ -205,10 +226,30 @@ std::string Encode(const MidiPatchbayConfiguration& configuration) {
 
 struct MidiPatchbay::Runtime {
     std::unique_ptr<MidiRoutingGraph> graph;
-    std::unordered_map<std::uint64_t, std::size_t> sourceIndices;
-    std::vector<std::uint64_t> cookies;
+    std::unordered_map<std::uint64_t, std::size_t> sourceIndices;  // by sourceKey(cookie, group)
+    std::vector<PortTarget> targets;                                // by port index
     std::vector<std::string> routeIds;
 };
+
+bool MidiPatchbay::ParsePortId(const std::string& portId, std::uint8_t& group, std::string& endpointId) {
+    if (!startsWith(portId, kPortPrefix)) return false;
+    const auto start = std::char_traits<char>::length(kPortPrefix);
+    const auto colon = portId.find(':', start);
+    if (colon == std::string::npos || colon == start || colon - start > 2 || colon + 1 >= portId.size()) return false;
+    int value = 0;
+    for (auto i = start; i < colon; ++i) {
+        if (portId[i] < '0' || portId[i] > '9') return false;
+        value = value * 10 + (portId[i] - '0');
+    }
+    if (value < 1 || value > 16 || (colon - start == 2 && portId[start] == '0')) return false;
+    group = static_cast<std::uint8_t>(value - 1);
+    endpointId = portId.substr(colon + 1);
+    return true;
+}
+
+std::string MidiPatchbay::PortId(std::uint8_t group, const std::string& endpointId) {
+    return kPortPrefix + std::to_string(group + 1) + ":" + endpointId;
+}
 
 MidiPatchbay::MidiPatchbay(std::unique_ptr<MidiBackend> backend, std::filesystem::path storePath,
     std::string unavailableReason)
@@ -257,10 +298,13 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
                     error = "MIDI route " + route.id + " references undefined virtual port " + *portId;
                     return false;
                 }
-            } else if (!startsWith(*portId, kEndpointPrefix) ||
-                       portId->size() == std::char_traits<char>::length(kEndpointPrefix)) {
-                error = "MIDI route " + route.id + " port ids must start with midi:virtual: or midi:endpoint:";
-                return false;
+            } else {
+                std::uint8_t group = 0;
+                std::string endpointId;
+                if (!ParsePortId(*portId, group, endpointId)) {
+                    error = "MIDI route " + route.id + " port ids must be midi:virtual:<id> or midi:port:<1-16>:<endpoint id>";
+                    return false;
+                }
             }
         }
     }
@@ -332,13 +376,26 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     std::string error;
     if (!Validate(configuration, error)) return {false, error};
 
-    std::set<std::string> presentEndpoints;
-    for (const auto& endpoint : endpoints_) presentEndpoints.insert(kEndpointPrefix + endpoint.endpointId);
+    std::map<std::string, PresentPort> present;
+    for (const auto& endpoint : endpoints_)
+        for (const auto& port : endpoint.ports)
+            present[PortId(port.group, endpoint.endpointId)] = {endpoint.endpointId, port.group, port.source, port.destination};
+    const auto usable = [&](const std::string& portId, bool asSource) {
+        if (startsWith(portId, kVirtualPrefix)) return true;
+        const auto found = present.find(portId);
+        return found != present.end() && (asSource ? found->second.source : found->second.destination);
+    };
+
+    // A route is live only when its source can send and its destination can
+    // receive; otherwise it stays configured but inactive.
+    auto routes = configuration.routes;
     std::set<std::string> wantedEndpoints;
-    for (const auto& route : configuration.routes) {
+    for (auto& route : routes) {
+        if (route.enabled && (!usable(route.sourcePortId, true) || !usable(route.destinationPortId, false)))
+            route.enabled = false;
         if (!route.enabled) continue;
         for (const auto* portId : {&route.sourcePortId, &route.destinationPortId})
-            if (startsWith(*portId, kEndpointPrefix) && presentEndpoints.count(*portId)) wantedEndpoints.insert(*portId);
+            if (!startsWith(*portId, kVirtualPrefix)) wantedEndpoints.insert(present.at(*portId).endpointId);
     }
 
     std::map<std::string, OpenConnection> next;
@@ -364,29 +421,43 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         created.push_back(connection.cookie);
         next[portId] = connection;
     }
-    // Endpoints: open on demand; a failure only deactivates its routes.
-    for (const auto& portId : wantedEndpoints) {
-        const auto existing = connections_.find(portId);
-        if (existing != connections_.end()) { next[portId] = existing->second; continue; }
+    // Endpoints: one connection carries all of its MIDI 1.0 ports. A failure
+    // only deactivates the routes using it.
+    for (const auto& endpointId : wantedEndpoints) {
+        const auto key = endpointKey(endpointId);
+        const auto existing = connections_.find(key);
+        if (existing != connections_.end()) { next[key] = existing->second; continue; }
         OpenConnection connection;
         connection.cookie = nextCookie_++;
-        const auto endpointId = portId.substr(std::char_traits<char>::length(kEndpointPrefix));
         if (!backend_->OpenEndpoint(connection.cookie, endpointId, error)) {
-            errors[portId] = error;
+            errors[endpointId] = error;
             continue;
         }
         created.push_back(connection.cookie);
-        next[portId] = connection;
+        next[key] = connection;
     }
 
     auto runtime = std::make_shared<Runtime>();
     std::vector<std::string> ports;
-    for (const auto& entry : next) {
-        runtime->sourceIndices.emplace(entry.second.cookie, ports.size());
-        runtime->cookies.push_back(entry.second.cookie);
+    for (const auto& port : configuration.virtualPorts) {
+        const auto& connection = next.at(kVirtualPrefix + port.id);
+        runtime->sourceIndices.emplace(sourceKey(connection.cookie, 0), ports.size());
+        runtime->targets.push_back({connection.cookie, 0, true});
+        ports.push_back(kVirtualPrefix + port.id);
+    }
+    for (const auto& entry : present) {
+        const auto connection = next.find(endpointKey(entry.second.endpointId));
+        if (connection == next.end()) continue;
+        if (entry.second.source)
+            runtime->sourceIndices.emplace(sourceKey(connection->second.cookie, entry.second.group), ports.size());
+        runtime->targets.push_back({connection->second.cookie, entry.second.group, entry.second.destination});
         ports.push_back(entry.first);
     }
-    runtime->graph = MidiRoutingGraph::Create(ports, configuration.routes, error);
+    for (auto& route : routes)
+        if (route.enabled && (std::find(ports.begin(), ports.end(), route.sourcePortId) == ports.end() ||
+                              std::find(ports.begin(), ports.end(), route.destinationPortId) == ports.end()))
+            route.enabled = false;
+    runtime->graph = MidiRoutingGraph::Create(ports, routes, error);
     if (!runtime->graph) {
         rollback();
         return {false, error};
@@ -402,7 +473,7 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         if (kept == next.end() || kept->second.cookie != entry.second.cookie) backend_->Close(entry.second.cookie);
     }
     connections_ = std::move(next);
-    portErrors_ = std::move(errors);
+    endpointErrors_ = std::move(errors);
     configuration_ = configuration;
     return {true, {}};
 }
@@ -413,11 +484,29 @@ void MidiPatchbay::OnReceive(std::uint64_t cookie, const std::uint32_t* words, s
         std::lock_guard<std::mutex> lock(runtimeMutex_);
         runtime = runtime_;
     }
-    if (!runtime || !backend_) return;
-    const auto source = runtime->sourceIndices.find(cookie);
-    if (source == runtime->sourceIndices.end()) return;
-    BackendSink sink(*backend_, runtime->cookies);
-    runtime->graph->Process(source->second, words, count, sink);
+    if (!runtime || !backend_ || !words) return;
+    std::size_t offset = 0;
+    while (offset < count) {
+        const auto length = midi_ump::WordCount(words[offset]);
+        if (offset + length > count) return;
+        if (midi_ump::Type(words[offset]) == 0x4) {
+            // A MIDI 2.0 device sent MIDI 2.0 channel voice: carry it as MIDI 1.0.
+            std::uint32_t translated[4];
+            const auto messages = midi_ump::Midi2ToMidi1(words + offset, translated);
+            for (std::size_t i = 0; i < messages; ++i) Route(*runtime, cookie, translated + i, 1);
+        } else if (midi_ump::Category(words[offset]) != 0) {
+            Route(*runtime, cookie, words + offset, length);
+        }
+        offset += length;
+    }
+}
+
+void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std::uint32_t* words,
+                         std::size_t count) noexcept {
+    const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
+    if (source == runtime.sourceIndices.end()) return;
+    BackendSink sink(*backend_, runtime.targets);
+    runtime.graph->Process(source->second, words, count, sink);
 }
 
 bool MidiPatchbay::Save(const MidiPatchbayConfiguration& configuration, std::string& error) const {
@@ -455,35 +544,44 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.id = kVirtualPrefix + port.id;
         status.name = port.name;
         status.kind = "virtual";
-        status.transport = "APP";
+        status.source = status.destination = true;
         const auto connection = connections_.find(status.id);
         status.online = status.open = connection != connections_.end();
         if (status.open) status.clientEndpointId = connection->second.clientEndpointId;
         snapshot.ports.push_back(std::move(status));
     }
     std::set<std::string> listed;
-    for (const auto& endpoint : endpoints_) {
-        MidiPortStatus status;
-        status.id = kEndpointPrefix + endpoint.endpointId;
-        status.name = endpoint.name;
-        status.kind = "endpoint";
-        status.transport = endpoint.transport;
-        status.online = true;
-        status.open = connections_.count(status.id) != 0;
-        const auto error = portErrors_.find(status.id);
-        if (error != portErrors_.end()) status.error = error->second;
-        listed.insert(status.id);
-        snapshot.ports.push_back(std::move(status));
-    }
-    // Routed endpoints that are currently absent (unplugged device, stopped app).
+    for (const auto& endpoint : endpoints_)
+        for (const auto& port : endpoint.ports) {
+            MidiPortStatus status;
+            status.id = PortId(port.group, endpoint.endpointId);
+            if (!listed.insert(status.id).second) continue;
+            status.name = port.name.empty() ? endpoint.name : port.name;
+            status.kind = "port";
+            status.endpointId = endpoint.endpointId;
+            status.endpointName = endpoint.name;
+            status.group = port.group + 1;
+            status.source = port.source;
+            status.destination = port.destination;
+            status.online = true;
+            status.open = connections_.count(endpointKey(endpoint.endpointId)) != 0;
+            const auto error = endpointErrors_.find(endpoint.endpointId);
+            if (error != endpointErrors_.end()) status.error = error->second;
+            snapshot.ports.push_back(std::move(status));
+        }
+    // Routed ports that are currently absent (unplugged device, stopped app).
     for (const auto& route : configuration_.routes)
-        for (const auto* portId : {&route.sourcePortId, &route.destinationPortId})
-            if (startsWith(*portId, kEndpointPrefix) && listed.insert(*portId).second) {
-                MidiPortStatus status;
-                status.id = *portId;
-                status.kind = "endpoint";
-                snapshot.ports.push_back(std::move(status));
-            }
+        for (const auto* portId : {&route.sourcePortId, &route.destinationPortId}) {
+            std::uint8_t group = 0;
+            std::string endpointId;
+            if (!ParsePortId(*portId, group, endpointId) || !listed.insert(*portId).second) continue;
+            MidiPortStatus status;
+            status.id = *portId;
+            status.kind = "port";
+            status.endpointId = endpointId;
+            status.group = group + 1;
+            snapshot.ports.push_back(std::move(status));
+        }
 
     std::shared_ptr<const Runtime> runtime;
     {

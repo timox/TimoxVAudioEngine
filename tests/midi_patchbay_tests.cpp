@@ -63,19 +63,30 @@ std::filesystem::path tempStore(const char* name) {
     return path;
 }
 
+// Endpoints as Windows MIDI Services lists them, with their MIDI 1.0 ports.
+std::vector<MidiEndpointInfo> endpoints() {
+    return {
+        {"usb-synth", "Synth", "KS", {{0, "Synth MIDI In", false, true}}},
+        {"usb-keys", "Keys", "KS", {{0, "Keys MIDI Out", true, false}}},
+        {"usb-multi", "Multi", "KS", {{0, "Multi Port 1", true, true}, {1, "Multi Port 2", true, true}}},
+    };
+}
+
 const char* kConfiguration = R"({
   "virtualPorts": [{"id": "daw", "name": "Timox DAW"}],
   "routes": [
-    {"id": "to-synth", "source": "midi:virtual:daw", "destination": "midi:endpoint:usb-synth",
+    {"id": "to-synth", "source": "midi:virtual:daw", "destination": "midi:port:1:usb-synth",
      "channels": [1], "outputChannel": 2},
-    {"id": "from-keys", "source": "midi:endpoint:usb-keys", "destination": "midi:virtual:daw"},
-    {"id": "to-absent", "source": "midi:virtual:daw", "destination": "midi:endpoint:unplugged"}
+    {"id": "from-keys", "source": "midi:port:1:usb-keys", "destination": "midi:virtual:daw"},
+    {"id": "to-multi-2", "source": "midi:virtual:daw", "destination": "midi:port:2:usb-multi"},
+    {"id": "to-absent", "source": "midi:virtual:daw", "destination": "midi:port:1:unplugged"},
+    {"id": "wrong-way", "source": "midi:virtual:daw", "destination": "midi:port:1:usb-keys"}
   ]
 })";
 
 bool testApplyRoutesAndPersists() {
     FakeBackend::State state;
-    state.endpoints = {{"usb-synth", "Synth", "KS"}, {"usb-keys", "Keys", "KS"}, {"other", "Other", "KS"}};
+    state.endpoints = endpoints();
     const auto store = tempStore("apply.json");
     MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), store);
     CHECK(patchbay.Start().success);
@@ -83,32 +94,50 @@ bool testApplyRoutesAndPersists() {
     MidiPatchbayConfiguration configuration;
     std::string error;
     CHECK(midi_patchbay_json::Decode(kConfiguration, configuration, error));
-    const auto applied = patchbay.Apply(configuration);
-    CHECK(applied.success);
-    // Only routed, present endpoints are opened.
-    CHECK(state.open.size() == 3);
+    CHECK(patchbay.Apply(configuration).success);
+    // One connection per endpoint, only for endpoints used by live routes.
+    CHECK(state.open.size() == 4);
     const auto daw = cookieOf(state, "virtual:Timox DAW");
     const auto synth = cookieOf(state, "usb-synth");
     const auto keys = cookieOf(state, "usb-keys");
-    CHECK(daw && synth && keys);
+    const auto multi = cookieOf(state, "usb-multi");
+    CHECK(daw && synth && keys && multi);
 
+    // DAW channel 1 goes to the synth on channel 2; channel 2 is filtered out.
+    // Every DAW message also reaches port 2 of the multi-port interface (group 2).
     const std::uint32_t ch1 = 0x20903C64u, ch2 = 0x20913C64u;
     state.handler(daw, &ch1, 1);
+    CHECK(state.sent.size() == 2);
+    CHECK(state.sent[0].first == synth && state.sent[0].second[0] == 0x20913C64u);
+    CHECK(state.sent[1].first == multi && state.sent[1].second[0] == 0x21903C64u);
     state.handler(daw, &ch2, 1);
-    CHECK(state.sent.size() == 1 && state.sent[0].first == synth && state.sent[0].second[0] == 0x20913C64u);
+    CHECK(state.sent.size() == 3 && state.sent[2].first == multi);
+
+    // Keyboard to DAW. Another group of the same endpoint is another port.
     state.handler(keys, &ch2, 1);
-    CHECK(state.sent.size() == 2 && state.sent[1].first == daw);
+    CHECK(state.sent.size() == 4 && state.sent[3].first == daw && state.sent[3].second[0] == ch2);
+    const std::uint32_t otherGroup = 0x23913C64u;
+    state.handler(keys, &otherGroup, 1);
+    CHECK(state.sent.size() == 4);
+    // MIDI 2.0 from a MIDI 2.0 keyboard is carried as MIDI 1.0.
+    const std::uint32_t midi2Note[] = {0x40923C00u, 0xFFFF0000u};
+    state.handler(keys, midi2Note, 2);
+    CHECK(state.sent.size() == 5 && state.sent[4].second.size() == 1 && state.sent[4].second[0] == 0x20923C7Fu);
 
     const auto snapshot = patchbay.Snapshot();
-    CHECK(snapshot.available && snapshot.routes.size() == 3);
+    CHECK(snapshot.available && snapshot.routes.size() == 5);
     CHECK(snapshot.routes[0].active && snapshot.routes[0].forwarded == 1 && snapshot.routes[0].filtered == 1);
-    CHECK(!snapshot.routes[2].active);
-    bool absentListed = false;
+    CHECK(snapshot.routes[2].active);
+    CHECK(!snapshot.routes[3].active);  // unplugged
+    CHECK(!snapshot.routes[4].active);  // keyboard port cannot receive
+    bool absentListed = false, multiPort2 = false;
     for (const auto& port : snapshot.ports) {
-        if (port.id == "midi:endpoint:unplugged") absentListed = !port.online;
+        if (port.id == "midi:port:1:unplugged") absentListed = !port.online;
+        if (port.id == "midi:port:2:usb-multi")
+            multiPort2 = port.name == "Multi Port 2" && port.group == 2 && port.source && port.destination;
         if (port.id == "midi:virtual:daw") CHECK(port.clientEndpointId == "client-Timox DAW");
     }
-    CHECK(absentListed);
+    CHECK(absentListed && multiPort2);
 
     // Persisted file reloads into an equivalent configuration.
     std::ifstream input(store);
@@ -121,7 +150,7 @@ bool testApplyRoutesAndPersists() {
 
 bool testReapplyKeepsConnectionsAndHotplugReopens() {
     FakeBackend::State state;
-    state.endpoints = {{"usb-synth", "Synth", "KS"}};
+    state.endpoints = {endpoints()[0]};
     MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("hotplug.json"));
     CHECK(patchbay.Start().success);
     MidiPatchbayConfiguration configuration;
@@ -136,7 +165,7 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
     CHECK(cookieOf(state, "virtual:Timox DAW") == daw);
 
     // Keyboard plugged in later.
-    state.endpoints.push_back({"usb-keys", "Keys", "KS"});
+    state.endpoints.push_back(endpoints()[1]);
     patchbay.Refresh();
     CHECK(cookieOf(state, "usb-keys") != 0);
     // Synth unplugged: its connection is released.
@@ -144,7 +173,7 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
     patchbay.Refresh();
     CHECK(cookieOf(state, "usb-synth") == 0);
 
-    // Renaming recreates the virtual port; removing it closes everything routed to it.
+    // Renaming recreates the virtual port; removing everything closes everything.
     configuration.virtualPorts[0].name = "Timox Live";
     CHECK(patchbay.Apply(configuration).success);
     CHECK(!cookieOf(state, "virtual:Timox DAW") && cookieOf(state, "virtual:Timox Live"));
@@ -155,7 +184,7 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
 
 bool testFailuresKeepPreviousConfiguration() {
     FakeBackend::State state;
-    state.endpoints = {{"usb-synth", "Synth", "KS"}, {"usb-keys", "Keys", "KS"}};
+    state.endpoints = endpoints();
     MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("failure.json"));
     CHECK(patchbay.Start().success);
     MidiPatchbayConfiguration configuration;
@@ -168,7 +197,7 @@ bool testFailuresKeepPreviousConfiguration() {
     auto snapshot = patchbay.Snapshot();
     CHECK(snapshot.routes[0].active && !snapshot.routes[1].active);
     for (const auto& port : snapshot.ports)
-        if (port.id == "midi:endpoint:usb-keys") CHECK(port.error == "busy");
+        if (port.id == "midi:port:1:usb-keys") CHECK(port.error == "busy");
 
     // Virtual port failure rejects the whole change.
     auto changed = configuration;
@@ -185,14 +214,30 @@ bool testValidation() {
     MidiPatchbayConfiguration configuration;
     std::string error;
     CHECK(!midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[],"extra":1})", configuration, error));
+    // Groups are not a route option: each MIDI 1.0 port already is one group.
+    CHECK(!midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[{"id":"r","source":"a","destination":"b","groups":[1]}]})",
+        configuration, error));
     CHECK(!midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[{"id":"r","source":"a","destination":"b","channels":[17]}]})",
         configuration, error));
     CHECK(!midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[{"id":"r","source":"a","destination":"b","messages":["noise"]}]})",
         configuration, error));
     CHECK(midi_patchbay_json::Decode(
-        R"({"virtualPorts":[],"routes":[{"id":"r","source":"midi:virtual:missing","destination":"midi:endpoint:x"}]})",
+        R"({"virtualPorts":[],"routes":[{"id":"r","source":"midi:virtual:missing","destination":"midi:port:1:x"}]})",
         configuration, error));
     CHECK(!MidiPatchbay::Validate(configuration, error));  // undefined virtual port
+    for (const char* badPort : {"midi:port:0:x", "midi:port:17:x", "midi:port:01:x", "midi:port:1:", "midi:endpoint:x"}) {
+        MidiPatchbayConfiguration bad;
+        bad.virtualPorts.push_back({"daw", "Timox DAW"});
+        MidiRoute route;
+        route.id = "r"; route.sourcePortId = "midi:virtual:daw"; route.destinationPortId = badPort;
+        bad.routes.push_back(route);
+        CHECK(!MidiPatchbay::Validate(bad, error));
+    }
+    std::uint8_t group = 0;
+    std::string endpointId;
+    CHECK(MidiPatchbay::ParsePortId("midi:port:16:\\\\?\\swd#midisrv#a:b", group, endpointId));
+    CHECK(group == 15 && endpointId == "\\\\?\\swd#midisrv#a:b");
+    CHECK(MidiPatchbay::PortId(15, endpointId) == "midi:port:16:\\\\?\\swd#midisrv#a:b");
     CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[{"id":"Bad Id","name":"x"}],"routes":[]})", configuration, error));
     CHECK(!MidiPatchbay::Validate(configuration, error));
     CHECK(midi_patchbay_json::Decode(

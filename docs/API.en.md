@@ -235,4 +235,4 @@ See the [model and property mapping](SUPERVISION_API.md). GET /api/v1/state expo
 
 ## MIDI patchbay
 
-`GET /api/v1/midi` and `PUT /api/v1/midi/configuration` manage virtual MIDI ports and MIDI routes through Windows MIDI Services. See [the MIDI patchbay](MIDI_PATCHBAY.en.md).
+`GET /api/v1/midi` and `PUT /api/v1/midi/configuration` manage MIDI 1.0 ports (virtual and device ports) and MIDI routes through Windows MIDI Services. See [the MIDI 1.0 patchbay](MIDI_PATCHBAY.en.md).

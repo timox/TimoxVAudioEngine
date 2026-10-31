@@ -52,7 +52,6 @@ bool testChannelFilterRemapAndTranspose() {
     route.id = "split"; route.sourcePortId = "midi:virtual:daw"; route.destinationPortId = "midi:endpoint:synth";
     route.channelMask = 1u << 0;   // channel 1 only
     route.outputChannel = 9;       // to channel 10
-    route.outputGroup = 2;         // to group 3
     route.transpose = 12;
     std::string error;
     auto graph = MidiRoutingGraph::Create(kPorts, {route}, error);
@@ -63,7 +62,7 @@ bool testChannelFilterRemapAndTranspose() {
     graph->Process(0, &ch1, 1, sink);
     graph->Process(0, &ch2, 1, sink);
     CHECK(sink.sent.size() == 1);
-    CHECK(sink.sent[0].words[0] == midi1(2, 0x9, 9, 72, 100));
+    CHECK(sink.sent[0].words[0] == midi1(0, 0x9, 9, 72, 100));
     CHECK(graph->Filtered(0) == 1);
     // Transposed out of range: dropped for note on and note off alike.
     const std::uint32_t high[] = {midi1(0, 0x9, 0, 120, 1), midi1(0, 0x8, 0, 120, 0)};
@@ -72,7 +71,7 @@ bool testChannelFilterRemapAndTranspose() {
     // Control change is not transposed.
     const std::uint32_t cc = midi1(0, 0xB, 0, 120, 5);
     graph->Process(0, &cc, 1, sink);
-    CHECK(sink.sent.size() == 2 && sink.sent[1].words[0] == midi1(2, 0xB, 9, 120, 5));
+    CHECK(sink.sent.size() == 2 && sink.sent[1].words[0] == midi1(0, 0xB, 9, 120, 5));
     return true;
 }
 
@@ -80,19 +79,19 @@ bool testMessageCategoriesAndMultiWordPackets() {
     MidiRoute route;
     route.id = "clock"; route.sourcePortId = "midi:virtual:daw"; route.destinationPortId = "midi:endpoint:drums";
     route.messages = midi_ump::SystemRealtime | midi_ump::SysEx;
-    route.groupMask = 1u << 0;
     std::string error;
     auto graph = MidiRoutingGraph::Create(kPorts, {route}, error);
     CHECK(graph);
     RecordingSink sink;
     const std::uint32_t buffer[] = {
-        0x10F80000u,               // timing clock, group 1
+        0x10F80000u,               // timing clock
         midi1(0, 0x9, 0, 60, 1),   // note: filtered
-        0x30160001u, 0x02030405u,  // SysEx7 complete, 2 words, group 1
-        0x11F80000u,               // timing clock, group 2: filtered
+        0x30160001u, 0x02030405u,  // SysEx7 complete, 2 words
+        0x40903C00u, 0xFFFF0000u,  // MIDI 2.0 note on: not MIDI 1.0, never routed
+        0xD0000000u, 0, 0, 0,      // flex data: never routed
         0xF0000000u, 0, 0, 0,      // UMP stream message: never routed
         0x00200000u,               // utility (JR timestamp): never routed
-        0x40900000u,               // truncated MIDI 2.0 note on: dropped
+        0x30160001u,               // truncated SysEx7: dropped
     };
     graph->Process(0, buffer, sizeof(buffer) / sizeof(buffer[0]), sink);
     CHECK(sink.sent.size() == 2);
@@ -101,18 +100,25 @@ bool testMessageCategoriesAndMultiWordPackets() {
     return true;
 }
 
-bool testMidi2NoteTransposeKeepsVelocityWord() {
-    MidiRoute route;
-    route.id = "m2"; route.sourcePortId = "midi:virtual:daw"; route.destinationPortId = "midi:endpoint:synth";
-    route.transpose = -2;
-    std::string error;
-    auto graph = MidiRoutingGraph::Create(kPorts, {route}, error);
-    CHECK(graph);
-    RecordingSink sink;
-    const std::uint32_t note[] = {0x40913C00u, 0xFFFF0000u};  // note on ch2, note 60
-    graph->Process(0, note, 2, sink);
-    CHECK(sink.sent.size() == 1);
-    CHECK(sink.sent[0].words[0] == 0x40913A00u && sink.sent[0].words[1] == 0xFFFF0000u);
+bool testMidi2ToMidi1Translation() {
+    std::uint32_t out[4];
+    const std::uint32_t noteOn[] = {0x40913C00u, 0x00000000u};  // velocity 0 on MIDI 2.0
+    CHECK(midi_ump::Midi2ToMidi1(noteOn, out) == 1 && out[0] == midi1(0, 0x9, 1, 60, 1));
+    const std::uint32_t loudNote[] = {0x42913C00u, 0xFFFF0000u};
+    CHECK(midi_ump::Midi2ToMidi1(loudNote, out) == 1 && out[0] == midi1(2, 0x9, 1, 60, 127));
+    const std::uint32_t cc[] = {0x40B00700u, 0x80000000u};
+    CHECK(midi_ump::Midi2ToMidi1(cc, out) == 1 && out[0] == midi1(0, 0xB, 0, 7, 64));
+    const std::uint32_t bend[] = {0x40E00000u, 0x80000000u};
+    CHECK(midi_ump::Midi2ToMidi1(bend, out) == 1 && out[0] == midi1(0, 0xE, 0, 0, 64));
+    const std::uint32_t program[] = {0x40C00001u, 0x05000203u};  // program 5, bank 2/3
+    CHECK(midi_ump::Midi2ToMidi1(program, out) == 3);
+    CHECK(out[0] == midi1(0, 0xB, 0, 0, 2) && out[1] == midi1(0, 0xB, 0, 32, 3) && out[2] == midi1(0, 0xC, 0, 5, 0));
+    const std::uint32_t rpn[] = {0x40200001u, 0x80000000u};  // RPN 0/1
+    CHECK(midi_ump::Midi2ToMidi1(rpn, out) == 4);
+    CHECK(out[0] == midi1(0, 0xB, 0, 101, 0) && out[1] == midi1(0, 0xB, 0, 100, 1) &&
+          out[2] == midi1(0, 0xB, 0, 6, 64) && out[3] == midi1(0, 0xB, 0, 38, 0));
+    const std::uint32_t perNote[] = {0x40003C01u, 0x80000000u};
+    CHECK(midi_ump::Midi2ToMidi1(perNote, out) == 0);
     return true;
 }
 
@@ -143,7 +149,7 @@ int main() {
     ok &= testForwardsUnchangedToEveryRoute();
     ok &= testChannelFilterRemapAndTranspose();
     ok &= testMessageCategoriesAndMultiWordPackets();
-    ok &= testMidi2NoteTransposeKeepsVelocityWord();
+    ok &= testMidi2ToMidi1Translation();
     ok &= testInactiveAndInvalidRoutes();
     if (!ok) return 1;
     std::puts("MidiRoutingGraphTests passed");

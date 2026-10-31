@@ -9,10 +9,12 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 
 #else
 
+// MIDI 1.0 only: endpoints are presented as their MIDI 1.0 ports (one per UMP
+// group) and virtual ports are declared as MIDI 1.0 devices.
 // Built against the Windows.Devices.Midi2 NuGet metadata 0.99.92-preview.11,
 // which is the API for the Windows MIDI Services preview 12 runtime
-// (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). The namespace
-// aliases below are the only place to change if a later SDK renames them.
+// (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). The using
+// directives below are the only place to change if a later SDK renames them.
 #include <windows.h>
 
 #include <winrt/Windows.Foundation.h>
@@ -31,10 +33,15 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 #include <thread>
 #include <unordered_map>
 
+#include <array>
+
 namespace {
-namespace midi2 = winrt::Windows::Devices::Midi2;
-namespace midi2enum = winrt::Windows::Devices::Midi2::Enumeration;
-namespace midi2virtual = winrt::Windows::Devices::Midi2::Transports::Virtual;
+// Block and port-name types are documented under both the root and the
+// Enumeration namespace depending on the page; using directives let the
+// compiler find them in whichever namespace the metadata declares.
+using namespace winrt::Windows::Devices::Midi2;
+using namespace winrt::Windows::Devices::Midi2::Enumeration;
+using namespace winrt::Windows::Devices::Midi2::Transports::Virtual;
 
 std::string utf8(std::wstring_view value) {
     if (value.empty()) return {};
@@ -119,12 +126,12 @@ public:
         bool ok = false;
         worker_.Run([&] {
             try {
-                if (!midi2::MidiApi::EnsureServiceAvailable()) {
+                if (!MidiApi::EnsureServiceAvailable()) {
                     reason = "The Windows MIDI Services service is not running or not installed";
                     return;
                 }
-                virtualAvailable_ = midi2virtual::MidiVirtualDeviceManager::IsTransportAvailable();
-                session_ = midi2::MidiSession::Create(L"Timox MIDI patchbay");
+                virtualAvailable_ = MidiVirtualDeviceManager::IsTransportAvailable();
+                session_ = MidiSession::Create(L"Timox MIDI patchbay");
                 ok = session_ != nullptr;
                 if (!ok) reason = "Unable to create a Windows MIDI Services session";
             } catch (const winrt::hresult_error& error) {
@@ -152,10 +159,11 @@ public:
                         if (!entry.second->clientEndpointId.empty()) ownClients.insert(entry.second->clientEndpointId);
                 }
                 endpoints.clear();
-                for (const auto& device : midi2enum::MidiEndpointDeviceInformation::FindAll()) {
+                for (const auto& device : MidiEndpointDeviceInformation::FindAll()) {
                     const std::wstring id{device.EndpointDeviceId()};
                     if (ownClients.count(id)) continue;  // our own virtual ports
-                    endpoints.push_back({utf8(id), utf8(device.Name()), "UMP"});
+                    MidiEndpointInfo endpoint{utf8(id), utf8(device.Name()), "UMP", Midi1Ports(device)};
+                    if (!endpoint.ports.empty()) endpoints.push_back(std::move(endpoint));
                 }
                 ok = true;
             } catch (const winrt::hresult_error& failure) {
@@ -200,33 +208,35 @@ public:
             auto connection = std::make_shared<Connection>();
             try {
                 const auto name = wide(displayName);
-                midi2::MidiDeclaredEndpointInfo endpointInfo;
+                MidiDeclaredEndpointInfo endpointInfo;
                 endpointInfo.Name(name);
                 // Stable across restarts so applications find the same port again.
                 endpointInfo.ProductInstanceId(wide("TimoxVasio-" + stableId));
                 endpointInfo.HasStaticFunctionBlocks(true);
+                // MIDI 1.0 only: applications get a plain MIDI 1.0 input and output.
                 endpointInfo.SupportsMidi10Protocol(true);
-                endpointInfo.SupportsMidi20Protocol(true);
+                endpointInfo.SupportsMidi20Protocol(false);
                 endpointInfo.SupportsReceivingJitterReductionTimestamps(false);
                 endpointInfo.SupportsSendingJitterReductionTimestamps(false);
                 endpointInfo.SpecificationVersionMajor(1);
                 endpointInfo.SpecificationVersionMinor(1);
 
-                midi2virtual::MidiVirtualDeviceCreationConfig config(name,
+                MidiVirtualDeviceCreationConfig config(name,
                     L"TimoxVasio MIDI patchbay port", L"TimoxVasio", endpointInfo);
-                // One bidirectional block on group 1. MIDI 1.0 applications see
-                // it as an input and an output named after the port.
-                midi2::MidiFunctionBlock block;
+                // One bidirectional MIDI 1.0 block on group 1. MIDI 1.0
+                // applications see one input and one output, named from the
+                // port name and the block name ("<name> MIDI").
+                MidiFunctionBlock block;
                 block.Number(0);
                 block.IsActive(true);
                 block.Name(L"MIDI");
-                block.FirstGroup(midi2::MidiGroup(static_cast<std::uint8_t>(0)));
+                block.FirstGroup(MidiGroup(static_cast<std::uint8_t>(0)));
                 block.GroupCount(1);
-                block.Direction(midi2::MidiFunctionBlockDirection::Bidirectional);
-                block.RepresentsMidi10Connection(midi2::MidiFunctionBlockRepresentsMidi10Connection::Not10);
+                block.Direction(MidiFunctionBlockDirection::Bidirectional);
+                block.RepresentsMidi10Connection(MidiFunctionBlockRepresentsMidi10Connection::YesBandwidthUnrestricted);
                 config.FunctionBlocks().Append(block);
 
-                connection->device = midi2virtual::MidiVirtualDeviceManager::CreateVirtualDevice(config);
+                connection->device = MidiVirtualDeviceManager::CreateVirtualDevice(config);
                 if (!connection->device) {
                     error = "Windows MIDI Services refused to create the virtual device";
                     return;
@@ -234,7 +244,7 @@ public:
                 connection->connection = session_.CreateEndpointConnection(connection->device.DeviceEndpointDeviceId());
                 Subscribe(cookie, *connection);
                 if (connection->connection.AddMessageProcessingPlugin(connection->device) !=
-                    midi2::MidiMessageProcessingPluginAddResult::Succeeded) {
+                    MidiMessageProcessingPluginAddResult::Succeeded) {
                     error = "Unable to attach the virtual device to its connection";
                     Disconnect(*connection);
                     return;
@@ -245,7 +255,7 @@ public:
                     return;
                 }
                 connection->clientEndpointId = std::wstring{
-                    midi2virtual::MidiVirtualDeviceManager::GetAssociatedClientEndpointDeviceId(config.AssociationId())};
+                    MidiVirtualDeviceManager::GetAssociatedClientEndpointDeviceId(config.AssociationId())};
             } catch (const winrt::hresult_error& failure) {
                 error = describe(failure);
                 Disconnect(*connection);
@@ -284,8 +294,8 @@ public:
             connection = found->second;
         }
         try {
-            const auto now = midi2::MidiClock::TimestampConstantSendImmediately();
-            midi2::MidiSendMessageResults result{};
+            const auto now = MidiClock::TimestampConstantSendImmediately();
+            MidiSendMessageResults result{};
             switch (count) {
             case 1: result = connection->connection.SendSingleMessageWords(now, words[0]); break;
             case 2: result = connection->connection.SendSingleMessageWords(now, words[0], words[1]); break;
@@ -293,28 +303,84 @@ public:
             case 4: result = connection->connection.SendSingleMessageWords(now, words[0], words[1], words[2], words[3]); break;
             default: return false;
             }
-            return midi2::MidiEndpointConnection::SendMessageSucceeded(result);
+            return MidiEndpointConnection::SendMessageSucceeded(result);
         } catch (...) {
             return false;
         }
     }
 
 private:
+    // MIDI 1.0 ports of an endpoint: one per UMP group. Direction comes from
+    // the function blocks, or from USB group terminal blocks when the device
+    // declares none. Block directions are from the block's point of view:
+    // BlockOutput sends (a source for us), BlockInput receives (a destination).
+    static std::vector<Midi1PortInfo> Midi1Ports(const MidiEndpointDeviceInformation& device) {
+        struct Group { bool source = false, destination = false; std::wstring blockName; };
+        std::array<Group, 16> groups{};
+        bool declared = false;
+        const auto mark = [&](std::uint8_t first, std::uint32_t count, bool sends, bool receives,
+                              const winrt::hstring& name) {
+            for (std::uint32_t g = first; g < first + count && g < 16; ++g) {
+                groups[g].source |= sends;
+                groups[g].destination |= receives;
+                if (groups[g].blockName.empty()) groups[g].blockName = name;
+                declared = true;
+            }
+        };
+        for (const auto& block : device.GetDeclaredFunctionBlocks()) {
+            if (!block.IsActive()) continue;
+            const auto direction = block.Direction();
+            mark(block.FirstGroup().Index(), block.GroupCount(),
+                direction == MidiFunctionBlockDirection::BlockOutput || direction == MidiFunctionBlockDirection::Bidirectional,
+                direction == MidiFunctionBlockDirection::BlockInput || direction == MidiFunctionBlockDirection::Bidirectional,
+                block.Name());
+        }
+        if (!declared)
+            for (const auto& block : device.GetGroupTerminalBlocks()) {
+                const auto direction = block.Direction();
+                mark(block.FirstGroup().Index(), block.GroupCount(),
+                    direction != MidiGroupTerminalBlockDirection::BlockInput,
+                    direction != MidiGroupTerminalBlockDirection::BlockOutput,
+                    block.Name());
+            }
+        if (!declared) groups[0] = {true, true, {}};  // plain single-port endpoint
+
+        // Names Windows gives the MIDI 1.0 ports, as MIDI 1.0 applications show them.
+        std::array<std::wstring, 16> names{};
+        for (const auto& entry : device.GetNameTable()) {
+            const auto group = entry.Group().Index();
+            if (group >= 16 || !names[group].empty()) continue;
+            names[group] = entry.CustomName().empty() ? std::wstring{entry.NewStyleName()} : std::wstring{entry.CustomName()};
+        }
+
+        std::vector<Midi1PortInfo> ports;
+        const std::wstring endpointName{device.Name()};
+        for (std::uint8_t g = 0; g < 16; ++g) {
+            if (!groups[g].source && !groups[g].destination) continue;
+            auto name = names[g];
+            if (name.empty())
+                name = groups[g].blockName.empty() ? endpointName + L" " + std::to_wstring(g + 1)
+                                                   : endpointName + L" " + groups[g].blockName;
+            ports.push_back({g, utf8(name), groups[g].source, groups[g].destination});
+        }
+        return ports;
+    }
+
     struct Connection {
-        midi2::MidiEndpointConnection connection{nullptr};
+        MidiEndpointConnection connection{nullptr};
         winrt::event_token token{};
-        midi2virtual::MidiVirtualDevice device{nullptr};
+        MidiVirtualDevice device{nullptr};
         std::wstring clientEndpointId;
     };
 
     void Subscribe(std::uint64_t cookie, Connection& connection) {
         connection.token = connection.connection.MessageReceived(
-            [this, cookie](const midi2::IMidiMessageReceivedEventSource&, const midi2::MidiMessageReceivedEventArgs& args) {
+            [this, cookie](const IMidiMessageReceivedEventSource&, const MidiMessageReceivedEventArgs& args) {
                 OnMessage(cookie, args);
             });
     }
 
-    void OnMessage(std::uint64_t cookie, const midi2::MidiMessageReceivedEventArgs& args) noexcept {
+    void OnMessage(std::uint64_t cookie, const MidiMessageReceivedEventArgs& args) noexcept {
         try {
             std::shared_ptr<ReceiveHandler> handler;
             {
@@ -326,26 +392,26 @@ private:
             std::size_t count = 0;
             const auto packet = args.GetMessagePacket();
             switch (packet.PacketType()) {
-            case midi2::MidiPacketType::UniversalMidiPacket32: {
-                const auto message = packet.as<midi2::MidiMessage32>();
+            case MidiPacketType::UniversalMidiPacket32: {
+                const auto message = packet.as<MidiMessage32>();
                 words[0] = message.Word0();
                 count = 1;
                 break;
             }
-            case midi2::MidiPacketType::UniversalMidiPacket64: {
-                const auto message = packet.as<midi2::MidiMessage64>();
+            case MidiPacketType::UniversalMidiPacket64: {
+                const auto message = packet.as<MidiMessage64>();
                 words[0] = message.Word0(); words[1] = message.Word1();
                 count = 2;
                 break;
             }
-            case midi2::MidiPacketType::UniversalMidiPacket96: {
-                const auto message = packet.as<midi2::MidiMessage96>();
+            case MidiPacketType::UniversalMidiPacket96: {
+                const auto message = packet.as<MidiMessage96>();
                 words[0] = message.Word0(); words[1] = message.Word1(); words[2] = message.Word2();
                 count = 3;
                 break;
             }
-            case midi2::MidiPacketType::UniversalMidiPacket128: {
-                const auto message = packet.as<midi2::MidiMessage128>();
+            case MidiPacketType::UniversalMidiPacket128: {
+                const auto message = packet.as<MidiMessage128>();
                 words[0] = message.Word0(); words[1] = message.Word1();
                 words[2] = message.Word2(); words[3] = message.Word3();
                 count = 4;
@@ -373,7 +439,7 @@ private:
     }
 
     MtaWorker worker_;
-    midi2::MidiSession session_{nullptr};
+    MidiSession session_{nullptr};
     bool virtualAvailable_ = false;
     std::mutex mutex_;
     std::unordered_map<std::uint64_t, std::shared_ptr<Connection>> connections_;

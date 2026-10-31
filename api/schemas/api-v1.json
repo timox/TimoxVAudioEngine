@@ -28,7 +28,7 @@
         "name"
       ],
       "additionalProperties": false,
-      "description": "App-to-app MIDI port created by the engine through Windows MIDI Services. Its API port id is midi:virtual:<id>.",
+      "description": "MIDI 1.0 port pair (one input, one output) created by the engine as a Windows MIDI Services virtual device declared MIDI 1.0 only. Its API port id is midi:virtual:<id>.",
       "properties": {
         "id": {
           "type": "string",
@@ -51,7 +51,7 @@
         "destination"
       ],
       "additionalProperties": false,
-      "description": "Directed MIDI link. Port ids are midi:virtual:<id> or midi:endpoint:<Windows MIDI Services endpoint device id>. Groups and channels are 1-based. Filters apply to the source message; outputGroup/outputChannel rewrite it. Utility and UMP stream messages are never routed.",
+      "description": "Directed link between two MIDI 1.0 ports. Port ids are midi:virtual:<id> or midi:port:<group 1-16>:<Windows MIDI Services endpoint device id>; each group of an endpoint is one MIDI 1.0 port, as MIDI 1.0 applications see it. Channels are 1-based. Only MIDI 1.0 messages are routed; MIDI 2.0 channel voice messages received from MIDI 2.0 devices are translated to MIDI 1.0 first.",
       "properties": {
         "id": {
           "type": "string",
@@ -60,27 +60,15 @@
         },
         "source": {
           "type": "string",
-          "pattern": "^midi:(virtual|endpoint):.+"
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,32}|port:([1-9]|1[0-6]):.+)$"
         },
         "destination": {
           "type": "string",
-          "pattern": "^midi:(virtual|endpoint):.+"
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,32}|port:([1-9]|1[0-6]):.+)$"
         },
         "enabled": {
           "type": "boolean",
           "default": true
-        },
-        "groups": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 16
-          },
-          "minItems": 1,
-          "maxItems": 16,
-          "uniqueItems": true,
-          "description": "Accepted source groups; default all."
         },
         "channels": {
           "type": "array",
@@ -108,24 +96,10 @@
               "pitchBend",
               "systemRealtime",
               "systemCommon",
-              "sysex",
-              "flexData"
+              "sysex"
             ]
           },
           "description": "Accepted message categories; default all."
-        },
-        "outputGroup": {
-          "oneOf": [
-            {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 16
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
         },
         "outputChannel": {
           "oneOf": [
@@ -182,7 +156,11 @@
         "id",
         "name",
         "kind",
-        "transport",
+        "endpointId",
+        "endpointName",
+        "group",
+        "source",
+        "destination",
         "online",
         "open",
         "clientEndpointId",
@@ -193,24 +171,48 @@
           "type": "string"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "MIDI 1.0 port name as Windows shows it to MIDI 1.0 applications."
         },
         "kind": {
           "enum": [
             "virtual",
-            "endpoint"
+            "port"
           ]
         },
-        "transport": {
-          "type": "string"
+        "endpointId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "endpointName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "group": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "description": "UMP group carrying this MIDI 1.0 port; 1 for virtual ports."
+        },
+        "source": {
+          "type": "boolean",
+          "description": "MIDI In: usable as a route source."
+        },
+        "destination": {
+          "type": "boolean",
+          "description": "MIDI Out: usable as a route destination."
         },
         "online": {
           "type": "boolean",
-          "description": "Endpoint present, or virtual port created."
+          "description": "Port present, or virtual port created."
         },
         "open": {
           "type": "boolean",
-          "description": "The engine holds a connection; endpoints are opened only when an enabled route uses them."
+          "description": "The engine holds a connection to the port's endpoint; it opens an endpoint only when an enabled route uses one of its ports."
         },
         "clientEndpointId": {
           "type": [
@@ -241,7 +243,7 @@
         },
         "active": {
           "type": "boolean",
-          "description": "Enabled and both ports open."
+          "description": "Enabled, both ports present and open, source can send and destination can receive."
         },
         "forwarded": {
           "type": "integer",

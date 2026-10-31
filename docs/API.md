@@ -321,4 +321,4 @@ Voir [le modèle et la matrice de propriétés](SUPERVISION_API.md). GET /api/v1
 
 ## Patch bay MIDI
 
-`GET /api/v1/midi` et `PUT /api/v1/midi/configuration` gèrent les ports MIDI virtuels et les routes MIDI via Windows MIDI Services. Voir [le patch bay MIDI](MIDI_PATCHBAY.md).
+`GET /api/v1/midi` et `PUT /api/v1/midi/configuration` gèrent les ports MIDI 1.0 (ports virtuels et ports des appareils) et les routes MIDI via Windows MIDI Services. Voir [le patch bay MIDI 1.0](MIDI_PATCHBAY.md).

@@ -15,10 +15,8 @@ struct MidiRoute {
     std::string sourcePortId;
     std::string destinationPortId;
     bool enabled = true;
-    std::uint16_t groupMask = 0xFFFF;    // bit n = source group n (0-based)
     std::uint16_t channelMask = 0xFFFF;  // bit n = source channel n (0-based)
     std::uint32_t messages = midi_ump::AllCategories;
-    std::optional<std::uint8_t> outputGroup;    // 0-based
     std::optional<std::uint8_t> outputChannel;  // 0-based
     int transpose = 0;                          // semitones, -127..127
 };
@@ -29,6 +27,9 @@ public:
     virtual void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept = 0;
 };
 
+// Routes MIDI 1.0 messages (UMP types 1, 2 and 3) between MIDI 1.0 ports.
+// Groups are not a routing concept here: each port is one MIDI 1.0 port and the
+// caller sets the destination port's group when sending.
 // Immutable after Create(); Process() performs no allocation or locking and may
 // run concurrently from several receive threads.
 class MidiRoutingGraph final {
@@ -60,10 +61,8 @@ private:
     struct CompiledRoute {
         std::size_t routeIndex;
         std::size_t destinationIndex;
-        std::uint16_t groupMask;
         std::uint16_t channelMask;
         std::uint32_t messages;
-        int outputGroup;    // -1 = unchanged
         int outputChannel;  // -1 = unchanged
         int transpose;
     };
