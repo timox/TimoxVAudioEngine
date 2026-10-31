@@ -100,28 +100,6 @@ bool testMessageCategoriesAndMultiWordPackets() {
     return true;
 }
 
-bool testMidi2ToMidi1Translation() {
-    std::uint32_t out[4];
-    const std::uint32_t noteOn[] = {0x40913C00u, 0x00000000u};  // velocity 0 on MIDI 2.0
-    CHECK(midi_ump::Midi2ToMidi1(noteOn, out) == 1 && out[0] == midi1(0, 0x9, 1, 60, 1));
-    const std::uint32_t loudNote[] = {0x42913C00u, 0xFFFF0000u};
-    CHECK(midi_ump::Midi2ToMidi1(loudNote, out) == 1 && out[0] == midi1(2, 0x9, 1, 60, 127));
-    const std::uint32_t cc[] = {0x40B00700u, 0x80000000u};
-    CHECK(midi_ump::Midi2ToMidi1(cc, out) == 1 && out[0] == midi1(0, 0xB, 0, 7, 64));
-    const std::uint32_t bend[] = {0x40E00000u, 0x80000000u};
-    CHECK(midi_ump::Midi2ToMidi1(bend, out) == 1 && out[0] == midi1(0, 0xE, 0, 0, 64));
-    const std::uint32_t program[] = {0x40C00001u, 0x05000203u};  // program 5, bank 2/3
-    CHECK(midi_ump::Midi2ToMidi1(program, out) == 3);
-    CHECK(out[0] == midi1(0, 0xB, 0, 0, 2) && out[1] == midi1(0, 0xB, 0, 32, 3) && out[2] == midi1(0, 0xC, 0, 5, 0));
-    const std::uint32_t rpn[] = {0x40200001u, 0x80000000u};  // RPN 0/1
-    CHECK(midi_ump::Midi2ToMidi1(rpn, out) == 4);
-    CHECK(out[0] == midi1(0, 0xB, 0, 101, 0) && out[1] == midi1(0, 0xB, 0, 100, 1) &&
-          out[2] == midi1(0, 0xB, 0, 6, 64) && out[3] == midi1(0, 0xB, 0, 38, 0));
-    const std::uint32_t perNote[] = {0x40003C01u, 0x80000000u};
-    CHECK(midi_ump::Midi2ToMidi1(perNote, out) == 0);
-    return true;
-}
-
 bool testInactiveAndInvalidRoutes() {
     MidiRoute missing;
     missing.id = "missing"; missing.sourcePortId = "midi:virtual:daw"; missing.destinationPortId = "midi:endpoint:gone";
@@ -149,7 +127,6 @@ int main() {
     ok &= testForwardsUnchangedToEveryRoute();
     ok &= testChannelFilterRemapAndTranspose();
     ok &= testMessageCategoriesAndMultiWordPackets();
-    ok &= testMidi2ToMidi1Translation();
     ok &= testInactiveAndInvalidRoutes();
     if (!ok) return 1;
     std::puts("MidiRoutingGraphTests passed");

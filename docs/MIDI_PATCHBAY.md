@@ -2,14 +2,14 @@
 
 [Français](MIDI_PATCHBAY.md) | [English](MIDI_PATCHBAY.en.md)
 
-Le moteur relie des ports MIDI 1.0 entre eux, comme un patch bay matériel. Il s'appuie sur **Windows MIDI Services** (préversion 12) mais n'utilise que des **ports MIDI 1.0** : ceux que voient les applications MIDI 1.0 (WinMM, WinRT MIDI 1.0). ASIO ne transporte pas le MIDI : ces ports sont distincts du pilote audio.
+Le moteur relie des ports MIDI 1.0 entre eux, comme un patch bay matériel. Il s'appuie sur **Windows MIDI Services** (préversion 12) mais reste **exclusivement MIDI 1.0** : seuls les appareils MIDI 1.0 sont listés, les endpoints MIDI 2.0 sont ignorés, et seuls les messages MIDI 1.0 circulent. ASIO ne transporte pas le MIDI : ces ports sont distincts du pilote audio.
 
 ## Ports
 
 | Identifiant | Rôle |
 |---|---|
 | `midi:virtual:<id>` | Port créé par le moteur : une entrée et une sortie MIDI 1.0 que les applications (DAW, synthés logiciels) ouvrent. Ce qu'elles envoient entre dans le patch bay ; ce que le patch bay y envoie leur parvient. |
-| `midi:port:<groupe>:<id Windows>` | Un port MIDI 1.0 d'un endpoint : interface USB, réseau, Bluetooth ou port d'une autre application. |
+| `midi:port:<groupe>:<id Windows>` | Un port d'un appareil MIDI 1.0 (interface USB ou pilote MIDI 1.0 existant). Les endpoints MIDI 2.0 natifs (appareils MIDI 2.0, réseau MIDI 2.0, ports virtuels d'autres applications) ne sont pas proposés. |
 
 Windows MIDI Services représente chaque port MIDI 1.0 d'un appareil par un **groupe** (1 à 16) de son endpoint. Une interface à 4 ports donne donc `midi:port:1:…` à `midi:port:4:…`. L'API indique pour chaque port son nom (celui affiché aux applications MIDI 1.0), s'il peut servir de source (`source`, MIDI In) et de destination (`destination`, MIDI Out). Le sens vient des blocs de fonction de l'appareil, ou de ses blocs de terminaux de groupe USB.
 
@@ -29,7 +29,7 @@ Une route relie un port source à un port destination. Plusieurs routes peuvent 
 
 Une route reste inactive si sa source ne peut pas émettre, si sa destination ne peut pas recevoir, ou si l'un des ports est absent. Une route d'un port vers lui-même est refusée. Le moteur ne détecte pas les boucles qui passent par une application qui renvoie son entrée vers sa sortie (MIDI thru).
 
-Seuls les messages MIDI 1.0 circulent. Si un appareil MIDI 2.0 envoie des messages MIDI 2.0, le moteur les convertit en MIDI 1.0 selon la traduction par défaut de la norme UMP : valeurs réduites, banque convertie en CC 0/32 puis changement de programme, RPN/NRPN convertis en CC 101/100 ou 99/98 puis 6/38. Les messages sans équivalent MIDI 1.0 (contrôleurs par note, contrôleurs relatifs) sont ignorés, comme les messages utilitaires, de flux UMP et de données flexibles.
+Seuls les messages MIDI 1.0 circulent. Tout autre message (MIDI 2.0, utilitaire, flux UMP, données flexibles) est ignoré ; il n'y a aucune conversion MIDI 2.0.
 
 Le routage s'exécute sur les threads de réception de Windows MIDI Services, jamais dans le callback audio. Il ne fait aucune allocation, et le graphe est remplacé d'un bloc à chaque changement de configuration.
 
@@ -71,6 +71,7 @@ CMake génère la projection C++/WinRT avec le `cppwinrt.exe` du Windows SDK. Sa
 
 - Le backend Windows (`src/windows_midi_services_backend.cpp`) n'a pas encore été compilé ni testé sur une machine Windows équipée de la préversion 12. Les tests automatiques couvrent le routage et la gestion de configuration avec un backend simulé.
 - La préversion signale un problème connu sur la build Windows 11 26100.8875 : les endpoints virtuels peuvent devenir inutilisables (microsoft/MIDI#1047).
+- Les ports virtuels du moteur sont des appareils virtuels Windows MIDI Services déclarés MIDI 1.0 seulement : les applications n'y voient qu'une entrée et une sortie MIDI 1.0, mais Windows les gère en interne comme des endpoints UMP. La seule alternative purement MIDI 1.0 est le « Basic MIDI 1.0 Loopback » (voir plus bas).
 - Les noms et le sens des ports viennent de la table de noms MIDI 1.0 et des blocs déclarés par l'appareil. Ce mapping n'a pas encore été vérifié avec de vrais appareils.
 - Les ports virtuels basiques MIDI 1.0 (« Basic MIDI 1.0 Loopback ») de la préversion 12 ne sont pas utilisés : un même endpoint renvoie aux lecteurs tout ce qu'on y écrit, le moteur recevrait donc ses propres messages. Leur création demande aussi le mode développeur dans cette préversion.
 - Pas encore d'interface graphique ni d'horloge MIDI synchronisée sur l'horloge audio.

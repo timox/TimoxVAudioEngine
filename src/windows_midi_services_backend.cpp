@@ -9,8 +9,9 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 
 #else
 
-// MIDI 1.0 only: endpoints are presented as their MIDI 1.0 ports (one per UMP
-// group) and virtual ports are declared as MIDI 1.0 devices.
+// MIDI 1.0 only: only native MIDI 1.0 (byte format) endpoints are listed, each
+// presented as its MIDI 1.0 ports (one per UMP group); native MIDI 2.0
+// endpoints are ignored. Virtual ports are declared as MIDI 1.0 devices.
 // Built against the Windows.Devices.Midi2 NuGet metadata 0.99.92-preview.11,
 // which is the API for the Windows MIDI Services preview 12 runtime
 // (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). The using
@@ -162,6 +163,9 @@ public:
                 for (const auto& device : MidiEndpointDeviceInformation::FindAll()) {
                     const std::wstring id{device.EndpointDeviceId()};
                     if (ownClients.count(id)) continue;  // our own virtual ports
+                    // MIDI 1.0 devices only: native UMP (MIDI 2.0) endpoints are skipped.
+                    if (!MidiEndpointDeviceInformation::DeviceMatchesFilter(device,
+                            MidiEndpointDeviceInformationFilters::StandardNativeMidi1ByteFormat)) continue;
                     MidiEndpointInfo endpoint{utf8(id), utf8(device.Name()), "UMP", Midi1Ports(device)};
                     if (!endpoint.ports.empty()) endpoints.push_back(std::move(endpoint));
                 }

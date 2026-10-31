@@ -2,14 +2,14 @@
 
 [Français](MIDI_PATCHBAY.md) | [English](MIDI_PATCHBAY.en.md)
 
-The engine connects MIDI 1.0 ports to each other, like a hardware patchbay. It uses **Windows MIDI Services** (preview 12) but works only with **MIDI 1.0 ports**: the ports MIDI 1.0 applications (WinMM, WinRT MIDI 1.0) see. ASIO does not carry MIDI: these ports are separate from the audio driver.
+The engine connects MIDI 1.0 ports to each other, like a hardware patchbay. It uses **Windows MIDI Services** (preview 12) but stays **MIDI 1.0 only**: only MIDI 1.0 devices are listed, MIDI 2.0 endpoints are ignored, and only MIDI 1.0 messages travel. ASIO does not carry MIDI: these ports are separate from the audio driver.
 
 ## Ports
 
 | Id | Role |
 |---|---|
 | `midi:virtual:<id>` | Port created by the engine: a MIDI 1.0 input and output that applications (DAWs, soft synths) open. What they send enters the patchbay; what the patchbay sends there reaches them. |
-| `midi:port:<group>:<Windows id>` | One MIDI 1.0 port of an endpoint: USB, network or Bluetooth interface, or another application's port. |
+| `midi:port:<group>:<Windows id>` | One port of a MIDI 1.0 device (USB interface or existing MIDI 1.0 driver). Native MIDI 2.0 endpoints (MIDI 2.0 devices, network MIDI 2.0, other applications' virtual ports) are not offered. |
 
 Windows MIDI Services maps each MIDI 1.0 port of a device to one **group** (1 to 16) of its endpoint, so a 4-port interface gives `midi:port:1:…` to `midi:port:4:…`. For each port the API reports its name (as shown to MIDI 1.0 applications), whether it can be a source (`source`, MIDI In) and a destination (`destination`, MIDI Out). Direction comes from the device's function blocks, or from its USB group terminal blocks.
 
@@ -29,7 +29,7 @@ A route links a source port to a destination port. Several routes can leave one 
 
 A route stays inactive when its source cannot send, its destination cannot receive, or a port is absent. A route from a port to itself is rejected. The engine does not detect loops that go through an application echoing its input to its output (MIDI thru).
 
-Only MIDI 1.0 messages travel. When a MIDI 2.0 device sends MIDI 2.0 messages, the engine translates them to MIDI 1.0 with the default UMP translation: values scaled down, bank sent as CC 0/32 before the program change, RPN/NRPN sent as CC 101/100 or 99/98 then 6/38. Messages with no MIDI 1.0 form (per-note and relative controllers) are dropped, as are utility, UMP stream and flex data messages.
+Only MIDI 1.0 messages travel. Any other message (MIDI 2.0, utility, UMP stream, flex data) is dropped; there is no MIDI 2.0 translation.
 
 Routing runs on Windows MIDI Services receive threads, never in the audio callback. It does not allocate; the graph is swapped as a whole on each configuration change.
 
@@ -60,6 +60,7 @@ CMake generates the C++/WinRT projection with the Windows SDK `cppwinrt.exe`. Wi
 
 - The Windows backend (`src/windows_midi_services_backend.cpp`) has not yet been compiled or run on a Windows machine with preview 12. Automated tests cover routing and configuration handling with a simulated backend.
 - The preview lists a known issue on Windows 11 build 26100.8875 where virtual endpoints can become unusable (microsoft/MIDI#1047).
+- The engine's virtual ports are Windows MIDI Services virtual devices declared MIDI 1.0 only: applications see only a MIDI 1.0 input and output, but Windows handles them internally as UMP endpoints. The only purely MIDI 1.0 alternative is Basic MIDI 1.0 Loopback (see below).
 - Port names and directions come from the MIDI 1.0 name table and the blocks the device declares. This mapping has not been checked with real devices yet.
 - Preview 12 Basic MIDI 1.0 Loopback ports are not used: one endpoint echoes everything written to it back to its readers, so the engine would receive its own messages. Creating them also requires Developer mode in this preview.
 - No GUI yet, and no MIDI clock locked to the audio clock.

@@ -439,7 +439,7 @@
       "get": {
         "operationId": "getMidiPatchbay",
         "summary": "Read the MIDI 1.0 patchbay: ports, configuration and route counters",
-        "description": "Re-enumerates the MIDI 1.0 ports of Windows MIDI Services endpoints (one per group), reopens routed endpoints that came back and closes those that disappeared, then returns the current state. Every MIDI 1.0 port appears whether or not it is routed; routed ports that are absent are listed with online false.",
+        "description": "Re-enumerates the MIDI 1.0 ports (one per group) of native MIDI 1.0 Windows MIDI Services endpoints; MIDI 2.0 endpoints are not listed, reopens routed endpoints that came back and closes those that disappeared, then returns the current state. Every MIDI 1.0 port appears whether or not it is routed; routed ports that are absent are listed with online false.",
         "responses": {
           "200": {
             "description": "Patchbay state",

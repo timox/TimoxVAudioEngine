@@ -51,7 +51,7 @@
         "destination"
       ],
       "additionalProperties": false,
-      "description": "Directed link between two MIDI 1.0 ports. Port ids are midi:virtual:<id> or midi:port:<group 1-16>:<Windows MIDI Services endpoint device id>; each group of an endpoint is one MIDI 1.0 port, as MIDI 1.0 applications see it. Channels are 1-based. Only MIDI 1.0 messages are routed; MIDI 2.0 channel voice messages received from MIDI 2.0 devices are translated to MIDI 1.0 first.",
+      "description": "Directed link between two MIDI 1.0 ports. Port ids are midi:virtual:<id> or midi:port:<group 1-16>:<Windows MIDI Services endpoint device id of a native MIDI 1.0 device>; each group of an endpoint is one MIDI 1.0 port, as MIDI 1.0 applications see it. Channels are 1-based. Only MIDI 1.0 devices are offered and only MIDI 1.0 messages are routed; MIDI 2.0 endpoints and messages are ignored.",
       "properties": {
         "id": {
           "type": "string",

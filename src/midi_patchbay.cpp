@@ -489,14 +489,8 @@ void MidiPatchbay::OnReceive(std::uint64_t cookie, const std::uint32_t* words, s
     while (offset < count) {
         const auto length = midi_ump::WordCount(words[offset]);
         if (offset + length > count) return;
-        if (midi_ump::Type(words[offset]) == 0x4) {
-            // A MIDI 2.0 device sent MIDI 2.0 channel voice: carry it as MIDI 1.0.
-            std::uint32_t translated[4];
-            const auto messages = midi_ump::Midi2ToMidi1(words + offset, translated);
-            for (std::size_t i = 0; i < messages; ++i) Route(*runtime, cookie, translated + i, 1);
-        } else if (midi_ump::Category(words[offset]) != 0) {
-            Route(*runtime, cookie, words + offset, length);
-        }
+        // MIDI 1.0 only: anything else (MIDI 2.0, utility, stream) is dropped.
+        if (midi_ump::Category(words[offset]) != 0) Route(*runtime, cookie, words + offset, length);
         offset += length;
     }
 }

@@ -119,10 +119,12 @@ bool testApplyRoutesAndPersists() {
     const std::uint32_t otherGroup = 0x23913C64u;
     state.handler(keys, &otherGroup, 1);
     CHECK(state.sent.size() == 4);
-    // MIDI 2.0 from a MIDI 2.0 keyboard is carried as MIDI 1.0.
+    // MIDI 2.0 messages are never carried.
     const std::uint32_t midi2Note[] = {0x40923C00u, 0xFFFF0000u};
     state.handler(keys, midi2Note, 2);
-    CHECK(state.sent.size() == 5 && state.sent[4].second.size() == 1 && state.sent[4].second[0] == 0x20923C7Fu);
+    CHECK(state.sent.size() == 4);
+    state.handler(keys, &ch1, 1);
+    CHECK(state.sent.size() == 5 && state.sent[4].second[0] == ch1);
 
     const auto snapshot = patchbay.Snapshot();
     CHECK(snapshot.available && snapshot.routes.size() == 5);

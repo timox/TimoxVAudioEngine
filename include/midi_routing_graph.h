@@ -27,7 +27,8 @@ public:
     virtual void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept = 0;
 };
 
-// Routes MIDI 1.0 messages (UMP types 1, 2 and 3) between MIDI 1.0 ports.
+// Routes MIDI 1.0 messages (UMP types 1, 2 and 3) between MIDI 1.0 ports;
+// every other message type is dropped.
 // Groups are not a routing concept here: each port is one MIDI 1.0 port and the
 // caller sets the destination port's group when sending.
 // Immutable after Create(); Process() performs no allocation or locking and may

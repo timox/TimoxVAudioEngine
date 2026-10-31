@@ -38,8 +38,8 @@ public:
     // Set once, before any endpoint is opened.
     virtual void SetReceiveHandler(ReceiveHandler handler) = 0;
 
-    // Lists endpoints and their MIDI 1.0 ports, excluding the client side of
-    // virtual ports this backend created.
+    // Lists native MIDI 1.0 endpoints and their MIDI 1.0 ports, excluding MIDI
+    // 2.0 endpoints and the client side of virtual ports this backend created.
     virtual bool Enumerate(std::vector<MidiEndpointInfo>& endpoints, std::string& error) = 0;
 
     virtual bool OpenEndpoint(std::uint64_t cookie, const std::string& endpointId, std::string& error) = 0;
