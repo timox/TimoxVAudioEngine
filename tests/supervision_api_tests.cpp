@@ -160,7 +160,7 @@ int main() {
                 {{"id", "midi:port:1:gone"}, {"name", ""}, {"kind", "port"}, {"endpointId", "gone"}, {"endpointName", nullptr},
                  {"group", 1}, {"source", false}, {"destination", false}, {"online", false}, {"open", false},
                  {"received", 0}, {"sent", 0}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 0}, {"error", nullptr}}})},
-            {"timebase", {{"reference", "soundCard"}, {"driftPpm", 12.5}}},
+            {"timebase", {{"reference", "asio"}, {"driftPpm", 12.5}}},
             {"engineClock", {{"bpm", 120.0}, {"running", true}, {"ticks", 10}, {"transport", "start"}}},
             {"routes", Json::array({{{"id", "to-synth"}, {"active", true}, {"forwarded", 4}, {"filtered", 1}},
                 {{"id", "to-gone"}, {"active", false}, {"forwarded", 0}, {"filtered", 0}}})}};

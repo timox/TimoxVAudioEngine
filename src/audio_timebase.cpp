@@ -23,13 +23,15 @@ AudioTimebase& AudioTimebase::Shared() noexcept {
     return instance;
 }
 
-void AudioTimebase::Begin(double nominalRate) noexcept {
+void AudioTimebase::Begin(double nominalRate, AudioTimebaseSource source) noexcept {
     nominalRate_.store(nominalRate > 0 && std::isfinite(nominalRate) ? nominalRate : 0, std::memory_order_relaxed);
+    source_.store(static_cast<std::uint8_t>(source), std::memory_order_relaxed);
     generation_.fetch_add(1, std::memory_order_acq_rel);
 }
 
 void AudioTimebase::End() noexcept {
     nominalRate_.store(0, std::memory_order_relaxed);
+    source_.store(0, std::memory_order_relaxed);
     generation_.fetch_add(1, std::memory_order_acq_rel);
 }
 
@@ -84,6 +86,7 @@ AudioTimebase::Mapping AudioTimebase::Update() noexcept {
         return mapping;
     }
     mapping.cardLocked = true;
+    mapping.source = static_cast<AudioTimebaseSource>(source_.load(std::memory_order_relaxed));
     mapping.nominalRate = nominal;
     // Until enough history exists, extrapolate from the last buffer at the nominal rate.
     mapping.measuredRate = nominal;
@@ -133,6 +136,7 @@ void AudioTimebase::Store(const Mapping& mapping) noexcept {
     originNs_.store(mapping.originNs, std::memory_order_release);
     framesAtOrigin_.store(mapping.framesAtOrigin, std::memory_order_release);
     mappedGeneration_.store(mapping.generation, std::memory_order_release);
+    mappedSource_.store(static_cast<std::uint8_t>(mapping.source), std::memory_order_release);
     sequence_.store(sequence + 2, std::memory_order_release);
 }
 
@@ -148,6 +152,7 @@ AudioTimebase::Mapping AudioTimebase::Current() const noexcept {
         mapping.originNs = originNs_.load(std::memory_order_acquire);
         mapping.framesAtOrigin = framesAtOrigin_.load(std::memory_order_acquire);
         mapping.generation = mappedGeneration_.load(std::memory_order_acquire);
+        mapping.source = static_cast<AudioTimebaseSource>(mappedSource_.load(std::memory_order_acquire));
         if (sequence_.load(std::memory_order_acquire) == before) break;
     }
     mapping.driftPpm = mapping.cardLocked && mapping.nominalRate > 0 && mapping.spanSeconds > 0

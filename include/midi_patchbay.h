@@ -87,16 +87,18 @@ struct MidiRouteStatus {
 
 // Time reference used for MIDI timing.
 struct MidiTimebaseStatus {
-    bool cardLocked = false;   // false: no sound card running, Windows clock used
+    bool cardLocked = false;   // a master clock (ASIO card or software clock) is running
+    std::string reference = "none";  // "asio", "software" or "none"
     double nominalRate = 0;
     double measuredRate = 0;   // card frames per second of Windows time
-    double driftPpm = 0;       // card versus Windows clock
+    double driftPpm = 0;       // master versus the Windows performance counter
     double spanSeconds = 0;    // history behind the measurement; 0 = not measured yet
 };
 
 struct MidiEngineClockStatus {
     double bpm = 120.0;
     bool running = false;
+    bool waitingForMasterClock = false;  // running, but the master clock stopped: no ticks
     std::uint64_t ticks = 0;
     std::string transport;     // last "start", "stop" or "continue"
 };
@@ -215,6 +217,8 @@ private:
     double clockBpm_ = 120.0;
     bool clockRunning_ = false;
     double nextTickCardSeconds_ = 0;
+    std::uint64_t clockGeneration_ = 0;  // master session the tick schedule belongs to
+    bool clockWaiting_ = false;
     std::uint64_t clockTicks_ = 0;
     std::string clockTransport_;
 

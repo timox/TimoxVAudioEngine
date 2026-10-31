@@ -1103,12 +1103,13 @@ struct ControlApiServer::Impl {
             {"error", snapshot.error.empty() ? Json(nullptr) : Json(snapshot.error)},
             {"configuration", std::move(configuration)}, {"ports", std::move(ports)},
             {"routes", std::move(routes)},
-            {"timebase", {{"reference", snapshot.timebase.cardLocked ? "soundCard" : "windows"},
+            {"timebase", {{"reference", snapshot.timebase.reference},
                 {"nominalSampleRate", snapshot.timebase.cardLocked ? Json(snapshot.timebase.nominalRate) : Json(nullptr)},
                 {"measuredSampleRate", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.measuredRate) : Json(nullptr)},
                 {"driftPpm", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.driftPpm) : Json(nullptr)},
                 {"measuredOverSeconds", snapshot.timebase.spanSeconds}}},
             {"engineClock", {{"bpm", snapshot.engineClock.bpm}, {"running", snapshot.engineClock.running},
+                {"waitingForMasterClock", snapshot.engineClock.waitingForMasterClock},
                 {"ticks", snapshot.engineClock.ticks},
                 {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)}}}};
     }
@@ -1153,9 +1154,12 @@ struct ControlApiServer::Impl {
             }
             const auto applied = midi->SetEngineClock(bpm, transport);
             if (!applied.success) {
-                const bool unavailable = !midi->Snapshot().available;
-                response.status = unavailable ? 503 : 400;
-                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : "INVALID_MIDI_CLOCK"},
+                const auto state = midi->Snapshot();
+                const bool unavailable = !state.available;
+                const bool noMaster = !unavailable && !state.timebase.cardLocked &&
+                    (transport == "start" || transport == "continue");
+                response.status = unavailable ? 503 : noMaster ? 409 : 400;
+                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : noMaster ? "NO_MASTER_CLOCK" : "INVALID_MIDI_CLOCK"},
                     {"message", applied.error}}.dump(), "application/json; charset=utf-8");
                 return;
             }

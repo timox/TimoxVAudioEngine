@@ -21,6 +21,8 @@ using BufferDispatch = void (*)(void*, long) noexcept;
 std::atomic<void*> gActiveSession{nullptr};
 BufferDispatch gBufferDispatch = nullptr;
 std::atomic<bool>* gRateChanged = nullptr;
+// Time info of the buffer being processed; physical callback thread only.
+ASIOTime* gCurrentTimeInfo = nullptr;
 
 void asioBufferSwitch(long index, ASIOBool) {
     if (void* session = gActiveSession.load(std::memory_order_acquire))
@@ -28,7 +30,9 @@ void asioBufferSwitch(long index, ASIOBool) {
 }
 
 ASIOTime* asioBufferSwitchTimeInfo(ASIOTime* timeInfo, long index, ASIOBool) {
+    gCurrentTimeInfo = timeInfo;
     asioBufferSwitch(index, ASIOFalse);
+    gCurrentTimeInfo = nullptr;
     return timeInfo;
 }
 
@@ -134,7 +138,7 @@ struct PhysicalAsioHost::Session {
     std::uint64_t timingFrequency = 0;
     std::uint64_t timingPeriodTicks = 0;
     std::uint64_t previousCallbackStart = 0; // Physical callback thread only.
-    std::uint64_t framesPlayed = 0; // Physical callback thread only; card timebase.
+    std::uint64_t framesPlayed = 0; // Physical callback thread only; fallback card position.
     std::atomic<std::uint64_t> timingCallbacks{0};
     std::atomic<std::uint64_t> timingDelayedStarts{0};
     std::atomic<std::uint64_t> timingOverruns{0};
@@ -154,12 +158,25 @@ struct PhysicalAsioHost::Session {
         previousCallbackStart = startTick;
         const auto index = static_cast<std::size_t>(bufferIndex);
         const auto frames = bufferFrames;
-        // Card timebase for MIDI: frames played so far at this host time. Same
-        // conversion as std::chrono::steady_clock so MIDI code can compare.
+        // Master timebase for MIDI: the driver's own sample position of this
+        // buffer (counting callbacks would miss buffers the driver dropped),
+        // stamped with the callback's QPC time converted like
+        // std::chrono::steady_clock. The driver's systemTime is not used: on
+        // Windows it derives from timeGetTime, with millisecond resolution.
         if (timingFrequency) {
+            std::uint64_t position = framesPlayed;
+            const auto samples = [](const ASIOSamples& value) {
+                return (static_cast<std::uint64_t>(value.hi) << 32) | static_cast<std::uint64_t>(value.lo);
+            };
+            ASIOSamples driverPosition{};
+            ASIOTimeStamp driverTime{};
+            if (gCurrentTimeInfo && (gCurrentTimeInfo->timeInfo.flags & kSamplePositionValid))
+                position = samples(gCurrentTimeInfo->timeInfo.samplePosition);
+            else if (driver && driver->getSamplePosition(&driverPosition, &driverTime) == ASE_OK)
+                position = samples(driverPosition);
             const auto hostNs = static_cast<std::int64_t>((startTick / timingFrequency) * 1'000'000'000ull +
                 (startTick % timingFrequency) * 1'000'000'000ull / timingFrequency);
-            AudioTimebase::Shared().Publish(framesPlayed, hostNs);
+            AudioTimebase::Shared().Publish(position, hostNs);
         }
         framesPlayed += frames;
         const auto inputCount = inputChannels.size();
@@ -539,7 +556,7 @@ bool PhysicalAsioHost::start(std::uint32_t bufferFrames,
         static_cast<long double>(session.timingFrequency) * bufferFrames / currentRate);
     session.previousCallbackStart = 0;
     session.framesPlayed = 0;
-    AudioTimebase::Shared().Begin(currentRate);
+    AudioTimebase::Shared().Begin(currentRate, AudioTimebaseSource::Asio);
     session.process = callback;
     session.processContext = context;
     session.inputSamples.assign(routedInputChannels.size() * bufferFrames, 0.0f);

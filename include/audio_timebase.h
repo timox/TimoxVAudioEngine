@@ -5,19 +5,25 @@
 #include <cstddef>
 #include <cstdint>
 
-// Sound card timebase. The physical ASIO callback publishes, at each buffer,
-// how many frames the card has played and the host time (steady clock, ns) at
-// that moment. A linear fit over the last ~30 s gives the card's real sample
-// rate as seen by the host clock, so MIDI timing can follow the card instead
-// of Windows timers and never drift from the audio.
+// Timebase of the graph's master clock, for MIDI. Exactly one master schedules
+// the graph: the physical ASIO driver, or the engine's software clock without
+// a card. At each buffer the master publishes its sample position (the
+// driver's own position for ASIO) and the host time (steady clock, ns). A
+// linear fit over the last ~30 s gives the master's real sample rate, so MIDI
+// timing follows the master's samples and never drifts from the audio. There
+// is no fallback to Windows timers: without a running master, MIDI clock
+// generation waits.
 //
 // Threads: Begin/Publish/End run on the audio callback thread only (lock-free,
 // no allocation). Update runs on one consumer thread only (the MIDI clock
 // thread). Current and the conversions can be called from any thread.
+enum class AudioTimebaseSource : std::uint8_t { None = 0, Asio = 1, Software = 2 };
+
 class AudioTimebase {
 public:
     struct Mapping {
-        bool cardLocked = false;     // false: no card running, host clock used as is
+        bool cardLocked = false;     // a master clock is running and has published
+        AudioTimebaseSource source = AudioTimebaseSource::None;
         double nominalRate = 0;      // rate the card was opened at
         double measuredRate = 0;     // frames per second of host time; nominal until measured
         double driftPpm = 0;         // (measured / nominal - 1) * 1e6
@@ -34,7 +40,7 @@ public:
 
     static AudioTimebase& Shared() noexcept;
 
-    void Begin(double nominalRate) noexcept;
+    void Begin(double nominalRate, AudioTimebaseSource source) noexcept;
     void Publish(std::uint64_t framePosition, std::int64_t hostNs) noexcept;
     void End() noexcept;
 
@@ -57,6 +63,7 @@ private:
     std::atomic<std::size_t> tail_{0};
     std::atomic<std::uint64_t> generation_{0};
     std::atomic<double> nominalRate_{0};
+    std::atomic<std::uint8_t> source_{0};
 
     // Consumer side (Update thread only).
     std::uint64_t fitGeneration_ = 0;
@@ -78,6 +85,7 @@ private:
     std::atomic<std::int64_t> originNs_{0};
     std::atomic<double> framesAtOrigin_{0};
     std::atomic<std::uint64_t> mappedGeneration_{0};
+    std::atomic<std::uint8_t> mappedSource_{0};
 
     void Store(const Mapping& mapping) noexcept;
     void Reset(std::uint64_t generation) noexcept;

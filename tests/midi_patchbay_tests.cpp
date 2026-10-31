@@ -393,7 +393,7 @@ struct SimulatedCard {
     double actual = 48000.0 * (1.0 + 100e-6);
     std::int64_t startNs = 0;
     std::uint64_t frames = 0;
-    void Begin(std::int64_t now) { timebase.Begin(nominal); startNs = now; frames = 0; }
+    void Begin(std::int64_t now) { timebase.Begin(nominal, AudioTimebaseSource::Asio); startNs = now; frames = 0; }
     // Publishes every buffer that has started by host time `now`.
     void Advance(std::int64_t now) {
         for (;;) {
@@ -568,6 +568,65 @@ bool testIncomingClockIsReclockedOnTheCardGrid() {
     return true;
 }
 
+bool testEngineClockNeverFallsBackToWindowsTime() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("master.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[{"id":"daw","name":"Timox DAW"}],"routes":[
+        {"id":"clock","source":"midi:clock:engine","destination":"midi:port:1:usb-synth"},
+        {"id":"keys","source":"midi:port:1:usb-keys","destination":"midi:virtual:daw","reclock":true}]})", configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    patchbay.PumpClock(gSteadyNs);
+
+    // No master clock running: the engine clock cannot start, and an incoming
+    // clock on a reclock route passes through untouched.
+    CHECK(!patchbay.SetEngineClock(std::nullopt, "start").success);
+    CHECK(patchbay.Snapshot().timebase.reference == "none");
+    const std::uint32_t tick = 0x10F80000u;
+    state.handler(cookieOf(state, "usb-keys"), &tick, 1);
+    CHECK(state.sent.size() == 1 && state.sent[0].first == cookieOf(state, "virtual:Timox DAW Out") && state.sentAt[0] == 0);
+
+    // The software clock becomes master (no card): the engine clock follows it.
+    card.actual = card.nominal;
+    card.timebase.Begin(card.nominal, AudioTimebaseSource::Software);
+    card.startNs = gSteadyNs;
+    card.frames = 0;
+    for (int ms = 0; ms < 3000; ++ms) { gSteadyNs += 1'000'000; card.Advance(gSteadyNs); if (ms % 2 == 0) patchbay.PumpClock(gSteadyNs); }
+    CHECK(patchbay.Snapshot().timebase.reference == "software");
+    CHECK(patchbay.SetEngineClock(120.0, "start").success);
+    const auto ticksBetween = [&](int milliseconds) {
+        const auto before = state.sent.size();
+        for (int ms = 0; ms < milliseconds; ++ms) { gSteadyNs += 1'000'000; card.Advance(gSteadyNs); if (ms % 2 == 0) patchbay.PumpClock(gSteadyNs); }
+        std::size_t ticks = 0;
+        for (auto i = before; i < state.sent.size(); ++i) ticks += state.sent[i].second[0] == 0x10F80000u;
+        return ticks;
+    };
+    CHECK(ticksBetween(1000) >= 47);
+
+    // The master stops: no tick is sent on Windows time; the clock waits.
+    card.timebase.End();
+    CHECK(ticksBetween(1000) <= 1);  // at most one tick scheduled before the stop was seen
+    auto snapshot = patchbay.Snapshot();
+    CHECK(snapshot.engineClock.running && snapshot.engineClock.waitingForMasterClock);
+    CHECK(!findPort(snapshot, "midi:clock:engine")->clockRunning);
+
+    // The card comes back (new session, new sample count): ticks resume on it.
+    card.timebase.Begin(card.nominal, AudioTimebaseSource::Asio);
+    card.startNs = gSteadyNs;
+    card.frames = 0;
+    CHECK(ticksBetween(1000) >= 47);
+    snapshot = patchbay.Snapshot();
+    CHECK(snapshot.timebase.reference == "asio" && !snapshot.engineClock.waitingForMasterClock);
+    return true;
+}
+
 int main() {
     bool ok = true;
     ok &= testApplyRoutesAndPersists();
@@ -577,6 +636,7 @@ int main() {
     ok &= testClockIsToldApartFromActivity();
     ok &= testEngineClockFollowsTheSoundCard();
     ok &= testIncomingClockIsReclockedOnTheCardGrid();
+    ok &= testEngineClockNeverFallsBackToWindowsTime();
     ok &= testValidation();
     if (!ok) return 1;
     std::puts("MidiPatchbayTests passed");

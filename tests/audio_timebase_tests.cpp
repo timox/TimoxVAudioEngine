@@ -36,7 +36,7 @@ void runCard(AudioTimebase& timebase, double nominal, double ppm, double seconds
 bool testMeasuresCardDriftAgainstHostClock() {
     AudioTimebase timebase;
     CHECK(!timebase.Update().cardLocked);  // no card: host clock as is
-    timebase.Begin(48000.0);
+    timebase.Begin(48000.0, AudioTimebaseSource::Asio);
     std::uint64_t frames = 0;
     std::int64_t now = 0;
     runCard(timebase, 48000.0, 40.0, 1.0, 5'000'000'000, frames, now);
@@ -57,24 +57,25 @@ bool testMeasuresCardDriftAgainstHostClock() {
 
 bool testRestartForgetsThePreviousCard() {
     AudioTimebase timebase;
-    timebase.Begin(48000.0);
+    timebase.Begin(48000.0, AudioTimebaseSource::Asio);
     std::uint64_t frames = 0;
     std::int64_t now = 0;
     runCard(timebase, 48000.0, -60.0, 20.0, 1'000'000'000, frames, now);
     CHECK(std::fabs(timebase.Current().driftPpm + 60.0) < 4.0);
     timebase.End();
     CHECK(!timebase.Update().cardLocked);
-    timebase.Begin(44100.0);
+    timebase.Begin(44100.0, AudioTimebaseSource::Software);
     frames = 0;
     runCard(timebase, 44100.0, 25.0, 20.0, now + 1'000'000'000, frames, now);
     const auto mapping = timebase.Current();
     CHECK(mapping.nominalRate == 44100.0 && std::fabs(mapping.driftPpm - 25.0) < 4.0);
+    CHECK(mapping.source == AudioTimebaseSource::Software);
     return true;
 }
 
 bool testDropoutsDoNotLookLikeDrift() {
     AudioTimebase timebase;
-    timebase.Begin(48000.0);
+    timebase.Begin(48000.0, AudioTimebaseSource::Asio);
     std::uint64_t frames = 0;
     std::int64_t now = 0;
     runCard(timebase, 48000.0, 0.0, 10.0, 1'000'000'000, frames, now);
@@ -89,7 +90,7 @@ bool testDropoutsDoNotLookLikeDrift() {
 
 bool testConcurrentPublishUpdateAndRead() {
     AudioTimebase timebase;
-    timebase.Begin(48000.0);
+    timebase.Begin(48000.0, AudioTimebaseSource::Asio);
     std::atomic<bool> done{false};
     std::atomic<bool> torn{false};
     std::thread audio([&] {  // the ASIO callback

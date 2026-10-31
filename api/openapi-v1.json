@@ -527,7 +527,7 @@
       "put": {
         "operationId": "setMidiEngineClock",
         "summary": "Set the engine MIDI clock tempo and transport",
-        "description": "The engine clock (port midi:clock:engine) counts sound card frames: each tick is scheduled at its card time converted to Windows time with the measured card frequency, so it never drifts from the audio. bpm is saved; transport sends start (FA), continue (FB) or stop (FC) to every port routed from the engine clock and starts or stops the ticks. Without a running sound card the Windows clock is used.",
+        "description": "The engine clock (port midi:clock:engine) counts the samples of the graph's master clock (ASIO driver or software clock): each tick is scheduled at its sample time converted to a send timestamp with the measured master frequency, so it never drifts from the audio. bpm is saved; transport sends start (FA), continue (FB) or stop (FC) to every port routed from the engine clock and starts or stops the ticks. start and continue require a running master clock (409 NO_MASTER_CLOCK otherwise); if the master stops later, the clock waits (waitingForMasterClock) instead of using Windows timers.",
         "requestBody": {
           "required": true,
           "content": {
@@ -577,6 +577,16 @@
           },
           "503": {
             "description": "MIDI_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "NO_MASTER_CLOCK: start audio on an ASIO driver or on the software clock first",
             "content": {
               "application/json": {
                 "schema": {

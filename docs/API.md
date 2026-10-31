@@ -35,6 +35,9 @@ ne sont pas implémentés.
 | `PUT /api/v1/application-profiles` | Remplacement complet et persistant des profils de capacité |
 | `GET /api/v1/pwar` | Adresse réseau PWAR enregistrée dans `pwarASIO.cfg` |
 | `PUT /api/v1/pwar` | Enregistre l’adresse et le port de destination PWAR sous Windows |
+| `GET /api/v1/midi` | Patch bay MIDI 1.0 : ports, configuration, compteurs, base de temps et horloge du moteur |
+| `PUT /api/v1/midi/configuration` | Remplacement complet et persistant des ports d’application et des routes MIDI |
+| `PUT /api/v1/midi/clock` | Tempo (enregistré) et transport de l’horloge MIDI du moteur |
 | `ws://127.0.0.1:<port>/api/v1/ws` | Commandes de configuration et événements d’état/audio |
 
 Ces deux routes gèrent uniquement les paramètres réseau Windows enregistrés.
@@ -321,4 +324,38 @@ Voir [le modèle et la matrice de propriétés](SUPERVISION_API.md). GET /api/v1
 
 ## Patch bay MIDI
 
-`GET /api/v1/midi` et `PUT /api/v1/midi/configuration` gèrent les ports MIDI 1.0 (ports virtuels et ports des appareils) et les routes MIDI via Windows MIDI Services. Voir [le patch bay MIDI 1.0](MIDI_PATCHBAY.md).
+Le patch bay est exclusivement MIDI 1.0 et passe par Windows MIDI Services. Le fonctionnement détaillé est décrit dans [le patch bay MIDI 1.0](MIDI_PATCHBAY.md).
+
+**Ports.**
+- `midi:virtual:<id>` : port d'application, à raison d'un par application. Il se compose de deux Basic MIDI 1.0 Loopbacks : « <nom> In » (`input`) et « <nom> Out » (`output`), activables séparément.
+- `midi:port:<groupe>:<endpoint>` : port d'un appareil MIDI 1.0, à raison d'un par groupe UMP.
+- `midi:clock:engine` : horloge générée par le moteur. Elle ne peut être qu'une source.
+
+**Lecture.** `GET /api/v1/midi` relit les ports et renvoie :
+- `ports[]` : sens, état et compteurs. `activity` exclut les ticks d'horloge ; `clock` donne le tempo mesuré, l'état de marche, le transport et `echoSuspected`.
+- `configuration`, avec les compteurs par route dans `routes[]` (`forwarded`, `filtered`, `reclocked`) ;
+- `timebase` et `engineClock`.
+
+**Configuration.** `PUT /api/v1/midi/configuration` remplace `virtualPorts`, `routes` et `engineClock.bpm`. Options d'une route : `channels`, `messages`, `outputChannel`, `transpose`, `enabled` et `reclock`.
+
+**Base de temps (`timebase`).** Le MIDI suit le maître unique du graphe défini par `engine.clockSource` :
+- `reference: "asio"` : la position d'échantillons fournie par le pilote physique ;
+- `reference: "software"` : l'échéancier de l'horloge logicielle ;
+- `reference: "none"` : aucun maître ne tourne.
+
+La position d'échantillons du maître est ajustée sur environ 30 s contre le compteur de performance Windows (`measuredSampleRate`, `driftPpm`). Ce compteur sert seulement à convertir un instant en échantillons en horodatage d'envoi : le MIDI ne suit jamais les temporisateurs Windows.
+
+**Horloge du moteur.** `PUT /api/v1/midi/clock` accepte `{"bpm": 20–300}` et/ou `{"transport": "start" | "stop" | "continue"}`.
+- Les ticks (24 par noire) sont comptés en échantillons du maître et envoyés à l'avance avec leur horodatage.
+- `start` et `continue` exigent un maître en marche ; sinon la réponse est `409 NO_MASTER_CLOCK`.
+- Si le maître s'arrête ensuite, `engineClock.waitingForMasterClock` passe à `true` et aucun tick n'est envoyé jusqu'à son retour.
+
+**Recalage (`reclock: true`).** Les ticks reçus sont réémis sur une grille régulière en échantillons du maître, à raison d'un tick en sortie par tick en entrée. Sans maître, ils sont transmis tels quels.
+
+**Erreurs.** `INVALID_MIDI_CONFIGURATION` et `INVALID_MIDI_CLOCK` (400), `NO_MASTER_CLOCK` (409), `MIDI_CONFIGURATION_FAILED` (500), `MIDI_UNAVAILABLE` (503).
+
+**Supervision.**
+- Les ports d'application, les appareils et l'horloge du moteur apparaissent comme adhérents et nœuds ; les routes apparaissent comme liens `medium=midi`.
+- Les compteurs, `clockSources`, `timebase` et `engineClock` figurent dans `engine.observations.midi`, ainsi que dans l'événement WebSocket `supervision.observations`, environ toutes les 500 ms.
+
+Voir [le modèle de supervision](SUPERVISION_API.md).

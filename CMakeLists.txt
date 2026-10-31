@@ -106,7 +106,8 @@ if(WIN32)
 
     add_executable(SoftwareClockHostTests
         tests/software_clock_host_tests.cpp
-        src/software_clock_host.cpp)
+        src/software_clock_host.cpp
+        src/audio_timebase.cpp)
     target_include_directories(SoftwareClockHostTests PRIVATE ${INCLUDE_DIR})
     target_link_libraries(SoftwareClockHostTests PRIVATE avrt)
 
@@ -151,6 +152,7 @@ if(WIN32)
     add_executable(SoftwareClockRoutingTests
         tests/software_clock_routing_tests.cpp
         src/software_clock_host.cpp
+        src/audio_timebase.cpp
         src/audio_routing_runtime.cpp
         src/routing_graph.cpp
         vendor/timoxvasio/src/audio_transport.cpp)
