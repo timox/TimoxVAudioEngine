@@ -44,6 +44,12 @@ Build from a clean committed checkout for packaging. Supply this receipt
 with the executable to TimoxVSSC. Reconfigure/rebuild after version or source
 changes; an old binary must never be relabelled as this candidate.
 
+PWAR is independently versioned as **0.1.0-alpha.1**, with control protocol v1.
+The engine receipt also records its required PWAR version, source commit and
+client SHA-256 from cmake/PwarClient.cmake. Packaging must use that exact client;
+rebuilding or versioning the client requires updating this pin and rebuilding
+the engine supervisor consumers. Runtime binary hash verification stays enabled.
+
 TimoxVSSC's artifacts.lock.json is the cross-repository assembly manifest. It
 records the driver requirement, engine and PWAR revisions, binary/schema hashes
 and remaining qualification. It must be updated with a verified Windows build

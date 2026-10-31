@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 include("${CMAKE_CURRENT_LIST_DIR}/EngineVersion.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/PwarClient.cmake")
+string(TOLOWER "${TIMOX_PWAR_CLIENT_SHA256}" pwar_hash)
 find_package(Git REQUIRED)
 execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${SOURCE_ROOT}" rev-parse HEAD
     OUTPUT_VARIABLE revision OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE result)
@@ -22,4 +24,4 @@ endif()
 file(SHA256 "${ENGINE_BINARY}" binary_hash)
 get_filename_component(output_dir "${ENGINE_BINARY}" DIRECTORY)
 file(WRITE "${output_dir}/engine-build.json"
-    "{\n  \"formatVersion\": 1,\n  \"repository\": \"timox/TimoxVAudioEngine\",\n  \"version\": \"${TIMOX_ENGINE_VERSION}\",\n  \"apiVersion\": \"${TIMOX_ENGINE_API_VERSION}\",\n  \"revision\": \"${revision}\",\n  \"dirty\": ${dirty},\n  \"windowsMidiServices\": ${midi},\n  \"binarySha256\": \"${binary_hash}\"\n}\n")
+    "{\n  \"formatVersion\": 1,\n  \"repository\": \"timox/TimoxVAudioEngine\",\n  \"version\": \"${TIMOX_ENGINE_VERSION}\",\n  \"apiVersion\": \"${TIMOX_ENGINE_API_VERSION}\",\n  \"revision\": \"${revision}\",\n  \"dirty\": ${dirty},\n  \"windowsMidiServices\": ${midi},\n  \"pwarClientVersion\": \"${TIMOX_PWAR_CLIENT_VERSION}\",\n  \"pwarClientRevision\": \"${TIMOX_PWAR_CLIENT_REVISION}\",\n  \"pwarClientSha256\": \"${pwar_hash}\",\n  \"binarySha256\": \"${binary_hash}\"\n}\n")

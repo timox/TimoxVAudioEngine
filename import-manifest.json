@@ -107,8 +107,9 @@
       "target": "cmake/PwarClient.cmake",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "dc16f69b092aa77ddbdb0a514c828b56b325981597916f71092e8bb32ddaa600",
-      "status": "generated"
+      "targetSha256": "dbda451f613317c9e2dac8548b681e9d100f2eb7d128e67d86ddf4eced910e01",
+      "status": "generated",
+      "transformation": "; Pin verified PWAR 0.1.0-alpha.1 and declare client provenance, 2026-10-31"
     },
     {
       "source": "CMakeLists.txt",
@@ -1459,8 +1460,8 @@
       "sourceSha256": null,
       "sha256": null,
       "status": "generated",
-      "targetSha256": "9485d4714466c270529baa8373b14a8810644e132e349af4bfa5432b387faccd",
-      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Windows build workflow and current MIDI capability documentation, 2026-10-31"
+      "targetSha256": "a577e0f98fb6cc774968134c7c36e4bb24d58cc22d83891e07530f258f7b26bb",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Windows build workflow and current MIDI capability documentation, 2026-10-31; Pin verified PWAR 0.1.0-alpha.1 and declare client provenance, 2026-10-31"
     },
     {
       "source": null,
@@ -1477,8 +1478,8 @@
       "sourceSha256": null,
       "sha256": null,
       "status": "generated",
-      "targetSha256": "722f0f2f2a9de575ea4e5b619ae7e39475242fb3049ce5a05aa7a68a3a3899e5",
-      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+      "targetSha256": "6ac03ed99f6f740dcec006b44eae6ac574d533ba4ea790caec6202143f48f84a",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Pin verified PWAR 0.1.0-alpha.1 and declare client provenance, 2026-10-31"
     },
     {
       "source": null,
