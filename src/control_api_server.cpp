@@ -1075,7 +1075,8 @@ struct ControlApiServer::Impl {
                 {"endpointName", port.endpointName.empty() ? Json(nullptr) : Json(port.endpointName)},
                 {"group", port.group}, {"source", port.source}, {"destination", port.destination},
                 {"online", port.online}, {"open", port.open},
-                {"clientEndpointId", port.clientEndpointId.empty() ? Json(nullptr) : Json(port.clientEndpointId)},
+                {"inputEndpointId", port.inputEndpointId.empty() ? Json(nullptr) : Json(port.inputEndpointId)},
+                {"outputEndpointId", port.outputEndpointId.empty() ? Json(nullptr) : Json(port.outputEndpointId)},
                 {"error", port.error.empty() ? Json(nullptr) : Json(port.error)}});
         Json routes = Json::array();
         for (const auto& route : snapshot.routes)

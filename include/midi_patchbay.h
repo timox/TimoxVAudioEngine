@@ -13,10 +13,11 @@
 
 // MIDI 1.0 patchbay. Every port is a MIDI 1.0 port; port ids are:
 //   midi:virtual:<id>                  MIDI 1.0 port pair created by the engine
+//                                      ("<name> In" and "<name> Out" loopbacks)
 //   midi:port:<group 1-16>:<endpointId> MIDI 1.0 port of an OS endpoint (USB
 //                                      interface, network, another application)
 struct MidiVirtualPortConfig {
-    std::string id;    // [a-z0-9-], 1..32 characters
+    std::string id;    // [a-z0-9-], 1..24 characters
     std::string name;  // shown to applications, 1..24 characters
 };
 
@@ -36,7 +37,8 @@ struct MidiPortStatus {
     bool destination = false;      // usable as a route destination (MIDI Out)
     bool online = false;           // port present / virtual port created
     bool open = false;             // engine holds a connection
-    std::string clientEndpointId;  // virtual ports: endpoint other apps open
+    std::string inputEndpointId;   // virtual ports: "<name> In", apps send here
+    std::string outputEndpointId;  // virtual ports: "<name> Out", apps listen here
     std::string error;
 };
 
@@ -103,7 +105,8 @@ private:
     struct Runtime;
     struct OpenConnection {
         std::uint64_t cookie = 0;
-        std::string clientEndpointId;  // virtual ports only
+        std::string inputEndpointId;   // virtual ports only
+        std::string outputEndpointId;  // virtual ports only
         std::string displayName;       // virtual ports only
     };
 

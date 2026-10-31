@@ -44,13 +44,16 @@ public:
 
     virtual bool OpenEndpoint(std::uint64_t cookie, const std::string& endpointId, std::string& error) = 0;
 
-    // Creates an app-to-app MIDI 1.0 port (one input and one output, group 1)
-    // that other applications see under displayName. stableId stays the same across engine restarts so the OS
-    // can give applications the same port again. Messages applications send
+    // Creates an app-to-app MIDI 1.0 port pair: "<displayName> In", which
+    // applications send to and the engine reads, and "<displayName> Out",
+    // which the engine writes and applications read. Both are plain MIDI 1.0
+    // ports (never MIDI 2.0). stableId stays the same across engine restarts
+    // so applications find the same ports again. Messages applications send
     // arrive through the receive handler with this cookie; Send() with this
     // cookie delivers to them.
     virtual bool CreateVirtualPort(std::uint64_t cookie, const std::string& stableId,
-        const std::string& displayName, std::string& clientEndpointId, std::string& error) = 0;
+        const std::string& displayName, std::string& inputEndpointId, std::string& outputEndpointId,
+        std::string& error) = 0;
 
     // Closes an endpoint connection or destroys a virtual port.
     virtual void Close(std::uint64_t cookie) noexcept = 0;

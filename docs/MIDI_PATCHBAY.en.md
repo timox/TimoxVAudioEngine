@@ -8,12 +8,17 @@ The engine connects MIDI 1.0 ports to each other, like a hardware patchbay. It u
 
 | Id | Role |
 |---|---|
-| `midi:virtual:<id>` | Port created by the engine: a MIDI 1.0 input and output that applications (DAWs, soft synths) open. What they send enters the patchbay; what the patchbay sends there reaches them. |
+| `midi:virtual:<id>` | MIDI 1.0 port pair created by the engine, as with loopMIDI: applications (DAWs, soft synths) send to "<name> In" and listen to "<name> Out". |
 | `midi:port:<group>:<Windows id>` | One port of a MIDI 1.0 device (USB interface or existing MIDI 1.0 driver). Native MIDI 2.0 endpoints (MIDI 2.0 devices, network MIDI 2.0, other applications' virtual ports) are not offered. |
 
 Windows MIDI Services maps each MIDI 1.0 port of a device to one **group** (1 to 16) of its endpoint, so a 4-port interface gives `midi:port:1:…` to `midi:port:4:…`. For each port the API reports its name (as shown to MIDI 1.0 applications), whether it can be a source (`source`, MIDI In) and a destination (`destination`, MIDI Out). Direction comes from the device's function blocks, or from its USB group terminal blocks.
 
-A virtual port is a Windows MIDI Services virtual device owned by the engine and declared **MIDI 1.0 only**: one bidirectional block on group 1. MIDI 1.0 applications see it as the port name followed by "MIDI", so names are limited to 24 ASCII characters. It exists while the engine runs. Its stable identity (`ProductInstanceId` = `TimoxVasio-<id>`) lets applications find it again after a restart.
+A virtual port is made of two Windows MIDI Services **Basic MIDI 1.0 Loopbacks**, which are true MIDI 1.0 ports. The engine never creates a MIDI 2.0 port (UMP virtual device): such ports crash some MIDI 1.0 applications.
+
+- "<name> In": applications send to it; the engine only reads it;
+- "<name> Out": the engine writes to it; applications read it.
+
+A loopback echoes everything written to it back to its readers. With one direction per loopback, the engine never receives its own messages. Names are limited to 24 ASCII characters and ids to 24 characters, since they form the unique ids `tx-<id>-in` and `tx-<id>-out` (32 characters max). These stable ids let applications find the ports again after an engine restart. Loopbacks are transient: they disappear when the MIDI service restarts, and the engine reuses the ones it left behind after a crash. Windows feedback protection stays on: if an application sends "Out" back into "In", Windows mutes the loopback.
 
 The engine opens an endpoint only when an enabled route uses one of its ports; one connection carries all of the endpoint's ports. Other applications can use it at the same time: Windows MIDI Services is multi-client.
 
@@ -44,7 +49,7 @@ Error codes: `INVALID_MIDI_CONFIGURATION` (400), `MIDI_CONFIGURATION_FAILED` (50
 
 ## Requirements and build
 
-Runtime: Windows 11 with the Windows MIDI Services preview 12 runtime (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12), with the virtual device transport available.
+Runtime: Windows 11 with the Windows MIDI Services preview 12 runtime (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12), with the Basic MIDI 1.0 Loopback transport installed and turned on (Transports page of the MIDI Troubleshooting and Repair tool). According to the release notes this preview transport is unsigned and needs Windows Developer mode.
 
 Preview 12 ships no new API package. Build against the `Windows.Devices.Midi2` NuGet metadata **0.99.92-preview.11**. The build downloads nothing:
 
@@ -59,9 +64,7 @@ CMake generates the C++/WinRT projection with the Windows SDK `cppwinrt.exe`. Wi
 ## Limitations
 
 - The Windows backend (`src/windows_midi_services_backend.cpp`) has not yet been compiled or run on a Windows machine with preview 12. Automated tests cover routing and configuration handling with a simulated backend.
-- The preview lists a known issue on Windows 11 build 26100.8875 where virtual endpoints can become unusable (microsoft/MIDI#1047).
-- The engine's virtual ports are Windows MIDI Services virtual devices declared MIDI 1.0 only: applications see only a MIDI 1.0 input and output, but Windows handles them internally as UMP endpoints. The only purely MIDI 1.0 alternative is Basic MIDI 1.0 Loopback (see below).
 - Port names and directions come from the MIDI 1.0 name table and the blocks the device declares. This mapping has not been checked with real devices yet.
-- Preview 12 Basic MIDI 1.0 Loopback ports are not used: one endpoint echoes everything written to it back to its readers, so the engine would receive its own messages. Creating them also requires Developer mode in this preview.
+- The loopback endpoint id format is not documented. The engine finds its leftover loopbacks by looking for `tx-<id>-in` / `tx-<id>-out` in it; to be checked on Windows.
 - No GUI yet, and no MIDI clock locked to the audio clock.
 - Supervision (`supervision.adherents[].capabilities.midi`) stays `null`: MIDI ports are not yet attached to audio adherents.

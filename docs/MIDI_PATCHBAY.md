@@ -8,12 +8,17 @@ Le moteur relie des ports MIDI 1.0 entre eux, comme un patch bay matériel. Il s
 
 | Identifiant | Rôle |
 |---|---|
-| `midi:virtual:<id>` | Port créé par le moteur : une entrée et une sortie MIDI 1.0 que les applications (DAW, synthés logiciels) ouvrent. Ce qu'elles envoient entre dans le patch bay ; ce que le patch bay y envoie leur parvient. |
+| `midi:virtual:<id>` | Paire de ports MIDI 1.0 créée par le moteur, comme avec loopMIDI : les applications (DAW, synthés logiciels) envoient vers « <nom> In » et écoutent « <nom> Out ». |
 | `midi:port:<groupe>:<id Windows>` | Un port d'un appareil MIDI 1.0 (interface USB ou pilote MIDI 1.0 existant). Les endpoints MIDI 2.0 natifs (appareils MIDI 2.0, réseau MIDI 2.0, ports virtuels d'autres applications) ne sont pas proposés. |
 
 Windows MIDI Services représente chaque port MIDI 1.0 d'un appareil par un **groupe** (1 à 16) de son endpoint. Une interface à 4 ports donne donc `midi:port:1:…` à `midi:port:4:…`. L'API indique pour chaque port son nom (celui affiché aux applications MIDI 1.0), s'il peut servir de source (`source`, MIDI In) et de destination (`destination`, MIDI Out). Le sens vient des blocs de fonction de l'appareil, ou de ses blocs de terminaux de groupe USB.
 
-Un port virtuel est un appareil virtuel Windows MIDI Services appartenant au moteur et déclaré **MIDI 1.0 uniquement** : un seul bloc bidirectionnel sur le groupe 1. Les applications MIDI 1.0 le voient sous le nom du port suivi de « MIDI ». Le nom est donc limité à 24 caractères ASCII. Le port existe tant que le moteur tourne. Son identifiant stable (`ProductInstanceId` = `TimoxVasio-<id>`) permet aux applications de le retrouver après un redémarrage.
+Un port virtuel est fait de deux **Basic MIDI 1.0 Loopbacks** de Windows MIDI Services, de vrais ports MIDI 1.0. Le moteur ne crée jamais de port MIDI 2.0 (appareil virtuel UMP) : ces ports font planter certaines applications MIDI 1.0.
+
+- « <nom> In » : les applications y envoient, le moteur ne fait que le lire ;
+- « <nom> Out » : le moteur y écrit, les applications le lisent.
+
+Un loopback renvoie à ses lecteurs tout ce qu'on y écrit. Avec un seul sens par loopback, le moteur ne reçoit jamais ses propres messages. Le nom est limité à 24 caractères ASCII et l'identifiant à 24 caractères, car ils forment les identifiants uniques `tx-<id>-in` et `tx-<id>-out` (32 caractères au plus). Ces identifiants stables permettent aux applications de retrouver les ports après un redémarrage du moteur. Les loopbacks sont temporaires : ils disparaissent quand le service MIDI redémarre, et le moteur réutilise ceux qu'il a laissés s'il a été arrêté brutalement. La protection anti-boucle de Windows reste active : si une application renvoie « Out » vers « In », Windows coupe le loopback.
 
 Le moteur n'ouvre un endpoint que si une route active utilise l'un de ses ports. Une seule connexion porte tous les ports de l'endpoint. Les autres applications peuvent l'utiliser en même temps : Windows MIDI Services est multiclient.
 
@@ -55,7 +60,7 @@ Codes d'erreur : `INVALID_MIDI_CONFIGURATION` (400), `MIDI_CONFIGURATION_FAILED`
 
 ## Prérequis et compilation
 
-Exécution : Windows 11 avec le runtime Windows MIDI Services préversion 12 (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). Le transport d'appareils virtuels doit être disponible.
+Exécution : Windows 11 avec le runtime Windows MIDI Services préversion 12 (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). Le transport « Basic MIDI 1.0 Loopback » doit être installé et activé (page Transports de l'outil MIDI Troubleshooting and Repair). Selon les notes de version, ce transport en préversion n'est pas signé et demande le mode développeur de Windows.
 
 La préversion 12 n'apporte pas de nouveau paquet d'API. On compile avec les métadonnées du paquet NuGet `Windows.Devices.Midi2` **0.99.92-preview.11**. La compilation ne télécharge rien. Récupérez le paquet, puis :
 
@@ -70,9 +75,7 @@ CMake génère la projection C++/WinRT avec le `cppwinrt.exe` du Windows SDK. Sa
 ## Limites
 
 - Le backend Windows (`src/windows_midi_services_backend.cpp`) n'a pas encore été compilé ni testé sur une machine Windows équipée de la préversion 12. Les tests automatiques couvrent le routage et la gestion de configuration avec un backend simulé.
-- La préversion signale un problème connu sur la build Windows 11 26100.8875 : les endpoints virtuels peuvent devenir inutilisables (microsoft/MIDI#1047).
-- Les ports virtuels du moteur sont des appareils virtuels Windows MIDI Services déclarés MIDI 1.0 seulement : les applications n'y voient qu'une entrée et une sortie MIDI 1.0, mais Windows les gère en interne comme des endpoints UMP. La seule alternative purement MIDI 1.0 est le « Basic MIDI 1.0 Loopback » (voir plus bas).
 - Les noms et le sens des ports viennent de la table de noms MIDI 1.0 et des blocs déclarés par l'appareil. Ce mapping n'a pas encore été vérifié avec de vrais appareils.
-- Les ports virtuels basiques MIDI 1.0 (« Basic MIDI 1.0 Loopback ») de la préversion 12 ne sont pas utilisés : un même endpoint renvoie aux lecteurs tout ce qu'on y écrit, le moteur recevrait donc ses propres messages. Leur création demande aussi le mode développeur dans cette préversion.
+- Le format exact des identifiants d'endpoint des loopbacks n'est pas documenté. Le moteur retrouve ses loopbacks orphelins en y cherchant `tx-<id>-in` / `tx-<id>-out` ; à vérifier sous Windows.
 - Pas encore d'interface graphique ni d'horloge MIDI synchronisée sur l'horloge audio.
 - La supervision (`supervision.adherents[].capabilities.midi`) reste `null` : les ports MIDI ne sont pas encore rattachés aux adhérents audio.

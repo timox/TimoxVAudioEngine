@@ -33,7 +33,8 @@ bool startsWith(const std::string& value, const char* prefix) {
 }
 
 bool validVirtualId(const std::string& id) {
-    if (id.empty() || id.size() > 32) return false;
+    // Becomes the loopback unique ids "tx-<id>-in" / "tx-<id>-out" (32 max).
+    if (id.empty() || id.size() > 24) return false;
     for (const char c : id)
         if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return false;
     return true;
@@ -277,7 +278,7 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
     std::set<std::string> virtualIds, names, routeIds;
     for (const auto& port : configuration.virtualPorts) {
         if (!validVirtualId(port.id)) {
-            error = "Virtual MIDI port ids use 1 to 32 lowercase letters, digits or hyphens";
+            error = "Virtual MIDI port ids use 1 to 24 lowercase letters, digits or hyphens";
             return false;
         }
         if (!validDisplayName(port.name)) {
@@ -414,7 +415,8 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         OpenConnection connection;
         connection.cookie = nextCookie_++;
         connection.displayName = port.name;
-        if (!backend_->CreateVirtualPort(connection.cookie, port.id, port.name, connection.clientEndpointId, error)) {
+        if (!backend_->CreateVirtualPort(connection.cookie, port.id, port.name, connection.inputEndpointId,
+                connection.outputEndpointId, error)) {
             rollback();
             return {false, "Unable to create virtual MIDI port " + port.name + ": " + error};
         }
@@ -441,7 +443,9 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     std::vector<std::string> ports;
     for (const auto& port : configuration.virtualPorts) {
         const auto& connection = next.at(kVirtualPrefix + port.id);
-        runtime->sourceIndices.emplace(sourceKey(connection.cookie, 0), ports.size());
+        // A MIDI 1.0 loopback carries one port; accept whatever group it uses.
+        for (std::uint8_t group = 0; group < 16; ++group)
+            runtime->sourceIndices.emplace(sourceKey(connection.cookie, group), ports.size());
         runtime->targets.push_back({connection.cookie, 0, true});
         ports.push_back(kVirtualPrefix + port.id);
     }
@@ -541,7 +545,10 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.source = status.destination = true;
         const auto connection = connections_.find(status.id);
         status.online = status.open = connection != connections_.end();
-        if (status.open) status.clientEndpointId = connection->second.clientEndpointId;
+        if (status.open) {
+            status.inputEndpointId = connection->second.inputEndpointId;
+            status.outputEndpointId = connection->second.outputEndpointId;
+        }
         snapshot.ports.push_back(std::move(status));
     }
     std::set<std::string> listed;

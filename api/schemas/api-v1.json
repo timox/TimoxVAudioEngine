@@ -28,18 +28,18 @@
         "name"
       ],
       "additionalProperties": false,
-      "description": "MIDI 1.0 port pair (one input, one output) created by the engine as a Windows MIDI Services virtual device declared MIDI 1.0 only. Its API port id is midi:virtual:<id>.",
+      "description": "MIDI 1.0 port pair created by the engine from two Windows MIDI Services Basic MIDI 1.0 Loopbacks: applications send to \"<name> In\" and listen to \"<name> Out\". No MIDI 2.0 (UMP virtual device) port is created. Its API port id is midi:virtual:<id>.",
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9-]{1,32}$"
+          "pattern": "^[a-z0-9-]{1,24}$"
         },
         "name": {
           "type": "string",
           "minLength": 1,
           "maxLength": 24,
           "pattern": "^[ -~]*[!-~]$",
-          "description": "Name shown to applications; MIDI 1.0 applications see it followed by the function block name."
+          "description": "Base name; applications see \"<name> In\" and \"<name> Out\"."
         }
       }
     },
@@ -60,11 +60,11 @@
         },
         "source": {
           "type": "string",
-          "pattern": "^midi:(virtual:[a-z0-9-]{1,32}|port:([1-9]|1[0-6]):.+)$"
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,24}|port:([1-9]|1[0-6]):.+)$"
         },
         "destination": {
           "type": "string",
-          "pattern": "^midi:(virtual:[a-z0-9-]{1,32}|port:([1-9]|1[0-6]):.+)$"
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,24}|port:([1-9]|1[0-6]):.+)$"
         },
         "enabled": {
           "type": "boolean",
@@ -163,8 +163,9 @@
         "destination",
         "online",
         "open",
-        "clientEndpointId",
-        "error"
+        "error",
+        "inputEndpointId",
+        "outputEndpointId"
       ],
       "properties": {
         "id": {
@@ -214,18 +215,25 @@
           "type": "boolean",
           "description": "The engine holds a connection to the port's endpoint; it opens an endpoint only when an enabled route uses one of its ports."
         },
-        "clientEndpointId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Virtual ports: endpoint id other applications open."
-        },
         "error": {
           "type": [
             "string",
             "null"
           ]
+        },
+        "inputEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Virtual ports: endpoint of the \"<name> In\" loopback applications send to."
+        },
+        "outputEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Virtual ports: endpoint of the \"<name> Out\" loopback applications listen to."
         }
       }
     },

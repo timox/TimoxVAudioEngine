@@ -36,10 +36,11 @@ public:
         return true;
     }
     bool CreateVirtualPort(std::uint64_t cookie, const std::string&, const std::string& name,
-                           std::string& clientId, std::string& error) override {
+                           std::string& inputId, std::string& outputId, std::string& error) override {
         if (state_.failVirtual) { error = "transport unavailable"; return false; }
         state_.open[cookie] = "virtual:" + name;
-        clientId = "client-" + name;
+        inputId = name + " In";
+        outputId = name + " Out";
         return true;
     }
     void Close(std::uint64_t cookie) noexcept override { state_.open.erase(cookie); }
@@ -137,7 +138,8 @@ bool testApplyRoutesAndPersists() {
         if (port.id == "midi:port:1:unplugged") absentListed = !port.online;
         if (port.id == "midi:port:2:usb-multi")
             multiPort2 = port.name == "Multi Port 2" && port.group == 2 && port.source && port.destination;
-        if (port.id == "midi:virtual:daw") CHECK(port.clientEndpointId == "client-Timox DAW");
+        if (port.id == "midi:virtual:daw")
+            CHECK(port.inputEndpointId == "Timox DAW In" && port.outputEndpointId == "Timox DAW Out");
     }
     CHECK(absentListed && multiPort2);
 
@@ -240,6 +242,9 @@ bool testValidation() {
     CHECK(MidiPatchbay::ParsePortId("midi:port:16:\\\\?\\swd#midisrv#a:b", group, endpointId));
     CHECK(group == 15 && endpointId == "\\\\?\\swd#midisrv#a:b");
     CHECK(MidiPatchbay::PortId(15, endpointId) == "midi:port:16:\\\\?\\swd#midisrv#a:b");
+    CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[{"id":"abcdefghijklmnopqrstuvwxy","name":"x"}],"routes":[]})",
+        configuration, error));
+    CHECK(!MidiPatchbay::Validate(configuration, error));  // 25 characters: loopback unique id too long
     CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[{"id":"Bad Id","name":"x"}],"routes":[]})", configuration, error));
     CHECK(!MidiPatchbay::Validate(configuration, error));
     CHECK(midi_patchbay_json::Decode(

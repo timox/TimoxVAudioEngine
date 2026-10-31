@@ -11,7 +11,9 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 
 // MIDI 1.0 only: only native MIDI 1.0 (byte format) endpoints are listed, each
 // presented as its MIDI 1.0 ports (one per UMP group); native MIDI 2.0
-// endpoints are ignored. Virtual ports are declared as MIDI 1.0 devices.
+// endpoints are ignored. Virtual ports are pairs of Basic MIDI 1.0 Loopback
+// endpoints, never UMP virtual devices: MIDI 2.0 ports crash some MIDI 1.0
+// applications.
 // Built against the Windows.Devices.Midi2 NuGet metadata 0.99.92-preview.11,
 // which is the API for the Windows MIDI Services preview 12 runtime
 // (Tools 0.99.94-preview.12, Transports 1.0.43-preview.12). The using
@@ -22,10 +24,11 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Devices.Midi2.h>
 #include <winrt/Windows.Devices.Midi2.Enumeration.h>
-#include <winrt/Windows.Devices.Midi2.Transports.Virtual.h>
+#include <winrt/Windows.Devices.Midi2.Transports.BasicLoopback.h>
 
 #include <condition_variable>
 #include <cstdio>
+#include <cwctype>
 #include <deque>
 #include <functional>
 #include <future>
@@ -42,7 +45,7 @@ namespace {
 // compiler find them in whichever namespace the metadata declares.
 using namespace winrt::Windows::Devices::Midi2;
 using namespace winrt::Windows::Devices::Midi2::Enumeration;
-using namespace winrt::Windows::Devices::Midi2::Transports::Virtual;
+using namespace winrt::Windows::Devices::Midi2::Transports::BasicLoopback;
 
 std::string utf8(std::wstring_view value) {
     if (value.empty()) return {};
@@ -131,7 +134,7 @@ public:
                     reason = "The Windows MIDI Services service is not running or not installed";
                     return;
                 }
-                virtualAvailable_ = MidiVirtualDeviceManager::IsTransportAvailable();
+                loopbackAvailable_ = MidiBasicLoopbackManager::IsTransportAvailable();
                 session_ = MidiSession::Create(L"Timox MIDI patchbay");
                 ok = session_ != nullptr;
                 if (!ok) reason = "Unable to create a Windows MIDI Services session";
@@ -156,8 +159,10 @@ public:
                 std::set<std::wstring> ownClients;
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    for (const auto& entry : connections_)
-                        if (!entry.second->clientEndpointId.empty()) ownClients.insert(entry.second->clientEndpointId);
+                    for (const auto& entry : connections_) {
+                        if (!entry.second->inputEndpointId.empty()) ownClients.insert(entry.second->inputEndpointId);
+                        if (!entry.second->outputEndpointId.empty()) ownClients.insert(entry.second->outputEndpointId);
+                    }
                 }
                 endpoints.clear();
                 for (const auto& device : MidiEndpointDeviceInformation::FindAll()) {
@@ -201,71 +206,51 @@ public:
         return ok;
     }
 
+    // A virtual port is two Basic MIDI 1.0 Loopbacks, as with loopMIDI:
+    //   "<name> In":  applications send to it, the engine only reads it;
+    //   "<name> Out": the engine only writes to it, applications read it.
+    // A basic loopback echoes what is sent to it back to its readers, so one
+    // direction per loopback keeps the engine from receiving its own output.
     bool CreateVirtualPort(std::uint64_t cookie, const std::string& stableId, const std::string& displayName,
-                           std::string& clientEndpointId, std::string& error) override {
+                           std::string& inputEndpointId, std::string& outputEndpointId,
+                           std::string& error) override {
         bool ok = false;
         worker_.Run([&] {
-            if (!virtualAvailable_) {
-                error = "The Windows MIDI Services virtual device transport is not available";
+            if (!loopbackAvailable_) {
+                error = "The Basic MIDI 1.0 Loopback transport is not installed or is turned off";
                 return;
             }
             auto connection = std::make_shared<Connection>();
             try {
                 const auto name = wide(displayName);
-                MidiDeclaredEndpointInfo endpointInfo;
-                endpointInfo.Name(name);
-                // Stable across restarts so applications find the same port again.
-                endpointInfo.ProductInstanceId(wide("TimoxVasio-" + stableId));
-                endpointInfo.HasStaticFunctionBlocks(true);
-                // MIDI 1.0 only: applications get a plain MIDI 1.0 input and output.
-                endpointInfo.SupportsMidi10Protocol(true);
-                endpointInfo.SupportsMidi20Protocol(false);
-                endpointInfo.SupportsReceivingJitterReductionTimestamps(false);
-                endpointInfo.SupportsSendingJitterReductionTimestamps(false);
-                endpointInfo.SpecificationVersionMajor(1);
-                endpointInfo.SpecificationVersionMinor(1);
-
-                MidiVirtualDeviceCreationConfig config(name,
-                    L"TimoxVasio MIDI patchbay port", L"TimoxVasio", endpointInfo);
-                // One bidirectional MIDI 1.0 block on group 1. MIDI 1.0
-                // applications see one input and one output, named from the
-                // port name and the block name ("<name> MIDI").
-                MidiFunctionBlock block;
-                block.Number(0);
-                block.IsActive(true);
-                block.Name(L"MIDI");
-                block.FirstGroup(MidiGroup(static_cast<std::uint8_t>(0)));
-                block.GroupCount(1);
-                block.Direction(MidiFunctionBlockDirection::Bidirectional);
-                block.RepresentsMidi10Connection(MidiFunctionBlockRepresentsMidi10Connection::YesBandwidthUnrestricted);
-                config.FunctionBlocks().Append(block);
-
-                connection->device = MidiVirtualDeviceManager::CreateVirtualDevice(config);
-                if (!connection->device) {
-                    error = "Windows MIDI Services refused to create the virtual device";
+                winrt::guid inputAssociation{}, outputAssociation{};
+                // Stable unique ids: applications find the same ports after a restart.
+                if (!CreateLoopback(wide("tx-" + stableId + "-in"), name + L" In",
+                        connection->inputEndpointId, inputAssociation, error)) return;
+                connection->loopbacks.push_back(inputAssociation);
+                if (!CreateLoopback(wide("tx-" + stableId + "-out"), name + L" Out",
+                        connection->outputEndpointId, outputAssociation, error)) {
+                    Disconnect(*connection);
                     return;
                 }
-                connection->connection = session_.CreateEndpointConnection(connection->device.DeviceEndpointDeviceId());
+                connection->loopbacks.push_back(outputAssociation);
+
+                connection->connection = session_.CreateEndpointConnection(connection->inputEndpointId);
                 Subscribe(cookie, *connection);
-                if (connection->connection.AddMessageProcessingPlugin(connection->device) !=
-                    MidiMessageProcessingPluginAddResult::Succeeded) {
-                    error = "Unable to attach the virtual device to its connection";
+                // The output loopback's echo is never subscribed: it is not routed.
+                connection->output = session_.CreateEndpointConnection(connection->outputEndpointId);
+                if (!connection->connection.Open() || !connection->output.Open()) {
+                    error = "The MIDI 1.0 loopback ports could not be opened";
                     Disconnect(*connection);
                     return;
                 }
-                if (!connection->connection.Open()) {
-                    error = "The virtual MIDI device could not be opened";
-                    Disconnect(*connection);
-                    return;
-                }
-                connection->clientEndpointId = std::wstring{
-                    MidiVirtualDeviceManager::GetAssociatedClientEndpointDeviceId(config.AssociationId())};
             } catch (const winrt::hresult_error& failure) {
                 error = describe(failure);
                 Disconnect(*connection);
                 return;
             }
-            clientEndpointId = utf8(connection->clientEndpointId);
+            inputEndpointId = utf8(connection->inputEndpointId);
+            outputEndpointId = utf8(connection->outputEndpointId);
             std::lock_guard<std::mutex> lock(mutex_);
             connections_[cookie] = std::move(connection);
             ok = true;
@@ -299,12 +284,14 @@ public:
         }
         try {
             const auto now = MidiClock::TimestampConstantSendImmediately();
+            // Virtual ports send on their "Out" loopback, never on "In".
+            const auto& target = connection->output ? connection->output : connection->connection;
             MidiSendMessageResults result{};
             switch (count) {
-            case 1: result = connection->connection.SendSingleMessageWords(now, words[0]); break;
-            case 2: result = connection->connection.SendSingleMessageWords(now, words[0], words[1]); break;
-            case 3: result = connection->connection.SendSingleMessageWords(now, words[0], words[1], words[2]); break;
-            case 4: result = connection->connection.SendSingleMessageWords(now, words[0], words[1], words[2], words[3]); break;
+            case 1: result = target.SendSingleMessageWords(now, words[0]); break;
+            case 2: result = target.SendSingleMessageWords(now, words[0], words[1]); break;
+            case 3: result = target.SendSingleMessageWords(now, words[0], words[1], words[2]); break;
+            case 4: result = target.SendSingleMessageWords(now, words[0], words[1], words[2], words[3]); break;
             default: return false;
             }
             return MidiEndpointConnection::SendMessageSucceeded(result);
@@ -371,11 +358,45 @@ private:
     }
 
     struct Connection {
-        MidiEndpointConnection connection{nullptr};
+        MidiEndpointConnection connection{nullptr};  // endpoint, or a virtual port's "In" loopback
         winrt::event_token token{};
-        MidiVirtualDevice device{nullptr};
-        std::wstring clientEndpointId;
+        MidiEndpointConnection output{nullptr};      // a virtual port's "Out" loopback
+        std::vector<winrt::guid> loopbacks;          // transient loopbacks this engine created
+        std::wstring inputEndpointId;
+        std::wstring outputEndpointId;
     };
+
+    static std::wstring lower(std::wstring value) {
+        for (auto& c : value) c = static_cast<wchar_t>(towlower(c));
+        return value;
+    }
+
+    // Runs on the worker thread. Transient loopbacks live until the MIDI
+    // service restarts, so one left by a previous engine run is reused.
+    bool CreateLoopback(const std::wstring& uniqueId, const std::wstring& name, std::wstring& endpointId,
+                        winrt::guid& associationId, std::string& error) {
+        const auto wanted = lower(uniqueId);
+        for (const auto& entry : MidiBasicLoopbackManager::GetActiveLoopbackEntries()) {
+            if (lower(std::wstring{entry.EndpointDeviceId()}).find(wanted) == std::wstring::npos) continue;
+            endpointId = entry.EndpointDeviceId();
+            associationId = entry.AssociationId();
+            return true;
+        }
+        MidiBasicLoopbackEndpointDefinition definition;
+        definition.Name(name);
+        definition.Description(L"TimoxVasio MIDI 1.0 patchbay port");
+        definition.UniqueId(uniqueId);
+        MidiBasicLoopbackCreationConfig config(definition);
+        const auto response = MidiBasicLoopbackManager::CreateTransientLoopback(config);
+        if (!response.Success()) {
+            error = utf8(response.ErrorMessage());
+            if (error.empty()) error = "Windows MIDI Services refused to create the MIDI 1.0 loopback";
+            return false;
+        }
+        endpointId = response.CreatedLoopbackEntry().EndpointDeviceId();
+        associationId = response.CreatedLoopbackEntry().AssociationId();
+        return true;
+    }
 
     void Subscribe(std::uint64_t cookie, Connection& connection) {
         connection.token = connection.connection.MessageReceived(
@@ -438,13 +459,22 @@ private:
                 session_.DisconnectEndpointConnection(connection.connection.ConnectionId());
             }
         } catch (...) {}
+        try {
+            if (connection.output) session_.DisconnectEndpointConnection(connection.output.ConnectionId());
+        } catch (...) {}
         connection.connection = nullptr;
-        connection.device = nullptr;  // the virtual device is torn down with its connection
+        connection.output = nullptr;
+        for (const auto& association : connection.loopbacks) {
+            try {
+                MidiBasicLoopbackManager::RemoveTransientLoopback(MidiBasicLoopbackRemovalConfig(association));
+            } catch (...) {}
+        }
+        connection.loopbacks.clear();
     }
 
     MtaWorker worker_;
     MidiSession session_{nullptr};
-    bool virtualAvailable_ = false;
+    bool loopbackAvailable_ = false;
     std::mutex mutex_;
     std::unordered_map<std::uint64_t, std::shared_ptr<Connection>> connections_;
     std::shared_ptr<ReceiveHandler> handler_;

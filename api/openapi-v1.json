@@ -468,7 +468,7 @@
       "put": {
         "operationId": "replaceMidiConfiguration",
         "summary": "Replace all virtual MIDI 1.0 ports and MIDI routes",
-        "description": "Validates, applies and saves the complete MIDI patchbay to %LOCALAPPDATA%\\TimoxVasio\\midi-patchbay.json. Unchanged virtual ports stay open for applications; renamed ports are recreated. If a virtual port cannot be created the previous configuration stays in effect. An endpoint that cannot be opened only leaves its routes inactive and is reported in ports[].error.",
+        "description": "Validates, applies and saves the complete MIDI patchbay to %LOCALAPPDATA%\\TimoxVasio\\midi-patchbay.json. Unchanged virtual ports stay open for applications; renamed ports are recreated. Virtual ports require the Basic MIDI 1.0 Loopback transport (Windows MIDI Services preview 12 Transports package). If a virtual port cannot be created the previous configuration stays in effect. An endpoint that cannot be opened only leaves its routes inactive and is reported in ports[].error.",
         "requestBody": {
           "required": true,
           "content": {
