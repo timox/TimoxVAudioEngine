@@ -8,15 +8,17 @@ The engine connects MIDI 1.0 ports to each other, like a hardware patchbay. It u
 
 | Id | Role |
 |---|---|
-| `midi:virtual:<id>` | MIDI 1.0 port pair created by the engine, as with loopMIDI: applications (DAWs, soft synths) send to "<name> In" and listen to "<name> Out". |
+| `midi:virtual:<id>` | Application port created by the engine, one per application: "<name> In" (the application sends to the patchbay) and "<name> Out" (the patchbay sends to the application), each switchable on its own. |
 | `midi:port:<group>:<Windows id>` | One port of a MIDI 1.0 device (USB interface or existing MIDI 1.0 driver). Native MIDI 2.0 endpoints (MIDI 2.0 devices, network MIDI 2.0, other applications' virtual ports) are not offered. |
 
 Windows MIDI Services maps each MIDI 1.0 port of a device to one **group** (1 to 16) of its endpoint, so a 4-port interface gives `midi:port:1:…` to `midi:port:4:…`. For each port the API reports its name (as shown to MIDI 1.0 applications), whether it can be a source (`source`, MIDI In) and a destination (`destination`, MIDI Out). Direction comes from the device's function blocks, or from its USB group terminal blocks.
 
-A virtual port is made of two Windows MIDI Services **Basic MIDI 1.0 Loopbacks**, which are true MIDI 1.0 ports. The engine never creates a MIDI 2.0 port (UMP virtual device): such ports crash some MIDI 1.0 applications.
+Each application gets its own application port. Each direction is a separate Windows MIDI Services **Basic MIDI 1.0 Loopback**, a true MIDI 1.0 port. The engine never creates a MIDI 2.0 port (UMP virtual device): such ports crash some MIDI 1.0 applications.
 
-- "<name> In": applications send to it; the engine only reads it;
-- "<name> Out": the engine writes to it; applications read it.
+- "<name> In" (`input`, on by default): the application sends to it; the engine only reads it. The port can then be a route source.
+- "<name> Out" (`output`, on by default): the engine writes to it; the application reads it. The port can then be a route destination.
+
+At least one must be on. Turning one direction on or off leaves the other alone: the application keeps the port that stays open. Routes using a direction that is off stay configured but inactive.
 
 A loopback echoes everything written to it back to its readers. With one direction per loopback, the engine never receives its own messages. Names are limited to 24 ASCII characters and ids to 24 characters, since they form the unique ids `tx-<id>-in` and `tx-<id>-out` (32 characters max). These stable ids let applications find the ports again after an engine restart. Loopbacks are transient: they disappear when the MIDI service restarts, and the engine reuses the ones it left behind after a crash. Windows feedback protection stays on: if an application sends "Out" back into "In", Windows mutes the loopback.
 

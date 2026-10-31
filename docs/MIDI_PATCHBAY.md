@@ -8,15 +8,17 @@ Le moteur relie des ports MIDI 1.0 entre eux, comme un patch bay matériel. Il s
 
 | Identifiant | Rôle |
 |---|---|
-| `midi:virtual:<id>` | Paire de ports MIDI 1.0 créée par le moteur, comme avec loopMIDI : les applications (DAW, synthés logiciels) envoient vers « <nom> In » et écoutent « <nom> Out ». |
+| `midi:virtual:<id>` | Port d'application créé par le moteur, un par application : « <nom> In » (l'appli envoie au patch bay) et « <nom> Out » (le patch bay envoie à l'appli), chacun activable séparément. |
 | `midi:port:<groupe>:<id Windows>` | Un port d'un appareil MIDI 1.0 (interface USB ou pilote MIDI 1.0 existant). Les endpoints MIDI 2.0 natifs (appareils MIDI 2.0, réseau MIDI 2.0, ports virtuels d'autres applications) ne sont pas proposés. |
 
 Windows MIDI Services représente chaque port MIDI 1.0 d'un appareil par un **groupe** (1 à 16) de son endpoint. Une interface à 4 ports donne donc `midi:port:1:…` à `midi:port:4:…`. L'API indique pour chaque port son nom (celui affiché aux applications MIDI 1.0), s'il peut servir de source (`source`, MIDI In) et de destination (`destination`, MIDI Out). Le sens vient des blocs de fonction de l'appareil, ou de ses blocs de terminaux de groupe USB.
 
-Un port virtuel est fait de deux **Basic MIDI 1.0 Loopbacks** de Windows MIDI Services, de vrais ports MIDI 1.0. Le moteur ne crée jamais de port MIDI 2.0 (appareil virtuel UMP) : ces ports font planter certaines applications MIDI 1.0.
+On dédie un port d'application à chaque application. Chaque sens est un **Basic MIDI 1.0 Loopback** distinct de Windows MIDI Services, un vrai port MIDI 1.0. Le moteur ne crée jamais de port MIDI 2.0 (appareil virtuel UMP) : ces ports font planter certaines applications MIDI 1.0.
 
-- « <nom> In » : les applications y envoient, le moteur ne fait que le lire ;
-- « <nom> Out » : le moteur y écrit, les applications le lisent.
+- « <nom> In » (`input`, activé par défaut) : l'application y envoie, le moteur ne fait que le lire. Le port peut alors servir de source.
+- « <nom> Out » (`output`, activé par défaut) : le moteur y écrit, l'application le lit. Le port peut alors servir de destination.
+
+Au moins un des deux doit être activé. Activer ou désactiver un sens ne touche pas l'autre : l'application garde le port resté ouvert. Les routes qui utilisent un sens désactivé restent configurées mais inactives.
 
 Un loopback renvoie à ses lecteurs tout ce qu'on y écrit. Avec un seul sens par loopback, le moteur ne reçoit jamais ses propres messages. Le nom est limité à 24 caractères ASCII et l'identifiant à 24 caractères, car ils forment les identifiants uniques `tx-<id>-in` et `tx-<id>-out` (32 caractères au plus). Ces identifiants stables permettent aux applications de retrouver les ports après un redémarrage du moteur. Les loopbacks sont temporaires : ils disparaissent quand le service MIDI redémarre, et le moteur réutilise ceux qu'il a laissés s'il a été arrêté brutalement. La protection anti-boucle de Windows reste active : si une application renvoie « Out » vers « In », Windows coupe le loopback.
 
@@ -45,7 +47,7 @@ Le routage s'exécute sur les threads de réception de Windows MIDI Services, ja
 
 ```json
 {
-  "virtualPorts": [{"id": "daw", "name": "Timox DAW"}],
+  "virtualPorts": [{"id": "daw", "name": "Timox DAW"}, {"id": "seq", "name": "Sequenceur", "output": false}],
   "routes": [
     {"id": "clavier-vers-daw", "source": "midi:port:1:\\\\?\\swd#midisrv#...", "destination": "midi:virtual:daw"},
     {"id": "daw-vers-synth", "source": "midi:virtual:daw", "destination": "midi:port:2:\\\\?\\swd#midisrv#...",

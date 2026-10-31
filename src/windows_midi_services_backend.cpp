@@ -159,10 +159,8 @@ public:
                 std::set<std::wstring> ownClients;
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    for (const auto& entry : connections_) {
-                        if (!entry.second->inputEndpointId.empty()) ownClients.insert(entry.second->inputEndpointId);
-                        if (!entry.second->outputEndpointId.empty()) ownClients.insert(entry.second->outputEndpointId);
-                    }
+                    for (const auto& entry : connections_)
+                        if (!entry.second->loopbackEndpointId.empty()) ownClients.insert(entry.second->loopbackEndpointId);
                 }
                 endpoints.clear();
                 for (const auto& device : MidiEndpointDeviceInformation::FindAll()) {
@@ -206,13 +204,13 @@ public:
         return ok;
     }
 
-    // A virtual port is two Basic MIDI 1.0 Loopbacks, as with loopMIDI:
-    //   "<name> In":  applications send to it, the engine only reads it;
-    //   "<name> Out": the engine only writes to it, applications read it.
+    // An application port direction is one Basic MIDI 1.0 Loopback:
+    //   ToEngine   "<name> In":  applications send to it, the engine only reads it;
+    //   FromEngine "<name> Out": the engine only writes to it, applications read it.
     // A basic loopback echoes what is sent to it back to its readers, so one
     // direction per loopback keeps the engine from receiving its own output.
     bool CreateVirtualPort(std::uint64_t cookie, const std::string& stableId, const std::string& displayName,
-                           std::string& inputEndpointId, std::string& outputEndpointId,
+                           MidiVirtualDirection direction, std::string& endpointId,
                            std::string& error) override {
         bool ok = false;
         worker_.Run([&] {
@@ -220,27 +218,21 @@ public:
                 error = "The Basic MIDI 1.0 Loopback transport is not installed or is turned off";
                 return;
             }
+            const bool toEngine = direction == MidiVirtualDirection::ToEngine;
             auto connection = std::make_shared<Connection>();
+            connection->receiveOnly = toEngine;
             try {
-                const auto name = wide(displayName);
-                winrt::guid inputAssociation{}, outputAssociation{};
-                // Stable unique ids: applications find the same ports after a restart.
-                if (!CreateLoopback(wide("tx-" + stableId + "-in"), name + L" In",
-                        connection->inputEndpointId, inputAssociation, error)) return;
-                connection->loopbacks.push_back(inputAssociation);
-                if (!CreateLoopback(wide("tx-" + stableId + "-out"), name + L" Out",
-                        connection->outputEndpointId, outputAssociation, error)) {
-                    Disconnect(*connection);
-                    return;
-                }
-                connection->loopbacks.push_back(outputAssociation);
-
-                connection->connection = session_.CreateEndpointConnection(connection->inputEndpointId);
-                Subscribe(cookie, *connection);
-                // The output loopback's echo is never subscribed: it is not routed.
-                connection->output = session_.CreateEndpointConnection(connection->outputEndpointId);
-                if (!connection->connection.Open() || !connection->output.Open()) {
-                    error = "The MIDI 1.0 loopback ports could not be opened";
+                winrt::guid association{};
+                // Stable unique ids: applications find the same port after a restart.
+                if (!CreateLoopback(wide("tx-" + stableId + (toEngine ? "-in" : "-out")),
+                        wide(displayName) + (toEngine ? L" In" : L" Out"),
+                        connection->loopbackEndpointId, association, error)) return;
+                connection->loopbacks.push_back(association);
+                connection->connection = session_.CreateEndpointConnection(connection->loopbackEndpointId);
+                // The Out loopback's echo is never subscribed: it is not routed.
+                if (toEngine) Subscribe(cookie, *connection);
+                if (!connection->connection.Open()) {
+                    error = "The MIDI 1.0 loopback port could not be opened";
                     Disconnect(*connection);
                     return;
                 }
@@ -249,8 +241,7 @@ public:
                 Disconnect(*connection);
                 return;
             }
-            inputEndpointId = utf8(connection->inputEndpointId);
-            outputEndpointId = utf8(connection->outputEndpointId);
+            endpointId = utf8(connection->loopbackEndpointId);
             std::lock_guard<std::mutex> lock(mutex_);
             connections_[cookie] = std::move(connection);
             ok = true;
@@ -279,13 +270,12 @@ public:
         {
             std::lock_guard<std::mutex> lock(mutex_);
             const auto found = connections_.find(cookie);
-            if (found == connections_.end()) return false;
+            if (found == connections_.end() || found->second->receiveOnly) return false;
             connection = found->second;
         }
         try {
             const auto now = MidiClock::TimestampConstantSendImmediately();
-            // Virtual ports send on their "Out" loopback, never on "In".
-            const auto& target = connection->output ? connection->output : connection->connection;
+            const auto& target = connection->connection;
             MidiSendMessageResults result{};
             switch (count) {
             case 1: result = target.SendSingleMessageWords(now, words[0]); break;
@@ -358,12 +348,11 @@ private:
     }
 
     struct Connection {
-        MidiEndpointConnection connection{nullptr};  // endpoint, or a virtual port's "In" loopback
+        MidiEndpointConnection connection{nullptr};  // endpoint, or one application port loopback
         winrt::event_token token{};
-        MidiEndpointConnection output{nullptr};      // a virtual port's "Out" loopback
+        bool receiveOnly = false;                    // "<name> In": never sent to
         std::vector<winrt::guid> loopbacks;          // transient loopbacks this engine created
-        std::wstring inputEndpointId;
-        std::wstring outputEndpointId;
+        std::wstring loopbackEndpointId;
     };
 
     static std::wstring lower(std::wstring value) {
@@ -459,11 +448,7 @@ private:
                 session_.DisconnectEndpointConnection(connection.connection.ConnectionId());
             }
         } catch (...) {}
-        try {
-            if (connection.output) session_.DisconnectEndpointConnection(connection.output.ConnectionId());
-        } catch (...) {}
         connection.connection = nullptr;
-        connection.output = nullptr;
         for (const auto& association : connection.loopbacks) {
             try {
                 MidiBasicLoopbackManager::RemoveTransientLoopback(MidiBasicLoopbackRemovalConfig(association));

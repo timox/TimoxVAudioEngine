@@ -12,13 +12,18 @@
 #include "midi_routing_graph.h"
 
 // MIDI 1.0 patchbay. Every port is a MIDI 1.0 port; port ids are:
-//   midi:virtual:<id>                  MIDI 1.0 port pair created by the engine
-//                                      ("<name> In" and "<name> Out" loopbacks)
+//   midi:virtual:<id>                  application port created by the engine:
+//                                      "<name> In" and/or "<name> Out" loopbacks
 //   midi:port:<group 1-16>:<endpointId> MIDI 1.0 port of an OS endpoint (USB
 //                                      interface, network, another application)
+// One application port: a dedicated MIDI 1.0 "In" port (the application sends
+// to the patchbay) and "Out" port (the patchbay sends to the application). Each
+// direction is a separate loopback and can be turned on or off on its own.
 struct MidiVirtualPortConfig {
-    std::string id;    // [a-z0-9-], 1..24 characters
-    std::string name;  // shown to applications, 1..24 characters
+    std::string id;      // [a-z0-9-], 1..24 characters
+    std::string name;    // shown to applications, 1..24 characters
+    bool input = true;   // create "<name> In"
+    bool output = true;  // create "<name> Out"
 };
 
 struct MidiPatchbayConfiguration {
@@ -105,9 +110,8 @@ private:
     struct Runtime;
     struct OpenConnection {
         std::uint64_t cookie = 0;
-        std::string inputEndpointId;   // virtual ports only
-        std::string outputEndpointId;  // virtual ports only
-        std::string displayName;       // virtual ports only
+        std::string endpointId;        // virtual port loopbacks only
+        std::string displayName;       // virtual port loopbacks only
     };
 
     MidiApplyResult ApplyLocked(const MidiPatchbayConfiguration& configuration);
@@ -123,7 +127,8 @@ private:
     MidiPatchbayConfiguration configuration_;
     std::vector<MidiEndpointInfo> endpoints_;
     std::string enumerationError_;
-    std::map<std::string, OpenConnection> connections_;  // by virtual port id or "endpoint:<id>"
+    // By "<virtual port id>:in", "<virtual port id>:out" or "endpoint:<id>".
+    std::map<std::string, OpenConnection> connections_;
     std::map<std::string, std::string> endpointErrors_;  // by endpoint id
     std::uint64_t nextCookie_ = 1;
 

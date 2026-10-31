@@ -169,6 +169,10 @@ std::uint64_t sourceKey(std::uint64_t cookie, std::uint8_t group) {
 
 std::string endpointKey(const std::string& endpointId) { return "endpoint:" + endpointId; }
 
+std::string virtualKey(const std::string& id, bool toEngine) {
+    return std::string("midi:virtual:") + id + (toEngine ? ":in" : ":out");
+}
+
 struct PresentPort {
     std::string endpointId;
     std::uint8_t group = 0;
@@ -200,12 +204,19 @@ bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, s
     }
     MidiPatchbayConfiguration decoded;
     for (const auto& item : body["virtualPorts"]) {
-        if (!item.is_object() || item.size() != 2 || !item.contains("id") || !item["id"].is_string() ||
-            !item.contains("name") || !item["name"].is_string()) {
-            error = "Each virtual MIDI port requires only id and name strings";
+        bool valid = item.is_object() && item.contains("id") && item["id"].is_string() &&
+            item.contains("name") && item["name"].is_string();
+        if (valid)
+            for (const auto& entry : item.items())
+                if (entry.key() != "id" && entry.key() != "name" &&
+                    !((entry.key() == "input" || entry.key() == "output") && entry.value().is_boolean()))
+                    valid = false;
+        if (!valid) {
+            error = "Each virtual MIDI port requires id and name strings and accepts input and output booleans";
             return false;
         }
-        decoded.virtualPorts.push_back({item["id"].get<std::string>(), item["name"].get<std::string>()});
+        decoded.virtualPorts.push_back({item["id"].get<std::string>(), item["name"].get<std::string>(),
+            item.value("input", true), item.value("output", true)});
     }
     for (const auto& item : body["routes"]) {
         MidiRoute route;
@@ -218,7 +229,8 @@ bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, s
 
 std::string Encode(const MidiPatchbayConfiguration& configuration) {
     Json ports = Json::array();
-    for (const auto& port : configuration.virtualPorts) ports.push_back({{"id", port.id}, {"name", port.name}});
+    for (const auto& port : configuration.virtualPorts)
+        ports.push_back({{"id", port.id}, {"name", port.name}, {"input", port.input}, {"output", port.output}});
     Json routes = Json::array();
     for (const auto& route : configuration.routes) routes.push_back(encodeRoute(route));
     return Json{{"version", 1}, {"virtualPorts", std::move(ports)}, {"routes", std::move(routes)}}.dump(2);
@@ -279,6 +291,10 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
     for (const auto& port : configuration.virtualPorts) {
         if (!validVirtualId(port.id)) {
             error = "Virtual MIDI port ids use 1 to 24 lowercase letters, digits or hyphens";
+            return false;
+        }
+        if (!port.input && !port.output) {
+            error = "Virtual MIDI port " + port.id + " needs its In port, its Out port or both";
             return false;
         }
         if (!validDisplayName(port.name)) {
@@ -381,8 +397,11 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     for (const auto& endpoint : endpoints_)
         for (const auto& port : endpoint.ports)
             present[PortId(port.group, endpoint.endpointId)] = {endpoint.endpointId, port.group, port.source, port.destination};
+    std::map<std::string, const MidiVirtualPortConfig*> virtualPorts;
+    for (const auto& port : configuration.virtualPorts) virtualPorts[kVirtualPrefix + port.id] = &port;
     const auto usable = [&](const std::string& portId, bool asSource) {
-        if (startsWith(portId, kVirtualPrefix)) return true;
+        const auto application = virtualPorts.find(portId);
+        if (application != virtualPorts.end()) return asSource ? application->second->input : application->second->output;
         const auto found = present.find(portId);
         return found != present.end() && (asSource ? found->second.source : found->second.destination);
     };
@@ -404,24 +423,29 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     std::map<std::string, std::string> errors;
     const auto rollback = [&] { for (const auto cookie : created) backend_->Close(cookie); };
 
-    // Virtual ports: keep unchanged ones, create new or renamed ones.
+    // Application ports: each enabled direction is its own loopback. Unchanged
+    // ones stay open; turning one direction on or off leaves the other alone.
     for (const auto& port : configuration.virtualPorts) {
-        const auto portId = kVirtualPrefix + port.id;
-        const auto existing = connections_.find(portId);
-        if (existing != connections_.end() && existing->second.displayName == port.name) {
-            next[portId] = existing->second;
-            continue;
+        for (const auto direction : {MidiVirtualDirection::ToEngine, MidiVirtualDirection::FromEngine}) {
+            const bool toEngine = direction == MidiVirtualDirection::ToEngine;
+            if (!(toEngine ? port.input : port.output)) continue;
+            const auto key = virtualKey(port.id, toEngine);
+            const auto existing = connections_.find(key);
+            if (existing != connections_.end() && existing->second.displayName == port.name) {
+                next[key] = existing->second;
+                continue;
+            }
+            OpenConnection connection;
+            connection.cookie = nextCookie_++;
+            connection.displayName = port.name;
+            if (!backend_->CreateVirtualPort(connection.cookie, port.id, port.name, direction,
+                    connection.endpointId, error)) {
+                rollback();
+                return {false, "Unable to create MIDI port " + port.name + (toEngine ? " In: " : " Out: ") + error};
+            }
+            created.push_back(connection.cookie);
+            next[key] = connection;
         }
-        OpenConnection connection;
-        connection.cookie = nextCookie_++;
-        connection.displayName = port.name;
-        if (!backend_->CreateVirtualPort(connection.cookie, port.id, port.name, connection.inputEndpointId,
-                connection.outputEndpointId, error)) {
-            rollback();
-            return {false, "Unable to create virtual MIDI port " + port.name + ": " + error};
-        }
-        created.push_back(connection.cookie);
-        next[portId] = connection;
     }
     // Endpoints: one connection carries all of its MIDI 1.0 ports. A failure
     // only deactivates the routes using it.
@@ -442,11 +466,13 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     auto runtime = std::make_shared<Runtime>();
     std::vector<std::string> ports;
     for (const auto& port : configuration.virtualPorts) {
-        const auto& connection = next.at(kVirtualPrefix + port.id);
         // A MIDI 1.0 loopback carries one port; accept whatever group it uses.
-        for (std::uint8_t group = 0; group < 16; ++group)
-            runtime->sourceIndices.emplace(sourceKey(connection.cookie, group), ports.size());
-        runtime->targets.push_back({connection.cookie, 0, true});
+        if (port.input) {
+            const auto cookie = next.at(virtualKey(port.id, true)).cookie;
+            for (std::uint8_t group = 0; group < 16; ++group)
+                runtime->sourceIndices.emplace(sourceKey(cookie, group), ports.size());
+        }
+        runtime->targets.push_back({port.output ? next.at(virtualKey(port.id, false)).cookie : 0, 0, port.output});
         ports.push_back(kVirtualPrefix + port.id);
     }
     for (const auto& entry : present) {
@@ -542,13 +568,14 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.id = kVirtualPrefix + port.id;
         status.name = port.name;
         status.kind = "virtual";
-        status.source = status.destination = true;
-        const auto connection = connections_.find(status.id);
-        status.online = status.open = connection != connections_.end();
-        if (status.open) {
-            status.inputEndpointId = connection->second.inputEndpointId;
-            status.outputEndpointId = connection->second.outputEndpointId;
-        }
+        status.source = port.input;
+        status.destination = port.output;
+        const auto input = connections_.find(virtualKey(port.id, true));
+        const auto output = connections_.find(virtualKey(port.id, false));
+        if (input != connections_.end()) status.inputEndpointId = input->second.endpointId;
+        if (output != connections_.end()) status.outputEndpointId = output->second.endpointId;
+        status.online = status.open = (!port.input || input != connections_.end()) &&
+                                      (!port.output || output != connections_.end());
         snapshot.ports.push_back(std::move(status));
     }
     std::set<std::string> listed;

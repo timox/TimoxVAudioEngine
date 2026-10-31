@@ -27,6 +27,12 @@ struct MidiEndpointInfo {
 // a caller-chosen cookie so the receive path needs no string lookup.
 // Implementations must be thread-safe: Send() and the receive handler run on
 // arbitrary threads while control calls run on the API thread.
+// Direction of an application port loopback.
+enum class MidiVirtualDirection {
+    ToEngine,    // "<name> In": applications send, the engine only reads
+    FromEngine,  // "<name> Out": the engine only writes, applications read
+};
+
 class MidiBackend {
 public:
     using ReceiveHandler = std::function<void(std::uint64_t cookie, const std::uint32_t* words,
@@ -44,15 +50,14 @@ public:
 
     virtual bool OpenEndpoint(std::uint64_t cookie, const std::string& endpointId, std::string& error) = 0;
 
-    // Creates an app-to-app MIDI 1.0 port pair: "<displayName> In", which
-    // applications send to and the engine reads, and "<displayName> Out",
-    // which the engine writes and applications read. Both are plain MIDI 1.0
-    // ports (never MIDI 2.0). stableId stays the same across engine restarts
-    // so applications find the same ports again. Messages applications send
-    // arrive through the receive handler with this cookie; Send() with this
-    // cookie delivers to them.
+    // Creates one plain MIDI 1.0 port (never MIDI 2.0) for an application:
+    // "<displayName> In" (ToEngine) or "<displayName> Out" (FromEngine).
+    // stableId stays the same across engine restarts so applications find the
+    // same port again. A ToEngine port delivers what applications send through
+    // the receive handler with this cookie and refuses Send(); a FromEngine
+    // port delivers Send() to applications and is never read.
     virtual bool CreateVirtualPort(std::uint64_t cookie, const std::string& stableId,
-        const std::string& displayName, std::string& inputEndpointId, std::string& outputEndpointId,
+        const std::string& displayName, MidiVirtualDirection direction, std::string& endpointId,
         std::string& error) = 0;
 
     // Closes an endpoint connection or destroys a virtual port.

@@ -36,11 +36,10 @@ public:
         return true;
     }
     bool CreateVirtualPort(std::uint64_t cookie, const std::string&, const std::string& name,
-                           std::string& inputId, std::string& outputId, std::string& error) override {
+                           MidiVirtualDirection direction, std::string& endpointId, std::string& error) override {
         if (state_.failVirtual) { error = "transport unavailable"; return false; }
-        state_.open[cookie] = "virtual:" + name;
-        inputId = name + " In";
-        outputId = name + " Out";
+        endpointId = name + (direction == MidiVirtualDirection::ToEngine ? " In" : " Out");
+        state_.open[cookie] = "virtual:" + endpointId;
         return true;
     }
     void Close(std::uint64_t cookie) noexcept override { state_.open.erase(cookie); }
@@ -96,13 +95,14 @@ bool testApplyRoutesAndPersists() {
     std::string error;
     CHECK(midi_patchbay_json::Decode(kConfiguration, configuration, error));
     CHECK(patchbay.Apply(configuration).success);
-    // One connection per endpoint, only for endpoints used by live routes.
-    CHECK(state.open.size() == 4);
-    const auto daw = cookieOf(state, "virtual:Timox DAW");
+    // DAW In and DAW Out, plus one connection per endpoint used by live routes.
+    CHECK(state.open.size() == 5);
+    const auto daw = cookieOf(state, "virtual:Timox DAW In");
+    const auto dawOut = cookieOf(state, "virtual:Timox DAW Out");
     const auto synth = cookieOf(state, "usb-synth");
     const auto keys = cookieOf(state, "usb-keys");
     const auto multi = cookieOf(state, "usb-multi");
-    CHECK(daw && synth && keys && multi);
+    CHECK(daw && dawOut && synth && keys && multi);
 
     // DAW channel 1 goes to the synth on channel 2; channel 2 is filtered out.
     // Every DAW message also reaches port 2 of the multi-port interface (group 2).
@@ -116,7 +116,7 @@ bool testApplyRoutesAndPersists() {
 
     // Keyboard to DAW. Another group of the same endpoint is another port.
     state.handler(keys, &ch2, 1);
-    CHECK(state.sent.size() == 4 && state.sent[3].first == daw && state.sent[3].second[0] == ch2);
+    CHECK(state.sent.size() == 4 && state.sent[3].first == dawOut && state.sent[3].second[0] == ch2);
     const std::uint32_t otherGroup = 0x23913C64u;
     state.handler(keys, &otherGroup, 1);
     CHECK(state.sent.size() == 4);
@@ -139,7 +139,8 @@ bool testApplyRoutesAndPersists() {
         if (port.id == "midi:port:2:usb-multi")
             multiPort2 = port.name == "Multi Port 2" && port.group == 2 && port.source && port.destination;
         if (port.id == "midi:virtual:daw")
-            CHECK(port.inputEndpointId == "Timox DAW In" && port.outputEndpointId == "Timox DAW Out");
+            CHECK(port.inputEndpointId == "Timox DAW In" && port.outputEndpointId == "Timox DAW Out" &&
+                  port.source && port.destination);
     }
     CHECK(absentListed && multiPort2);
 
@@ -161,12 +162,12 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
     std::string error;
     CHECK(midi_patchbay_json::Decode(kConfiguration, configuration, error));
     CHECK(patchbay.Apply(configuration).success);
-    const auto daw = cookieOf(state, "virtual:Timox DAW");
+    const auto daw = cookieOf(state, "virtual:Timox DAW In");
     CHECK(daw && !cookieOf(state, "usb-keys"));
 
     // Same configuration: the virtual port is not recreated (apps keep it open).
     CHECK(patchbay.Apply(configuration).success);
-    CHECK(cookieOf(state, "virtual:Timox DAW") == daw);
+    CHECK(cookieOf(state, "virtual:Timox DAW In") == daw);
 
     // Keyboard plugged in later.
     state.endpoints.push_back(endpoints()[1]);
@@ -180,7 +181,7 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
     // Renaming recreates the virtual port; removing everything closes everything.
     configuration.virtualPorts[0].name = "Timox Live";
     CHECK(patchbay.Apply(configuration).success);
-    CHECK(!cookieOf(state, "virtual:Timox DAW") && cookieOf(state, "virtual:Timox Live"));
+    CHECK(!cookieOf(state, "virtual:Timox DAW In") && cookieOf(state, "virtual:Timox Live In"));
     CHECK(patchbay.Apply(MidiPatchbayConfiguration{}).success);
     CHECK(state.open.empty());
     return true;
@@ -210,7 +211,51 @@ bool testFailuresKeepPreviousConfiguration() {
     CHECK(!patchbay.Apply(changed).success);
     snapshot = patchbay.Snapshot();
     CHECK(snapshot.configuration.virtualPorts.size() == 1);
-    CHECK(!cookieOf(state, "virtual:Timox Live") && cookieOf(state, "virtual:Timox DAW"));
+    CHECK(!cookieOf(state, "virtual:Timox Live In") && cookieOf(state, "virtual:Timox DAW In"));
+    return true;
+}
+
+bool testInAndOutAreSwitchedIndependently() {
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("directions.json"));
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(kConfiguration, configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    const auto dawIn = cookieOf(state, "virtual:Timox DAW In");
+
+    // Out turned off: only "Timox DAW Out" goes away; routes to the DAW go inactive.
+    configuration.virtualPorts[0].output = false;
+    CHECK(patchbay.Apply(configuration).success);
+    CHECK(cookieOf(state, "virtual:Timox DAW In") == dawIn && !cookieOf(state, "virtual:Timox DAW Out"));
+    auto snapshot = patchbay.Snapshot();
+    CHECK(snapshot.routes[0].active && !snapshot.routes[1].active);
+    for (const auto& port : snapshot.ports)
+        if (port.id == "midi:virtual:daw") CHECK(port.source && !port.destination && port.outputEndpointId.empty());
+    const std::uint32_t note = 0x20903C64u;
+    const auto keys = cookieOf(state, "usb-keys");
+    state.handler(keys, &note, 1);
+    CHECK(state.sent.empty());
+
+    // Out back on, In off: In goes away, Out is created again.
+    configuration.virtualPorts[0].output = true;
+    configuration.virtualPorts[0].input = false;
+    CHECK(patchbay.Apply(configuration).success);
+    CHECK(!cookieOf(state, "virtual:Timox DAW In") && cookieOf(state, "virtual:Timox DAW Out"));
+    snapshot = patchbay.Snapshot();
+    CHECK(!snapshot.routes[0].active && snapshot.routes[1].active);
+
+    // Both off is rejected, and the direction flags round-trip through JSON.
+    configuration.virtualPorts[0].output = false;
+    CHECK(!patchbay.Apply(configuration).success);
+    MidiPatchbayConfiguration decoded;
+    CHECK(midi_patchbay_json::Decode(
+        R"({"virtualPorts":[{"id":"daw","name":"Timox DAW","input":false}],"routes":[]})", decoded, error));
+    CHECK(!decoded.virtualPorts[0].input && decoded.virtualPorts[0].output);
+    CHECK(!midi_patchbay_json::Decode(
+        R"({"virtualPorts":[{"id":"daw","name":"Timox DAW","input":"no"}],"routes":[]})", decoded, error));
     return true;
 }
 
@@ -264,6 +309,7 @@ int main() {
     ok &= testApplyRoutesAndPersists();
     ok &= testReapplyKeepsConnectionsAndHotplugReopens();
     ok &= testFailuresKeepPreviousConfiguration();
+    ok &= testInAndOutAreSwitchedIndependently();
     ok &= testValidation();
     if (!ok) return 1;
     std::puts("MidiPatchbayTests passed");

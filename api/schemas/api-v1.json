@@ -28,7 +28,7 @@
         "name"
       ],
       "additionalProperties": false,
-      "description": "MIDI 1.0 port pair created by the engine from two Windows MIDI Services Basic MIDI 1.0 Loopbacks: applications send to \"<name> In\" and listen to \"<name> Out\". No MIDI 2.0 (UMP virtual device) port is created. Its API port id is midi:virtual:<id>.",
+      "description": "Application port: a dedicated MIDI 1.0 \"<name> In\" port (the application sends to the patchbay) and \"<name> Out\" port (the patchbay sends to the application). Each direction is its own Windows MIDI Services Basic MIDI 1.0 Loopback and can be turned on or off without touching the other; at least one is required. No MIDI 2.0 port is created. API port id: midi:virtual:<id>.",
       "properties": {
         "id": {
           "type": "string",
@@ -40,8 +40,48 @@
           "maxLength": 24,
           "pattern": "^[ -~]*[!-~]$",
           "description": "Base name; applications see \"<name> In\" and \"<name> Out\"."
+        },
+        "input": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create \"<name> In\"; the port can then be a route source."
+        },
+        "output": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create \"<name> Out\"; the port can then be a route destination."
         }
-      }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "input": {
+              "const": true
+            }
+          }
+        },
+        {
+          "properties": {
+            "output": {
+              "const": true
+            }
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "input"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "output"
+            ]
+          }
+        }
+      ]
     },
     "midiRoute": {
       "type": "object",
@@ -201,11 +241,11 @@
         },
         "source": {
           "type": "boolean",
-          "description": "MIDI In: usable as a route source."
+          "description": "MIDI In: usable as a route source (virtual ports: input enabled)."
         },
         "destination": {
           "type": "boolean",
-          "description": "MIDI Out: usable as a route destination."
+          "description": "MIDI Out: usable as a route destination (virtual ports: output enabled)."
         },
         "online": {
           "type": "boolean",
@@ -226,14 +266,14 @@
             "string",
             "null"
           ],
-          "description": "Virtual ports: endpoint of the \"<name> In\" loopback applications send to."
+          "description": "Virtual ports: endpoint of \"<name> In\", or null when input is off."
         },
         "outputEndpointId": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Virtual ports: endpoint of the \"<name> Out\" loopback applications listen to."
+          "description": "Virtual ports: endpoint of \"<name> Out\", or null when output is off."
         }
       }
     },
