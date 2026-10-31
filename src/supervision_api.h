@@ -63,20 +63,29 @@ inline std::pair<std::string, std::string> midiOwner(const Json& port) {
 inline nlohmann::json SupervisionMidiObservations(const nlohmann::json& midi) {
     using namespace supervision;
     if (!midi.is_object()) return nullptr;
-    Json ports = Json::array(), links = Json::array();
+    Json ports = Json::array(), links = Json::array(), clockSources = Json::array();
     for (const auto& port : midi.value("ports", Json::array())) {
         const auto owner = midiOwner(port);
         ports.push_back({{"portId", port["id"]}, {"nodeId", owner.first}, {"adherentId", owner.second},
             {"online", field(port, "online")}, {"open", field(port, "open")},
             {"received", port.value("received", 0)}, {"sent", port.value("sent", 0)},
             {"lastReceivedUnixMs", midiTime(port, "lastReceivedUnixMs")}, {"lastSentUnixMs", midiTime(port, "lastSentUnixMs")},
+            {"activity", field(port, "activity")}, {"clock", field(port, "clock")}, {"activeSensing", field(port, "activeSensing")},
             {"error", field(port, "error")}});
+        // A clock source is a port where ticks arrive: each application has its
+        // own In loopback, so the emitter is that application. Clock the engine
+        // itself forwards to the port and that comes back is only an echo.
+        const auto clock = field(port, "clock");
+        if (clock.is_object() && clock.value("running", false))
+            clockSources.push_back({{"portId", port["id"]}, {"nodeId", owner.first}, {"adherentId", owner.second},
+                {"bpm", field(clock, "bpm")}, {"transport", field(clock, "transport")},
+                {"echoSuspected", clock.value("echoSuspected", false)}});
     }
     for (const auto& route : midi.value("routes", Json::array()))
         links.push_back({{"linkId", "midi:" + route["id"].get<std::string>()}, {"active", field(route, "active")},
             {"forwarded", field(route, "forwarded")}, {"filtered", field(route, "filtered")}});
     return {{"available", field(midi, "available")}, {"backend", field(midi, "backend")}, {"error", field(midi, "error")},
-        {"ports", std::move(ports)}, {"links", std::move(links)}};
+        {"ports", std::move(ports)}, {"links", std::move(links)}, {"clockSources", std::move(clockSources)}};
 }
 inline nlohmann::json SupervisionMeter(nlohmann::json meter, const nlohmann::json& devices) {
     using namespace supervision;

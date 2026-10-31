@@ -28,7 +28,8 @@
         "backend",
         "error",
         "ports",
-        "links"
+        "links",
+        "clockSources"
       ],
       "additionalProperties": false,
       "description": "MIDI traffic the engine observed. Every application port goes through an engine-owned loopback, so its traffic is observable; counters cover MIDI 1.0 messages since engine start and survive configuration changes.",
@@ -63,7 +64,10 @@
               "sent",
               "lastReceivedUnixMs",
               "lastSentUnixMs",
-              "error"
+              "error",
+              "activity",
+              "clock",
+              "activeSensing"
             ],
             "properties": {
               "portId": {
@@ -106,6 +110,99 @@
                   "string",
                   "null"
                 ]
+              },
+              "activity": {
+                "type": "object",
+                "required": [
+                  "messages",
+                  "lastUnixMs"
+                ],
+                "additionalProperties": false,
+                "description": "Every MIDI 1.0 message from the port except timing clock (F8) and active sensing (FE).",
+                "properties": {
+                  "messages": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "clock": {
+                "type": "object",
+                "required": [
+                  "ticks",
+                  "running",
+                  "bpm",
+                  "lastTickUnixMs",
+                  "echoSuspected",
+                  "transport",
+                  "transportUnixMs"
+                ],
+                "additionalProperties": false,
+                "description": "Timing clock (F8) arriving from the port. running: a tick arrived less than 1 s ago. bpm: smoothed tempo at 24 ticks per quarter note, null until 2 ticks or when stopped. echoSuspected: the engine also sends clock to this port, so these ticks may be its own clock coming back (MIDI thru) rather than a real source. transport: last start (FA), continue (FB) or stop (FC).",
+                "properties": {
+                  "ticks": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "running": {
+                    "type": "boolean"
+                  },
+                  "bpm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "lastTickUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "echoSuspected": {
+                    "type": "boolean"
+                  },
+                  "transport": {
+                    "enum": [
+                      "start",
+                      "continue",
+                      "stop",
+                      null
+                    ]
+                  },
+                  "transportUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "activeSensing": {
+                "type": "object",
+                "required": [
+                  "messages",
+                  "lastUnixMs"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "messages": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -135,6 +232,50 @@
               "filtered": {
                 "type": "integer",
                 "minimum": 0
+              }
+            }
+          }
+        },
+        "clockSources": {
+          "type": "array",
+          "description": "Ports where timing clock is currently arriving. Each application sends through its own In loopback, so the port identifies the emitting application or device. Entries with echoSuspected are likely the engine's own clock coming back.",
+          "items": {
+            "type": "object",
+            "required": [
+              "portId",
+              "nodeId",
+              "adherentId",
+              "bpm",
+              "transport",
+              "echoSuspected"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "portId": {
+                "type": "string"
+              },
+              "nodeId": {
+                "type": "string"
+              },
+              "adherentId": {
+                "type": "string"
+              },
+              "bpm": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transport": {
+                "enum": [
+                  "start",
+                  "continue",
+                  "stop",
+                  null
+                ]
+              },
+              "echoSuspected": {
+                "type": "boolean"
               }
             }
           }
@@ -329,7 +470,10 @@
         "received",
         "sent",
         "lastReceivedUnixMs",
-        "lastSentUnixMs"
+        "lastSentUnixMs",
+        "activity",
+        "clock",
+        "activeSensing"
       ],
       "properties": {
         "id": {
@@ -420,6 +564,99 @@
             "integer",
             "null"
           ]
+        },
+        "activity": {
+          "type": "object",
+          "required": [
+            "messages",
+            "lastUnixMs"
+          ],
+          "additionalProperties": false,
+          "description": "Every MIDI 1.0 message from the port except timing clock (F8) and active sensing (FE).",
+          "properties": {
+            "messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "clock": {
+          "type": "object",
+          "required": [
+            "ticks",
+            "running",
+            "bpm",
+            "lastTickUnixMs",
+            "echoSuspected",
+            "transport",
+            "transportUnixMs"
+          ],
+          "additionalProperties": false,
+          "description": "Timing clock (F8) arriving from the port. running: a tick arrived less than 1 s ago. bpm: smoothed tempo at 24 ticks per quarter note, null until 2 ticks or when stopped. echoSuspected: the engine also sends clock to this port, so these ticks may be its own clock coming back (MIDI thru) rather than a real source. transport: last start (FA), continue (FB) or stop (FC).",
+          "properties": {
+            "ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "running": {
+              "type": "boolean"
+            },
+            "bpm": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lastTickUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "echoSuspected": {
+              "type": "boolean"
+            },
+            "transport": {
+              "enum": [
+                "start",
+                "continue",
+                "stop",
+                null
+              ]
+            },
+            "transportUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "activeSensing": {
+          "type": "object",
+          "required": [
+            "messages",
+            "lastUnixMs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
         }
       }
     },

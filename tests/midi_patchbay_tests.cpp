@@ -316,12 +316,73 @@ bool testValidation() {
 }
 }
 
+std::int64_t gSteadyNs = 1'000'000'000;
+std::int64_t fakeSteadyNs() { return gSteadyNs; }
+std::int64_t fakeUnixMs() { return 1'700'000'000'000 + gSteadyNs / 1'000'000; }
+
+const MidiPortStatus* findPort(const MidiPatchbaySnapshot& snapshot, const std::string& id) {
+    for (const auto& port : snapshot.ports) if (port.id == id) return &port;
+    return nullptr;
+}
+
+bool testClockIsToldApartFromActivity() {
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("clock.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(kConfiguration, configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    const auto keys = cookieOf(state, "usb-keys");
+    const auto dawIn = cookieOf(state, "virtual:Timox DAW In");
+
+    // The keyboard is a clock source at 120 BPM: 24 ticks per quarter note.
+    const std::uint32_t tick = 0x10F80000u, start = 0x10FA0000u, sensing = 0x10FE0000u, note = 0x20903C64u;
+    const std::int64_t interval = 60'000'000'000LL / (120 * 24);
+    state.handler(keys, &start, 1);
+    for (int i = 0; i < 48; ++i) {
+        gSteadyNs += interval;
+        state.handler(keys, &tick, 1);
+    }
+    state.handler(keys, &sensing, 1);
+    auto snapshot = patchbay.Snapshot();
+    auto port = findPort(snapshot, "midi:port:1:usb-keys");
+    CHECK(port && port->clockTicks == 48 && port->clockRunning && port->clockBpm == 120.0);
+    CHECK(port->activity == 1 && port->transport == "start");  // ticks and sensing are not activity
+    CHECK(port->activeSensing == 1 && port->received == 50 && !port->clockEchoSuspected);
+
+    // The DAW gets that clock through the patchbay. If it sends clock back on
+    // its own In (MIDI thru), it is flagged as a possible echo, not a source.
+    auto daw = findPort(snapshot, "midi:virtual:daw");
+    CHECK(daw && daw->sent == 50 && daw->clockTicks == 0);
+    gSteadyNs += interval;
+    state.handler(dawIn, &tick, 1);
+    gSteadyNs += interval;
+    state.handler(dawIn, &tick, 1);
+    snapshot = patchbay.Snapshot();
+    daw = findPort(snapshot, "midi:virtual:daw");
+    CHECK(daw->clockRunning && daw->clockEchoSuspected && daw->activity == 0);
+
+    // A note is activity; one second without ticks stops the clock.
+    state.handler(dawIn, &note, 1);
+    gSteadyNs += 2'000'000'000;
+    snapshot = patchbay.Snapshot();
+    port = findPort(snapshot, "midi:port:1:usb-keys");
+    daw = findPort(snapshot, "midi:virtual:daw");
+    CHECK(!port->clockRunning && port->clockBpm == 0 && port->lastClockUnixMs > 0);
+    CHECK(daw->activity == 1 && daw->lastActivityUnixMs > 0 && !daw->clockEchoSuspected);
+    return true;
+}
+
 int main() {
     bool ok = true;
     ok &= testApplyRoutesAndPersists();
     ok &= testReapplyKeepsConnectionsAndHotplugReopens();
     ok &= testFailuresKeepPreviousConfiguration();
     ok &= testInAndOutAreSwitchedIndependently();
+    ok &= testClockIsToldApartFromActivity();
     ok &= testValidation();
     if (!ok) return 1;
     std::puts("MidiPatchbayTests passed");

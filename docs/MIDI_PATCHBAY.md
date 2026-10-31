@@ -48,6 +48,18 @@ Les applications gardent leurs propres ports MIDI, hors du patch bay : Windows n
 - chaque route devient un lien `medium=midi` entre deux nœuds, « appliqué » seulement quand la route est active ;
 - le moteur compte, par port, les messages reçus et envoyés avec l'heure du dernier message, et par route les messages transmis et filtrés. Un message qui arrive sans route est quand même compté.
 
+### Activité et horloge
+
+Une horloge MIDI envoie 24 ticks (F8) par noire, soit 48 messages par seconde à 120 BPM : compter tous les messages ferait croire qu'un port joue en permanence. Le moteur sépare donc, pour chaque port :
+
+- `activity` : tous les messages MIDI 1.0 sauf les ticks d'horloge et l'active sensing (FE). Un témoin d'activité doit se baser sur `activity.lastUnixMs` ;
+- `clock` : nombre de ticks, horloge en marche (un tick il y a moins d'une seconde), tempo mesuré (`bpm`, moyenne glissante sur les intervalles entre ticks), dernier transport reçu (start, continue, stop) ;
+- `activeSensing` : messages de présence envoyés par certains appareils.
+
+**Émetteur d'une horloge.** Une horloge MIDI 1.0 ne contient aucune adresse d'expéditeur : seul le port d'arrivée l'identifie. Comme chaque application a son propre loopback « In », le port sur lequel arrivent les ticks désigne l'application (ou l'appareil) qui les émet. `engine.observations.midi.clockSources` liste ces ports avec leur tempo.
+
+Un cas trompeur reste : le moteur transmet l'horloge d'un port A vers une application B, et B la renvoie sur son « In » (MIDI thru). B ressemble alors à une source. Quand le moteur envoie lui-même de l'horloge à un port qui en émet, il marque ce port `echoSuspected` : c'est probablement un écho, pas une vraie source.
+
 Cette topologie apparaît dans `supervision` (`GET /api/v1/state`), et les compteurs dans `engine.observations.midi` et l'événement WebSocket `supervision.observations` (environ toutes les 500 ms). Voir [l'API de supervision](SUPERVISION_API.md). Limite : un loopback ne révèle pas quel processus l'ouvre. L'adhérent est le port d'application configuré, pas un processus prouvé.
 
 ## API

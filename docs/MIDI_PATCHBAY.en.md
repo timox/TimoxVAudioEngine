@@ -48,6 +48,18 @@ Applications keep their own MIDI ports, outside the patchbay: Windows does not s
 - each route becomes a `medium=midi` link between two nodes, "applied" only when the route is active;
 - the engine counts, per port, messages received and sent with the time of the last one, and per route messages forwarded and filtered. A message that arrives with no route is still counted.
 
+### Activity and clock
+
+MIDI clock sends 24 ticks (F8) per quarter note, 48 messages per second at 120 BPM: counting every message would make a port look busy all the time. Per port the engine therefore separates:
+
+- `activity`: every MIDI 1.0 message except clock ticks and active sensing (FE). An activity light should use `activity.lastUnixMs`;
+- `clock`: tick count, clock running (a tick less than one second ago), measured tempo (`bpm`, moving average over tick intervals), last transport received (start, continue, stop);
+- `activeSensing`: keep-alive messages some devices send.
+
+**Clock emitter.** MIDI 1.0 clock carries no sender address: only the port it arrives on identifies it. Since each application has its own "In" loopback, the port receiving the ticks names the application (or device) sending them. `engine.observations.midi.clockSources` lists those ports with their tempo.
+
+One misleading case remains: the engine forwards clock from port A to application B, and B sends it back on its "In" (MIDI thru). B then looks like a source. When the engine itself sends clock to a port that also emits clock, it marks that port `echoSuspected`: probably an echo, not a real source.
+
 The topology appears in `supervision` (`GET /api/v1/state`); counters appear in `engine.observations.midi` and in the `supervision.observations` WebSocket event (about every 500 ms). See [the supervision API](SUPERVISION_API.md). Limit: a loopback does not reveal which process opens it. The adherent is the configured application port, not a proven process.
 
 ## API

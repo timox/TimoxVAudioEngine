@@ -49,6 +49,21 @@ struct MidiPortStatus {
     std::uint64_t sent = 0;
     std::int64_t lastReceivedUnixMs = 0;
     std::int64_t lastSentUnixMs = 0;
+    // What arrived from the port, split so clock ticks never look like playing:
+    // activity = every MIDI 1.0 message except timing clock (F8) and active
+    // sensing (FE); clock = F8 ticks with the measured tempo and transport
+    // (FA start, FB continue, FC stop).
+    std::uint64_t activity = 0;
+    std::int64_t lastActivityUnixMs = 0;
+    std::uint64_t clockTicks = 0;
+    std::int64_t lastClockUnixMs = 0;
+    bool clockRunning = false;     // a tick arrived less than 1 s ago
+    double clockBpm = 0;           // 0 = not measured yet (needs 2 ticks)
+    bool clockEchoSuspected = false;  // the engine also sends clock to this port
+    std::string transport;         // "start", "continue", "stop" or empty
+    std::int64_t transportUnixMs = 0;
+    std::uint64_t activeSensing = 0;
+    std::int64_t lastActiveSensingUnixMs = 0;
     std::string inputEndpointId;   // virtual ports: "<name> In", apps send here
     std::string outputEndpointId;  // virtual ports: "<name> Out", apps listen here
     std::string error;
@@ -113,6 +128,11 @@ public:
 
     MidiPatchbaySnapshot Snapshot() const;
 
+    // Tests only: replace the monotonic (ns) and wall (Unix ms) clocks used
+    // for traffic timing. Call before any traffic.
+    using TimeSource = std::int64_t (*)();
+    void SetTimeSourcesForTesting(TimeSource steadyNs, TimeSource unixMs) noexcept;
+
 private:
     struct Runtime;
     struct PortCounters;
@@ -141,6 +161,8 @@ private:
     std::uint64_t nextCookie_ = 1;
     // By port id; kept across configuration changes so counters never reset.
     std::map<std::string, std::shared_ptr<PortCounters>> counters_;
+    TimeSource steadyNs_;
+    TimeSource unixMs_;
 
     mutable std::mutex runtimeMutex_;
     std::shared_ptr<const Runtime> runtime_;

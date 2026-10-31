@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -145,6 +146,19 @@ std::int64_t nowUnixMs() noexcept {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
+
+std::int64_t nowSteadyNs() noexcept {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+constexpr std::int64_t kClockTimeoutNs = 1'000'000'000;  // no tick for 1 s: clock stopped
+
+enum Transport : int { TransportNone = 0, TransportStart, TransportContinue, TransportStop };
+
+bool isClockTick(std::uint32_t word0) noexcept {
+    return midi_ump::Type(word0) == 0x1 && ((word0 >> 16) & 0xFF) == 0xF8;
+}
 }
 
 struct MidiPatchbay::PortCounters {
@@ -152,6 +166,50 @@ struct MidiPatchbay::PortCounters {
     std::atomic<std::uint64_t> sent{0};
     std::atomic<std::int64_t> lastReceivedUnixMs{0};
     std::atomic<std::int64_t> lastSentUnixMs{0};
+    std::atomic<std::uint64_t> activity{0};
+    std::atomic<std::int64_t> lastActivityUnixMs{0};
+    std::atomic<std::uint64_t> clockTicks{0};
+    std::atomic<std::int64_t> lastClockUnixMs{0};
+    std::atomic<std::int64_t> lastClockSteadyNs{0};
+    std::atomic<std::int64_t> clockIntervalNs{0};  // smoothed; 0 = unknown
+    std::atomic<std::int64_t> lastClockSentSteadyNs{0};
+    std::atomic<int> transport{TransportNone};
+    std::atomic<std::int64_t> transportUnixMs{0};
+    std::atomic<std::uint64_t> activeSensing{0};
+    std::atomic<std::int64_t> lastActiveSensingUnixMs{0};
+
+    // One port's messages arrive in order on one receive path, so relaxed
+    // atomics are enough; a rare race only skews one tempo sample.
+    void Observe(std::uint32_t word0, std::int64_t steadyNs, std::int64_t unixMs) noexcept {
+        received.fetch_add(1, std::memory_order_relaxed);
+        lastReceivedUnixMs.store(unixMs, std::memory_order_relaxed);
+        const auto status = midi_ump::Type(word0) == 0x1 ? static_cast<int>((word0 >> 16) & 0xFF) : 0;
+        if (status == 0xF8) {
+            clockTicks.fetch_add(1, std::memory_order_relaxed);
+            lastClockUnixMs.store(unixMs, std::memory_order_relaxed);
+            const auto previous = lastClockSteadyNs.exchange(steadyNs, std::memory_order_relaxed);
+            const auto delta = steadyNs - previous;
+            if (previous == 0 || delta <= 0 || delta > kClockTimeoutNs) {
+                clockIntervalNs.store(0, std::memory_order_relaxed);  // (re)starting: tempo unknown
+            } else {
+                const auto smoothed = clockIntervalNs.load(std::memory_order_relaxed);
+                clockIntervalNs.store(smoothed == 0 ? delta : smoothed + (delta - smoothed) / 8, std::memory_order_relaxed);
+            }
+            return;
+        }
+        if (status == 0xFE) {
+            activeSensing.fetch_add(1, std::memory_order_relaxed);
+            lastActiveSensingUnixMs.store(unixMs, std::memory_order_relaxed);
+            return;
+        }
+        if (status == 0xFA || status == 0xFB || status == 0xFC) {
+            transport.store(status == 0xFA ? TransportStart : status == 0xFB ? TransportContinue : TransportStop,
+                std::memory_order_relaxed);
+            transportUnixMs.store(unixMs, std::memory_order_relaxed);
+        }
+        activity.fetch_add(1, std::memory_order_relaxed);
+        lastActivityUnixMs.store(unixMs, std::memory_order_relaxed);
+    }
 };
 
 namespace {
@@ -167,8 +225,9 @@ struct PortTarget {
 template <class Counters>
 class BackendSink final : public MidiOutputSink {
 public:
-    BackendSink(MidiBackend& backend, const std::vector<PortTarget<Counters>>& targets)
-        : backend_(backend), targets_(targets) {}
+    BackendSink(MidiBackend& backend, const std::vector<PortTarget<Counters>>& targets,
+                std::int64_t steadyNs, std::int64_t unixMs)
+        : backend_(backend), targets_(targets), steadyNs_(steadyNs), unixMs_(unixMs) {}
     void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept override {
         if (destinationIndex >= targets_.size() || !targets_[destinationIndex].destination || count == 0 || count > 4)
             return;
@@ -177,12 +236,18 @@ public:
         message[0] = midi_ump::WithGroup(message[0], targets_[destinationIndex].group);
         if (backend_.Send(targets_[destinationIndex].cookie, message, count) && targets_[destinationIndex].counters) {
             targets_[destinationIndex].counters->sent.fetch_add(1, std::memory_order_relaxed);
-            targets_[destinationIndex].counters->lastSentUnixMs.store(nowUnixMs(), std::memory_order_relaxed);
+            targets_[destinationIndex].counters->lastSentUnixMs.store(unixMs_, std::memory_order_relaxed);
+            // Remembered to tell a real clock source from clock the engine
+            // sends to an application that echoes it back (MIDI thru).
+            if (isClockTick(message[0]))
+                targets_[destinationIndex].counters->lastClockSentSteadyNs.store(steadyNs_, std::memory_order_relaxed);
         }
     }
 private:
     MidiBackend& backend_;
     const std::vector<PortTarget<Counters>>& targets_;
+    std::int64_t steadyNs_;
+    std::int64_t unixMs_;
 };
 
 std::uint64_t sourceKey(std::uint64_t cookie, std::uint8_t group) {
@@ -290,7 +355,7 @@ std::string MidiPatchbay::PortId(std::uint8_t group, const std::string& endpoint
 MidiPatchbay::MidiPatchbay(std::unique_ptr<MidiBackend> backend, std::filesystem::path storePath,
     std::string unavailableReason)
     : backend_(std::move(backend)), storePath_(std::move(storePath)),
-      unavailableReason_(std::move(unavailableReason)) {
+      unavailableReason_(std::move(unavailableReason)), steadyNs_(nowSteadyNs), unixMs_(nowUnixMs) {
     if (backend_)
         backend_->SetReceiveHandler([this](std::uint64_t cookie, const std::uint32_t* words, std::size_t count) {
             OnReceive(cookie, words, count);
@@ -300,6 +365,11 @@ MidiPatchbay::MidiPatchbay(std::unique_ptr<MidiBackend> backend, std::filesystem
 }
 
 MidiPatchbay::~MidiPatchbay() { Stop(); }
+
+void MidiPatchbay::SetTimeSourcesForTesting(TimeSource steadyNs, TimeSource unixMs) noexcept {
+    steadyNs_ = steadyNs;
+    unixMs_ = unixMs;
+}
 
 bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std::string& error) {
     if (configuration.virtualPorts.size() > kMaximumVirtualPorts) {
@@ -559,10 +629,9 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
     const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
     if (source == runtime.sourceIndices.end()) return;
     // Every message from a port is observed, routed or not.
-    auto& counters = *runtime.counters[source->second];
-    counters.received.fetch_add(1, std::memory_order_relaxed);
-    counters.lastReceivedUnixMs.store(nowUnixMs(), std::memory_order_relaxed);
-    BackendSink<PortCounters> sink(*backend_, runtime.targets);
+    const auto steady = steadyNs_(), unix = unixMs_();
+    runtime.counters[source->second]->Observe(words[0], steady, unix);
+    BackendSink<PortCounters> sink(*backend_, runtime.targets, steady, unix);
     runtime.graph->Process(source->second, words, count, sink);
 }
 
@@ -644,6 +713,7 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             snapshot.ports.push_back(std::move(status));
         }
 
+    const auto now = steadyNs_();
     for (auto& status : snapshot.ports) {
         const auto counters = counters_.find(status.id);
         if (counters == counters_.end()) continue;
@@ -651,6 +721,28 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.sent = counters->second->sent.load(std::memory_order_relaxed);
         status.lastReceivedUnixMs = counters->second->lastReceivedUnixMs.load(std::memory_order_relaxed);
         status.lastSentUnixMs = counters->second->lastSentUnixMs.load(std::memory_order_relaxed);
+        const auto& c = *counters->second;
+        status.activity = c.activity.load(std::memory_order_relaxed);
+        status.lastActivityUnixMs = c.lastActivityUnixMs.load(std::memory_order_relaxed);
+        status.clockTicks = c.clockTicks.load(std::memory_order_relaxed);
+        status.lastClockUnixMs = c.lastClockUnixMs.load(std::memory_order_relaxed);
+        const auto lastTick = c.lastClockSteadyNs.load(std::memory_order_relaxed);
+        status.clockRunning = lastTick != 0 && now - lastTick <= kClockTimeoutNs;
+        const auto interval = c.clockIntervalNs.load(std::memory_order_relaxed);
+        // 24 ticks per quarter note.
+        if (status.clockRunning && interval > 0)
+            status.clockBpm = std::round(60e9 / (24.0 * static_cast<double>(interval)) * 10.0) / 10.0;
+        const auto lastClockSent = c.lastClockSentSteadyNs.load(std::memory_order_relaxed);
+        status.clockEchoSuspected = status.clockRunning && lastClockSent != 0 && now - lastClockSent <= kClockTimeoutNs;
+        switch (c.transport.load(std::memory_order_relaxed)) {
+        case TransportStart: status.transport = "start"; break;
+        case TransportContinue: status.transport = "continue"; break;
+        case TransportStop: status.transport = "stop"; break;
+        default: break;
+        }
+        status.transportUnixMs = c.transportUnixMs.load(std::memory_order_relaxed);
+        status.activeSensing = c.activeSensing.load(std::memory_order_relaxed);
+        status.lastActiveSensingUnixMs = c.lastActiveSensingUnixMs.load(std::memory_order_relaxed);
     }
 
     std::shared_ptr<const Runtime> runtime;

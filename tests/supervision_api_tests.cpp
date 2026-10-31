@@ -147,7 +147,10 @@ int main() {
             {"ports", Json::array({
                 {{"id", "midi:virtual:bitwig"}, {"name", "Bitwig"}, {"kind", "virtual"}, {"source", true}, {"destination", false},
                  {"online", true}, {"open", true}, {"inputEndpointId", "loop-in"}, {"outputEndpointId", nullptr},
-                 {"received", 5}, {"sent", 0}, {"lastReceivedUnixMs", 1000}, {"lastSentUnixMs", 0}, {"error", nullptr}},
+                 {"received", 5}, {"sent", 0}, {"lastReceivedUnixMs", 1000}, {"lastSentUnixMs", 0}, {"error", nullptr},
+                 {"activity", {{"messages", 1}, {"lastUnixMs", 1000}}}, {"activeSensing", {{"messages", 0}, {"lastUnixMs", nullptr}}},
+                 {"clock", {{"ticks", 4}, {"running", true}, {"bpm", 120.0}, {"lastTickUnixMs", 1000}, {"echoSuspected", false},
+                     {"transport", "start"}, {"transportUnixMs", 990}}}},
                 {{"id", "midi:port:2:usb"}, {"name", "UM-4 Port 2"}, {"kind", "port"}, {"endpointId", "usb"}, {"endpointName", "UM-4"},
                  {"group", 2}, {"source", true}, {"destination", true}, {"online", true}, {"open", true},
                  {"received", 0}, {"sent", 4}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 900}, {"error", nullptr}},
@@ -184,6 +187,10 @@ int main() {
         const auto& midiObservations = midiModel["engine"]["observations"]["midi"];
         check(midiObservations["ports"][0]["received"] == 5 && midiObservations["ports"][0]["lastSentUnixMs"].is_null() &&
               midiObservations["ports"][0]["nodeId"] == "midi-application:bitwig", "port traffic is attributed to its node");
+        check(midiObservations["clockSources"].size() == 1 && midiObservations["clockSources"][0]["nodeId"] == "midi-application:bitwig" &&
+              midiObservations["clockSources"][0]["bpm"] == 120.0, "the port receiving running clock is reported as its source");
+        check(midiObservations["ports"][0]["clock"]["ticks"] == 4 && midiObservations["ports"][0]["activity"]["messages"] == 1,
+            "clock ticks are reported apart from activity");
         check(midiObservations["links"][0]["linkId"] == "midi:to-synth" && midiObservations["links"][0]["forwarded"] == 4,
             "link traffic is observed by the engine");
         check(midiModel["engine"]["configuration"]["midi"]["routes"].size() == 2 &&
