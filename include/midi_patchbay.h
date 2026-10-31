@@ -42,6 +42,13 @@ struct MidiPortStatus {
     bool destination = false;      // usable as a route destination (MIDI Out)
     bool online = false;           // port present / virtual port created
     bool open = false;             // engine holds a connection
+    // Traffic the engine observed on this port since the engine started.
+    // received: MIDI 1.0 messages that arrived from the port (routed or not);
+    // sent: messages the engine delivered to the port. 0 = never.
+    std::uint64_t received = 0;
+    std::uint64_t sent = 0;
+    std::int64_t lastReceivedUnixMs = 0;
+    std::int64_t lastSentUnixMs = 0;
     std::string inputEndpointId;   // virtual ports: "<name> In", apps send here
     std::string outputEndpointId;  // virtual ports: "<name> Out", apps listen here
     std::string error;
@@ -108,6 +115,7 @@ public:
 
 private:
     struct Runtime;
+    struct PortCounters;
     struct OpenConnection {
         std::uint64_t cookie = 0;
         std::string endpointId;        // virtual port loopbacks only
@@ -131,6 +139,8 @@ private:
     std::map<std::string, OpenConnection> connections_;
     std::map<std::string, std::string> endpointErrors_;  // by endpoint id
     std::uint64_t nextCookie_ = 1;
+    // By port id; kept across configuration changes so counters never reset.
+    std::map<std::string, std::shared_ptr<PortCounters>> counters_;
 
     mutable std::mutex runtimeMutex_;
     std::shared_ptr<const Runtime> runtime_;

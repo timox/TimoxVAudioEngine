@@ -21,6 +21,126 @@
     { "$ref": "#/definitions/event" }
   ],
   "definitions": {
+    "supervisionMidiObservations": {
+      "type": "object",
+      "required": [
+        "available",
+        "backend",
+        "error",
+        "ports",
+        "links"
+      ],
+      "additionalProperties": false,
+      "description": "MIDI traffic the engine observed. Every application port goes through an engine-owned loopback, so its traffic is observable; counters cover MIDI 1.0 messages since engine start and survive configuration changes.",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "portId",
+              "nodeId",
+              "adherentId",
+              "online",
+              "open",
+              "received",
+              "sent",
+              "lastReceivedUnixMs",
+              "lastSentUnixMs",
+              "error"
+            ],
+            "properties": {
+              "portId": {
+                "type": "string"
+              },
+              "nodeId": {
+                "type": "string"
+              },
+              "adherentId": {
+                "type": "string"
+              },
+              "online": {
+                "type": "boolean"
+              },
+              "open": {
+                "type": "boolean"
+              },
+              "received": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastReceivedUnixMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "lastSentUnixMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "linkId",
+              "active",
+              "forwarded",
+              "filtered"
+            ],
+            "properties": {
+              "linkId": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "forwarded": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "filtered": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
     "midiVirtualPort": {
       "type": "object",
       "required": [
@@ -205,7 +325,11 @@
         "open",
         "error",
         "inputEndpointId",
-        "outputEndpointId"
+        "outputEndpointId",
+        "received",
+        "sent",
+        "lastReceivedUnixMs",
+        "lastSentUnixMs"
       ],
       "properties": {
         "id": {
@@ -274,6 +398,28 @@
             "null"
           ],
           "description": "Virtual ports: endpoint of \"<name> Out\", or null when output is off."
+        },
+        "received": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "MIDI 1.0 messages that arrived from the port since engine start, routed or not."
+        },
+        "sent": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "MIDI 1.0 messages the engine delivered to the port since engine start."
+        },
+        "lastReceivedUnixMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lastSentUnixMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       }
     },
@@ -500,6 +646,16 @@
           "items": {
             "$ref": "#/definitions/supervisionClient"
           }
+        },
+        "midi": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/supervisionMidiObservations"
+            }
+          ]
         }
       },
       "required": [
@@ -587,7 +743,9 @@
             "processInstance",
             "runtimePid",
             "driverAccess",
-            "wasapiEndpoint"
+            "wasapiEndpoint",
+            "midiApplicationPort",
+            "midiEndpoint"
           ]
         },
         "processId": {
@@ -607,6 +765,9 @@
         },
         "hardwareIdentity": {
           "type": "null"
+        },
+        "portId": {
+          "type": "string"
         }
       },
       "required": [
@@ -621,7 +782,30 @@
           "type": "null"
         },
         "midi": {
-          "type": "null"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "protocol"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "protocol": {
+                  "const": "midi1"
+                },
+                "input": {
+                  "type": "boolean"
+                },
+                "output": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ],
+          "description": "null for audio adherents. MIDI adherents are MIDI 1.0 only; application ports report which of In/Out are enabled."
         },
         "sampleRates": {
           "anyOf": [
@@ -675,8 +859,10 @@
         "kind": {
           "enum": [
             "process",
-            "device"
-          ]
+            "device",
+            "application"
+          ],
+          "description": "application: an engine-owned MIDI application port (no process identity is claimed)."
         },
         "label": {
           "type": [
@@ -721,7 +907,9 @@
             "asioClient",
             "asioDevice",
             "wasapiBridge",
-            "nativeDevice"
+            "nativeDevice",
+            "midiApplicationPort",
+            "midiDevice"
           ]
         },
         "resourceId": {
@@ -739,13 +927,105 @@
             "sources": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/endpoint"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/endpoint"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "direction",
+                      "medium"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "direction": {
+                        "enum": [
+                          "input",
+                          "output",
+                          null
+                        ]
+                      },
+                      "medium": {
+                        "const": "midi"
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "endpointId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                ]
               }
             },
             "sinks": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/endpoint"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/endpoint"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "direction",
+                      "medium"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "direction": {
+                        "enum": [
+                          "input",
+                          "output",
+                          null
+                        ]
+                      },
+                      "medium": {
+                        "const": "midi"
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "endpointId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                ]
               }
             }
           },
@@ -759,6 +1039,9 @@
           "anyOf": [
             {
               "$ref": "#/definitions/wasapiBridgeConfiguration"
+            },
+            {
+              "$ref": "#/definitions/midiVirtualPort"
             },
             {
               "type": "null"
@@ -860,6 +1143,28 @@
               "additionalProperties": false
             },
             {
+              "type": "object",
+              "required": [
+                "inputEndpointId",
+                "outputEndpointId"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "inputEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "outputEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            {
               "type": "null"
             }
           ]
@@ -892,6 +1197,9 @@
               "$ref": "#/definitions/route"
             },
             {
+              "$ref": "#/definitions/midiRoute"
+            },
+            {
               "type": "null"
             }
           ]
@@ -900,6 +1208,9 @@
           "anyOf": [
             {
               "$ref": "#/definitions/route"
+            },
+            {
+              "$ref": "#/definitions/midiRoute"
             },
             {
               "type": "null"
@@ -935,6 +1246,12 @@
             "string",
             "null"
           ]
+        },
+        "medium": {
+          "enum": [
+            "midi"
+          ],
+          "description": "Present on MIDI links; absent on audio links."
         }
       },
       "required": [
@@ -1104,6 +1421,16 @@
             },
             "nativeAudioEnabled": {
               "type": "boolean"
+            },
+            "midi": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/midiConfiguration"
+                }
+              ]
             }
           },
           "required": [
@@ -1176,6 +1503,16 @@
                 "null"
               ],
               "description": "Existing supervised PWAR status payload; PID identifies only the current supervisor claim, not a proven process-instance merge."
+            },
+            "midi": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/supervisionMidiObservations"
+                }
+              ]
             }
           },
           "required": [
@@ -1202,6 +1539,9 @@
             },
             "diagnostics": {
               "const": "/api/v1/diagnostics"
+            },
+            "midi": {
+              "const": "/api/v1/midi"
             }
           },
           "required": [

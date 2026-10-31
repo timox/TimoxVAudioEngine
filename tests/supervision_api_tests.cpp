@@ -136,7 +136,59 @@ int main() {
         const auto offlineModel = SupervisionSnapshot(state, Json::array(), extras, 126);
         check(offlineModel["links"][0]["sourceNodeId"].is_null() && offlineModel["links"][0]["applied"].is_null(), "offline route intent does not fabricate applied endpoint");
         check(offlineModel["nodes"][1]["ports"]["sources"].empty(), "unattached native access has no live ports");
-        std::puts("PASS: topology, process identity, multi-node ownership, and motor channel measurements");
+        check(offlineModel["engine"]["observations"]["midi"].is_null(), "no MIDI patchbay projects no MIDI observation");
+
+        // MIDI 1.0 patchbay: application ports and device ports become nodes, routes become links.
+        Json midi{{"available", true}, {"backend", "windows-midi-services"}, {"error", nullptr},
+            {"configuration", {{"virtualPorts", Json::array({{{"id", "bitwig"}, {"name", "Bitwig"}, {"input", true}, {"output", false}}})},
+                {"routes", Json::array({
+                    {{"id", "to-synth"}, {"source", "midi:virtual:bitwig"}, {"destination", "midi:port:2:usb"}},
+                    {{"id", "to-gone"}, {"source", "midi:virtual:bitwig"}, {"destination", "midi:port:1:gone"}}})}}},
+            {"ports", Json::array({
+                {{"id", "midi:virtual:bitwig"}, {"name", "Bitwig"}, {"kind", "virtual"}, {"source", true}, {"destination", false},
+                 {"online", true}, {"open", true}, {"inputEndpointId", "loop-in"}, {"outputEndpointId", nullptr},
+                 {"received", 5}, {"sent", 0}, {"lastReceivedUnixMs", 1000}, {"lastSentUnixMs", 0}, {"error", nullptr}},
+                {{"id", "midi:port:2:usb"}, {"name", "UM-4 Port 2"}, {"kind", "port"}, {"endpointId", "usb"}, {"endpointName", "UM-4"},
+                 {"group", 2}, {"source", true}, {"destination", true}, {"online", true}, {"open", true},
+                 {"received", 0}, {"sent", 4}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 900}, {"error", nullptr}},
+                {{"id", "midi:port:1:gone"}, {"name", ""}, {"kind", "port"}, {"endpointId", "gone"}, {"endpointName", nullptr},
+                 {"group", 1}, {"source", false}, {"destination", false}, {"online", false}, {"open", false},
+                 {"received", 0}, {"sent", 0}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 0}, {"error", nullptr}}})},
+            {"routes", Json::array({{{"id", "to-synth"}, {"active", true}, {"forwarded", 4}, {"filtered", 1}},
+                {{"id", "to-gone"}, {"active", false}, {"forwarded", 0}, {"filtered", 0}}})}};
+        auto midiExtras = extras; midiExtras["midi"] = midi;
+        const auto midiModel = SupervisionSnapshot(state, Json::array(), midiExtras, 130);
+        Json app, device, offline;
+        for (const auto& node : midiModel["nodes"]) {
+            if (node["id"] == "midi-application:bitwig") app = node;
+            if (node["id"] == "midi-device:usb") device = node;
+            if (node["id"] == "midi-device:gone") offline = node;
+        }
+        check(app["kind"] == "midiApplicationPort" && app["ports"]["sources"].size() == 1 && app["ports"]["sinks"].empty(),
+            "application port exposes only its enabled In");
+        check(app["ports"]["sources"][0]["name"] == "Bitwig In" && app["adherentId"] == "midi:application:bitwig",
+            "application port is its own adherent");
+        check(device["state"] == "open" && device["ports"]["sources"][0]["group"] == 2 && device["ports"]["sinks"].size() == 1,
+            "device ports keep their MIDI 1.0 port and direction");
+        check(offline["state"] == "offline", "absent routed device stays visible as offline");
+        Json synthLink, goneLink;
+        for (const auto& link : midiModel["links"]) {
+            if (link["id"] == "midi:to-synth") synthLink = link;
+            if (link["id"] == "midi:to-gone") goneLink = link;
+        }
+        check(synthLink["medium"] == "midi" && synthLink["state"] == "applied" &&
+              synthLink["sourceNodeId"] == "midi-application:bitwig" && synthLink["destinationNodeId"] == "midi-device:usb",
+            "active MIDI route is an applied link between resolved nodes");
+        check(goneLink["state"] == "configured" && goneLink["applied"].is_null() && goneLink["destinationNodeId"] == "midi-device:gone",
+            "inactive MIDI route stays configured intent");
+        const auto& midiObservations = midiModel["engine"]["observations"]["midi"];
+        check(midiObservations["ports"][0]["received"] == 5 && midiObservations["ports"][0]["lastSentUnixMs"].is_null() &&
+              midiObservations["ports"][0]["nodeId"] == "midi-application:bitwig", "port traffic is attributed to its node");
+        check(midiObservations["links"][0]["linkId"] == "midi:to-synth" && midiObservations["links"][0]["forwarded"] == 4,
+            "link traffic is observed by the engine");
+        check(midiModel["engine"]["configuration"]["midi"]["routes"].size() == 2 &&
+              midiModel["engine"]["resources"]["midi"] == "/api/v1/midi", "MIDI configuration and resource are referenced");
+        std::puts("PASS: topology, process identity, multi-node ownership, and motor channel measurements, MIDI 1.0 topology");
         return 0;
     } catch (const std::exception& error) { std::fprintf(stderr, "FAIL: %s\n", error.what()); return 1; }
 }

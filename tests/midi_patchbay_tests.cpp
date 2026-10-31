@@ -143,6 +143,13 @@ bool testApplyRoutesAndPersists() {
                   port.source && port.destination);
     }
     CHECK(absentListed && multiPort2);
+    // Traffic is observed per port: everything that arrives, routed or not,
+    // and everything delivered.
+    for (const auto& port : snapshot.ports) {
+        if (port.id == "midi:virtual:daw") CHECK(port.received == 2 && port.sent == 2 && port.lastSentUnixMs > 0);
+        if (port.id == "midi:port:1:usb-keys") CHECK(port.received == 2 && port.sent == 0 && port.lastReceivedUnixMs > 0);
+        if (port.id == "midi:port:1:usb-synth") CHECK(port.sent == 1 && port.received == 0);
+    }
 
     // Persisted file reloads into an equivalent configuration.
     std::ifstream input(store);
@@ -165,9 +172,14 @@ bool testReapplyKeepsConnectionsAndHotplugReopens() {
     const auto daw = cookieOf(state, "virtual:Timox DAW In");
     CHECK(daw && !cookieOf(state, "usb-keys"));
 
-    // Same configuration: the virtual port is not recreated (apps keep it open).
+    const std::uint32_t note = 0x20903C64u;
+    state.handler(daw, &note, 1);
+    // Same configuration: the virtual port is not recreated (apps keep it open)
+    // and its traffic counters are kept.
     CHECK(patchbay.Apply(configuration).success);
     CHECK(cookieOf(state, "virtual:Timox DAW In") == daw);
+    for (const auto& port : patchbay.Snapshot().ports)
+        if (port.id == "midi:virtual:daw") CHECK(port.received == 1);
 
     // Keyboard plugged in later.
     state.endpoints.push_back(endpoints()[1]);

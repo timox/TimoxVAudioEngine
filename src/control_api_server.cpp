@@ -712,7 +712,8 @@ struct ControlApiServer::Impl {
         result["supervision"] = SupervisionSnapshot(result, meters,
             {{"windowsAudioApplications", windowsAudioApplicationsJson(state)},
              {"windowsAudioApplicationInventoryError", state.wasapiProcessInventoryError.empty() ? Json(nullptr) : Json(state.wasapiProcessInventoryError)},
-             {"pwarClient", pwarClient.Snapshot()}}, supervisionReadTime());
+             {"pwarClient", pwarClient.Snapshot()},
+             {"midi", midi ? midiSnapshotJson(midi->Snapshot()) : Json(nullptr)}}, supervisionReadTime());
         return result;
     }
 
@@ -1075,6 +1076,9 @@ struct ControlApiServer::Impl {
                 {"endpointName", port.endpointName.empty() ? Json(nullptr) : Json(port.endpointName)},
                 {"group", port.group}, {"source", port.source}, {"destination", port.destination},
                 {"online", port.online}, {"open", port.open},
+                {"received", port.received}, {"sent", port.sent},
+                {"lastReceivedUnixMs", port.lastReceivedUnixMs > 0 ? Json(port.lastReceivedUnixMs) : Json(nullptr)},
+                {"lastSentUnixMs", port.lastSentUnixMs > 0 ? Json(port.lastSentUnixMs) : Json(nullptr)},
                 {"inputEndpointId", port.inputEndpointId.empty() ? Json(nullptr) : Json(port.inputEndpointId)},
                 {"outputEndpointId", port.outputEndpointId.empty() ? Json(nullptr) : Json(port.outputEndpointId)},
                 {"error", port.error.empty() ? Json(nullptr) : Json(port.error)}});
@@ -1337,7 +1341,8 @@ struct ControlApiServer::Impl {
                     const auto observedDevices = driversJson();
                     if (!websocket.send(Json{{"event", "supervision.observations"},
                         {"payload", {{"owner", "engine"}, {"readAtUnixMs", supervisionReadTime()},
-                            {"clients", SupervisionClientObservations(observedDevices)}}}}.dump())) return false;
+                            {"clients", SupervisionClientObservations(observedDevices)},
+                            {"midi", midi ? SupervisionMidiObservations(midiSnapshotJson(midi->Snapshot())) : Json(nullptr)}}}}.dump())) return false;
                     return sendAudioMeters(observedDevices);
                 };
                 while (websocket.is_open()) {

@@ -40,6 +40,16 @@ Only MIDI 1.0 messages travel. Any other message (MIDI 2.0, utility, UMP stream,
 
 Routing runs on Windows MIDI Services receive threads, never in the audio callback. It does not allocate; the graph is swapped as a whole on each configuration change.
 
+## Observation and topology
+
+Applications keep their own MIDI ports, outside the patchbay: Windows does not say who talks to whom. Dedicating a loopback to each application port makes all of that application's traffic go through a point the engine reads, so the engine can rebuild an observable topology:
+
+- each application port becomes an `application` adherent with a `midiApplicationPort` node; each MIDI 1.0 device becomes a `device` adherent with a `midiDevice` node;
+- each route becomes a `medium=midi` link between two nodes, "applied" only when the route is active;
+- the engine counts, per port, messages received and sent with the time of the last one, and per route messages forwarded and filtered. A message that arrives with no route is still counted.
+
+The topology appears in `supervision` (`GET /api/v1/state`); counters appear in `engine.observations.midi` and in the `supervision.observations` WebSocket event (about every 500 ms). See [the supervision API](SUPERVISION_API.md). Limit: a loopback does not reveal which process opens it. The adherent is the configured application port, not a proven process.
+
 ## API
 
 - `GET /api/v1/midi` re-reads the MIDI 1.0 port list and reopens routed ports that came back (device plugged in again). It then returns ports, configuration and, per route, `active`, `forwarded` and `filtered`.

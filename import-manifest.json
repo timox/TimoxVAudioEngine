@@ -34,9 +34,9 @@
       "target": "api/schemas/api-v1.json",
       "sha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
       "sourceSha256": "113b1ea91f7635457cd40881cfe139e595cf6ab02e38533c99e03670e3140bf0",
-      "targetSha256": "ee088f63b4c6fd3be56b3b6c634c3f064ef31701a978a99f2f21012ac85764c2",
+      "targetSha256": "e8f5af2f67026df0ec89d8cfc1950ea282bec98cf0ee8695092ef774fe11e24f",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": "asiosdk/common/asio.h",
@@ -680,9 +680,9 @@
       "target": "src/control_api_server.cpp",
       "sha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
       "sourceSha256": "f1d0e5c4a16deefe94247cf691ea1e0502999403396f0994c2a63aff9dc29a8c",
-      "targetSha256": "7f543be3d80bc2129c1e4c2b14a1cde1a68168142ee72f99181731051b48be50",
+      "targetSha256": "54973e0391dcc8ef127056b0f41f8b7511a337e1e31631043cbba25393b3b715",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": "src/drift_resampler.cpp",
@@ -1292,45 +1292,45 @@
       "target": "src/supervision_api.h",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "1a37c58e39222ab28c38b6fb42020706d4f8ecac199cf5bceac6d8cef5cf87ec",
+      "targetSha256": "04a2479cf274d942bf2f2ef5a30375c427e97fc699584726fe6734cbfbac33c2",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
       "target": "tests/supervision_api_tests.cpp",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "947617a8c85f755d16144abe8316eb6c09707745564456a6896b1d4e26d6b538",
+      "targetSha256": "598f967459f0142de6557a64852497ee341b9b7c9f070f0d79cff24450823337",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/SUPERVISION_API.md",
       "sourceSha256": null,
       "sha256": null,
-      "targetSha256": "d65e3321a93ac431e27eb60d2ed73e940d6e8749a7f62fc0aefbcb2bed5a331b",
+      "targetSha256": "10c4b7196e205ad0347487bdb25afbf22e5ce8fb05929099e0caab70e6279266",
       "status": "generated",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/MIDI_PATCHBAY.en.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "ba8fbf9287efe852acd71b074b4c0a830a5c94f1683b1d84357739b3ec3b18cd",
+      "targetSha256": "b8077b55fb9ae329986cac04c7113435f21a2b5675760305450d9dcc47a6f1ee",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
       "target": "docs/MIDI_PATCHBAY.md",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "d1328fb445a0150fca5766e76be512395fd6e644b74cb7441c796e92d8bacf0a",
+      "targetSha256": "5bd125786030ddbc36399e30afc03cb31e951960cb779f7aecc0850c181113ee",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
@@ -1346,9 +1346,9 @@
       "target": "include/midi_patchbay.h",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "1c9253e1cc494e1db873ce7f2330f9d18f21d115605f35ad9712b49077ccf65e",
+      "targetSha256": "0705bdd8938f0c263a48af31f187ebf583e61495016b07829759c799906f6af0",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
@@ -1382,9 +1382,9 @@
       "target": "src/midi_patchbay.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "e57ffedb40f16ed0fce56abd0276428d0d7405ff0ae7efd1efff7a865b352771",
+      "targetSha256": "6703bde9b3a78e54a1d93bc466d4b00fc76887183b69273a3e18082aa224cfc2",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,
@@ -1409,9 +1409,9 @@
       "target": "tests/midi_patchbay_tests.cpp",
       "sha256": null,
       "sourceSha256": null,
-      "targetSha256": "0c832ee8c01df9a341c90b7103343fbac5690217b139e65fb121b079e39a0d70",
+      "targetSha256": "0c2c3bd984981e21a6bf714baa8acdaf82078355fedc35923eca6d17cf226162",
       "status": "generated",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31"
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; MIDI patchbay limited to MIDI 1.0 devices, 2026-10-31; MIDI 1.0 loopback virtual ports, 2026-10-31; Application MIDI ports with independent In/Out, 2026-10-31; MIDI topology in supervision, 2026-10-31"
     },
     {
       "source": null,

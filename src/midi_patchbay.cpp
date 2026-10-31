@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -139,16 +141,33 @@ Json encodeRoute(const MidiRoute& route) {
         {"transpose", route.transpose}};
 }
 
+std::int64_t nowUnixMs() noexcept {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+}
+
+struct MidiPatchbay::PortCounters {
+    std::atomic<std::uint64_t> received{0};
+    std::atomic<std::uint64_t> sent{0};
+    std::atomic<std::int64_t> lastReceivedUnixMs{0};
+    std::atomic<std::int64_t> lastSentUnixMs{0};
+};
+
+namespace {
+template <class Counters>
 struct PortTarget {
     std::uint64_t cookie = 0;
     std::uint8_t group = 0;
     bool destination = false;
+    Counters* counters = nullptr;
 };
 
 // Sends to the destination port's connection, on that port's group.
+template <class Counters>
 class BackendSink final : public MidiOutputSink {
 public:
-    BackendSink(MidiBackend& backend, const std::vector<PortTarget>& targets)
+    BackendSink(MidiBackend& backend, const std::vector<PortTarget<Counters>>& targets)
         : backend_(backend), targets_(targets) {}
     void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept override {
         if (destinationIndex >= targets_.size() || !targets_[destinationIndex].destination || count == 0 || count > 4)
@@ -156,11 +175,14 @@ public:
         std::uint32_t message[4];
         for (std::size_t i = 0; i < count; ++i) message[i] = words[i];
         message[0] = midi_ump::WithGroup(message[0], targets_[destinationIndex].group);
-        backend_.Send(targets_[destinationIndex].cookie, message, count);
+        if (backend_.Send(targets_[destinationIndex].cookie, message, count) && targets_[destinationIndex].counters) {
+            targets_[destinationIndex].counters->sent.fetch_add(1, std::memory_order_relaxed);
+            targets_[destinationIndex].counters->lastSentUnixMs.store(nowUnixMs(), std::memory_order_relaxed);
+        }
     }
 private:
     MidiBackend& backend_;
-    const std::vector<PortTarget>& targets_;
+    const std::vector<PortTarget<Counters>>& targets_;
 };
 
 std::uint64_t sourceKey(std::uint64_t cookie, std::uint8_t group) {
@@ -240,7 +262,8 @@ std::string Encode(const MidiPatchbayConfiguration& configuration) {
 struct MidiPatchbay::Runtime {
     std::unique_ptr<MidiRoutingGraph> graph;
     std::unordered_map<std::uint64_t, std::size_t> sourceIndices;  // by sourceKey(cookie, group)
-    std::vector<PortTarget> targets;                                // by port index
+    std::vector<PortTarget<PortCounters>> targets;                  // by port index
+    std::vector<std::shared_ptr<PortCounters>> counters;            // by port index
     std::vector<std::string> routeIds;
 };
 
@@ -472,7 +495,7 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
             for (std::uint8_t group = 0; group < 16; ++group)
                 runtime->sourceIndices.emplace(sourceKey(cookie, group), ports.size());
         }
-        runtime->targets.push_back({port.output ? next.at(virtualKey(port.id, false)).cookie : 0, 0, port.output});
+        runtime->targets.push_back({port.output ? next.at(virtualKey(port.id, false)).cookie : 0, 0, port.output, nullptr});
         ports.push_back(kVirtualPrefix + port.id);
     }
     for (const auto& entry : present) {
@@ -480,13 +503,19 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         if (connection == next.end()) continue;
         if (entry.second.source)
             runtime->sourceIndices.emplace(sourceKey(connection->second.cookie, entry.second.group), ports.size());
-        runtime->targets.push_back({connection->second.cookie, entry.second.group, entry.second.destination});
+        runtime->targets.push_back({connection->second.cookie, entry.second.group, entry.second.destination, nullptr});
         ports.push_back(entry.first);
     }
     for (auto& route : routes)
         if (route.enabled && (std::find(ports.begin(), ports.end(), route.sourcePortId) == ports.end() ||
                               std::find(ports.begin(), ports.end(), route.destinationPortId) == ports.end()))
             route.enabled = false;
+    for (std::size_t i = 0; i < ports.size(); ++i) {
+        auto& counters = counters_[ports[i]];
+        if (!counters) counters = std::make_shared<PortCounters>();
+        runtime->counters.push_back(counters);
+        runtime->targets[i].counters = counters.get();
+    }
     runtime->graph = MidiRoutingGraph::Create(ports, routes, error);
     if (!runtime->graph) {
         rollback();
@@ -529,7 +558,11 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
                          std::size_t count) noexcept {
     const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
     if (source == runtime.sourceIndices.end()) return;
-    BackendSink sink(*backend_, runtime.targets);
+    // Every message from a port is observed, routed or not.
+    auto& counters = *runtime.counters[source->second];
+    counters.received.fetch_add(1, std::memory_order_relaxed);
+    counters.lastReceivedUnixMs.store(nowUnixMs(), std::memory_order_relaxed);
+    BackendSink<PortCounters> sink(*backend_, runtime.targets);
     runtime.graph->Process(source->second, words, count, sink);
 }
 
@@ -610,6 +643,15 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             status.group = group + 1;
             snapshot.ports.push_back(std::move(status));
         }
+
+    for (auto& status : snapshot.ports) {
+        const auto counters = counters_.find(status.id);
+        if (counters == counters_.end()) continue;
+        status.received = counters->second->received.load(std::memory_order_relaxed);
+        status.sent = counters->second->sent.load(std::memory_order_relaxed);
+        status.lastReceivedUnixMs = counters->second->lastReceivedUnixMs.load(std::memory_order_relaxed);
+        status.lastSentUnixMs = counters->second->lastSentUnixMs.load(std::memory_order_relaxed);
+    }
 
     std::shared_ptr<const Runtime> runtime;
     {
