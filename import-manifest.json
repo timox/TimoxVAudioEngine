@@ -115,9 +115,9 @@
       "target": "CMakeLists.txt",
       "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
       "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
-      "targetSha256": "3aef4120c5e31a57ecade05d94101cdf7fd66131907967424755aa5ebd3aebb2",
+      "targetSha256": "4d3c83e1b3425b16442b58c352f370f9b0efcab6992d851d6832484d4f65bc44",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Verified SDK and Windows CI build, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Verified SDK and Windows CI build, 2026-10-31; Standard C++20 coroutines for Windows MIDI, 2026-10-31"
     },
     {
       "source": "docs/API_QUICKSTART.en.md",

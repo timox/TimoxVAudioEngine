@@ -202,6 +202,9 @@ if(WIN32)
     option(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES "Build the Windows MIDI Services patchbay backend" OFF)
     set(TIMOX_MIDI2_WINMD "" CACHE FILEPATH "Windows.Devices.Midi2.winmd from the Windows.Devices.Midi2 NuGet package")
     if(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES)
+        # Current C++/WinRT projections use standard coroutines. C++17 selects
+        # MSVC's deprecated experimental coroutine implementation instead.
+        target_compile_features(TimoxVirtualAsioEngine PRIVATE cxx_std_20)
         if(NOT EXISTS "${TIMOX_MIDI2_WINMD}")
             message(FATAL_ERROR "Set TIMOX_MIDI2_WINMD to Windows.Devices.Midi2.winmd (NuGet Windows.Devices.Midi2 0.99.92-preview.11)")
         endif()
