@@ -30,8 +30,12 @@ node verify-import.cjs
 
 Use Windows MIDI Services preview 12 runtime and Windows.Devices.Midi2
 0.99.92-preview.11 metadata as described in docs/MIDI_PATCHBAY.md. No implicit
-SDK downloads or disabled verification. The production backend and full Windows
-build still require validation; portable MIDI tests use a fake backend.
+SDK downloads or disabled verification. The windows-engine.yml workflow checks
+the MIDI-enabled Windows build and isolated tests with a checksum-pinned SDK.
+Its successful run uploads the executable, receipt and schemas as one candidate
+artifact. It does not install the MIDI runtime or validate real endpoints/audio;
+portable MIDI tests use a fake backend. The MIDI-enabled engine requires C++20
+for standard C++/WinRT coroutines.
 
 Every default build writes engine-build.json beside the executable, recording
 engine/API versions, exact Git revision, dirty state, MIDI option and executable

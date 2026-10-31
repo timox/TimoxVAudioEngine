@@ -110,12 +110,12 @@ cmake -S . -B build -G "Visual Studio 18 2026" -A x64 `
   -DTIMOX_MIDI2_WINMD="C:\path\to\Windows.Devices.Midi2.winmd"
 ```
 
-CMake generates the C++/WinRT projection with the Windows SDK `cppwinrt.exe`. Without the option the engine builds as before and `GET /api/v1/midi` reports `available: false`.
+CMake generates the C++/WinRT projection with the Windows SDK `cppwinrt.exe` and uses C++20 for the MIDI-enabled engine (standard coroutines). Without the option the engine builds as before and `GET /api/v1/midi` reports `available: false`.
 
 ## Limitations
 
-- The Windows backend (`src/windows_midi_services_backend.cpp`) has not yet been compiled or run on a Windows machine with preview 12. Automated tests cover routing and configuration handling with a simulated backend.
+- Windows compilation with MIDI enabled and isolated tests are checked by `.github/workflows/windows-engine.yml`; consult its run result. The workflow does not install the preview 12 runtime or exercise real MIDI endpoints. Portable routing/configuration tests use a simulated backend.
 - Port names and directions come from the MIDI 1.0 name table and the blocks the device declares. This mapping has not been checked with real devices yet.
 - The loopback endpoint id format is not documented. The engine finds its leftover loopbacks by looking for `tx-<id>-in` / `tx-<id>-out` in it; to be checked on Windows.
-- No GUI yet, and no MIDI clock locked to the audio clock.
+- The paired TimoxVSSC PR provides the GUI; reference-clock MIDI generation and reclocking are implemented, but real audio/MIDI timing remains unqualified.
 - Supervision (`supervision.adherents[].capabilities.midi`) stays `null`: MIDI ports are not yet attached to audio adherents.
