@@ -1,8 +1,9 @@
 #include <windows.h>
+#include "engine_version.h"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,7,0
- PRODUCTVERSION 1,2,7,0
+ FILEVERSION TIMOX_ENGINE_FILE_VERSION
+ PRODUCTVERSION TIMOX_ENGINE_FILE_VERSION
  FILEFLAGSMASK 0x3fL
  FILEFLAGS VS_FF_PRERELEASE
  FILEOS VOS_NT_WINDOWS32
@@ -14,10 +15,10 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "TimoxVasio Engine\0"
-            VALUE "FileVersion", "1.2.7.0\0"
+            VALUE "FileVersion", TIMOX_ENGINE_FILE_VERSION_STRING "\0"
             VALUE "OriginalFilename", "TimoxVirtualAsioEngine.exe\0"
-            VALUE "ProductName", "TimoxVasio\0"
-            VALUE "ProductVersion", "1.2.7\0"
+            VALUE "ProductName", "TimoxVAudioEngine\0"
+            VALUE "ProductVersion", TIMOX_ENGINE_VERSION "\0"
         END
     END
     BLOCK "VarFileInfo"

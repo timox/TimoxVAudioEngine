@@ -434,6 +434,169 @@
           }
         }
       }
+    },
+    "/api/v1/midi": {
+      "get": {
+        "operationId": "getMidiPatchbay",
+        "summary": "Read the MIDI 1.0 patchbay: ports, configuration and route counters",
+        "description": "Re-enumerates the MIDI 1.0 ports (one per group) of native MIDI 1.0 Windows MIDI Services endpoints; MIDI 2.0 endpoints are not listed, reopens routed endpoints that came back and closes those that disappeared, then returns the current state. Every MIDI 1.0 port appears whether or not it is routed; routed ports that are absent are listed with online false.",
+        "responses": {
+          "200": {
+            "description": "Patchbay state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE: the engine runs without a MIDI patchbay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/midi/configuration": {
+      "put": {
+        "operationId": "replaceMidiConfiguration",
+        "summary": "Replace all application MIDI 1.0 ports and MIDI routes",
+        "description": "Validates, applies and saves the complete MIDI patchbay to %LOCALAPPDATA%\\TimoxVasio\\midi-patchbay.json. Unchanged virtual ports stay open for applications; renamed ports are recreated. Virtual ports require the Basic MIDI 1.0 Loopback transport (Windows MIDI Services preview 12 Transports package). If a virtual port cannot be created the previous configuration stays in effect. An endpoint that cannot be opened only leaves its routes inactive and is reported in ports[].error. Each application port's In and Out loopbacks are created or removed independently; turning one on or off leaves the other open.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MidiConfiguration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied and saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_MIDI_CONFIGURATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MIDI_CONFIGURATION_FAILED: not applied, or applied but not saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE: Windows MIDI Services is missing or the engine was built without it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/midi/clock": {
+      "put": {
+        "operationId": "setMidiEngineClock",
+        "summary": "Set the engine MIDI clock tempo and transport",
+        "description": "The engine clock (port midi:clock:engine) counts the samples of the reference clock, the clock that paces the audio graph (ASIO driver or software clock): each tick is scheduled at its sample time converted to a send timestamp with the measured reference frequency, so it never drifts from the audio. bpm is saved; transport sends start (FA), continue (FB) or stop (FC) to every port routed from the engine clock and starts or stops the ticks. start and continue require a running reference clock (409 NO_REFERENCE_CLOCK otherwise); if it stops later, the engine clock waits (waitingForReferenceClock) instead of using Windows timers.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "bpm": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 300
+                  },
+                  "transport": {
+                    "enum": [
+                      "start",
+                      "stop",
+                      "continue"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_MIDI_CLOCK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "NO_REFERENCE_CLOCK: start audio on an ASIO driver or on the software clock first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -585,6 +748,12 @@
             "$ref": "./schemas/api-v1.json#/definitions/supervisionBridgeObservation"
           }
         ]
+      },
+      "MidiPatchbay": {
+        "$ref": "./schemas/api-v1.json#/definitions/midiPatchbay"
+      },
+      "MidiConfiguration": {
+        "$ref": "./schemas/api-v1.json#/definitions/midiConfiguration"
       }
     },
     "responses": {

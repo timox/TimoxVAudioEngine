@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(TimoxVAudioEngine)
+include(cmake/EngineVersion.cmake)
+configure_file(cmake/engine_version.h.in generated/engine_version.h @ONLY)
 
 if(WIN32)
     enable_language(RC)
@@ -12,6 +14,16 @@ enable_testing()
 add_executable(SupervisionApiTests tests/supervision_api_tests.cpp)
 target_include_directories(SupervisionApiTests PRIVATE src vendor)
 add_test(NAME SupervisionApiTests COMMAND SupervisionApiTests)
+add_executable(MidiRoutingGraphTests tests/midi_routing_graph_tests.cpp src/midi_routing_graph.cpp)
+target_include_directories(MidiRoutingGraphTests PRIVATE include)
+add_test(NAME MidiRoutingGraphTests COMMAND MidiRoutingGraphTests)
+add_executable(MidiPatchbayTests tests/midi_patchbay_tests.cpp src/midi_patchbay.cpp src/midi_routing_graph.cpp
+    src/audio_timebase.cpp)
+target_include_directories(MidiPatchbayTests PRIVATE include vendor)
+add_test(NAME MidiPatchbayTests COMMAND MidiPatchbayTests)
+add_executable(AudioTimebaseTests tests/audio_timebase_tests.cpp src/audio_timebase.cpp)
+target_include_directories(AudioTimebaseTests PRIVATE include)
+add_test(NAME AudioTimebaseTests COMMAND AudioTimebaseTests)
 include(cmake/PwarClient.cmake)
 string(LENGTH "${TIMOX_PWAR_CLIENT_SHA256}" pwar_hash_length)
 if(NOT pwar_hash_length EQUAL 64 OR NOT TIMOX_PWAR_CLIENT_SHA256 MATCHES "^[0-9A-F]+$")
@@ -50,6 +62,7 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/vendor/timoxvasio/src/audio_transport.cpp
     ${CMAKE_SOURCE_DIR}/vendor/timoxvasio/src/audio_transport_status_reader.cpp
     ${SRC_DIR}/physical_asio_host.cpp
+    ${SRC_DIR}/audio_timebase.cpp
     ${SRC_DIR}/vasio_client_manager.cpp
     ${SRC_DIR}/asio_sample_conversion.cpp
     ${SRC_DIR}/audio_routing_runtime.cpp
@@ -59,6 +72,9 @@ set(SOURCES
     ${SRC_DIR}/application_profile_store.cpp
     ${SRC_DIR}/application_profile_store_write.cpp
     ${SRC_DIR}/engine_diagnostics.cpp
+    ${SRC_DIR}/midi_routing_graph.cpp
+    ${SRC_DIR}/midi_patchbay.cpp
+    ${SRC_DIR}/windows_midi_services_backend.cpp
     ${SRC_DIR}/engine_version.rc
 )
 
@@ -80,6 +96,7 @@ if(WIN32)
     )
 
     add_executable(TimoxVirtualAsioEngine ${SOURCES})
+    target_include_directories(TimoxVirtualAsioEngine PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
     if(MSVC)
         target_compile_options(TimoxVirtualAsioEngine PRIVATE /EHsc)
     endif()
@@ -92,7 +109,8 @@ if(WIN32)
 
     add_executable(SoftwareClockHostTests
         tests/software_clock_host_tests.cpp
-        src/software_clock_host.cpp)
+        src/software_clock_host.cpp
+        src/audio_timebase.cpp)
     target_include_directories(SoftwareClockHostTests PRIVATE ${INCLUDE_DIR})
     target_link_libraries(SoftwareClockHostTests PRIVATE avrt)
 
@@ -137,6 +155,7 @@ if(WIN32)
     add_executable(SoftwareClockRoutingTests
         tests/software_clock_routing_tests.cpp
         src/software_clock_host.cpp
+        src/audio_timebase.cpp
         src/audio_routing_runtime.cpp
         src/routing_graph.cpp
         vendor/timoxvasio/src/audio_transport.cpp)
@@ -175,6 +194,43 @@ if(WIN32)
     target_compile_definitions(TimoxVirtualAsioEngine PRIVATE SECURITY_WIN32)
     if(VASIO_ENABLE_CRASH_DUMP)
         target_link_libraries(TimoxVirtualAsioEngine PRIVATE dbghelp)
+    endif()
+
+    # Optional MIDI patchbay backend for Windows MIDI Services (preview 12
+    # runtime). The projection is generated from the Windows.Devices.Midi2
+    # NuGet metadata (0.99.92-preview.11); builds never download it.
+    option(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES "Build the Windows MIDI Services patchbay backend" OFF)
+    set(TIMOX_MIDI2_WINMD "" CACHE FILEPATH "Windows.Devices.Midi2.winmd from the Windows.Devices.Midi2 NuGet package")
+    if(TIMOX_ENABLE_WINDOWS_MIDI_SERVICES)
+        if(NOT EXISTS "${TIMOX_MIDI2_WINMD}")
+            message(FATAL_ERROR "Set TIMOX_MIDI2_WINMD to Windows.Devices.Midi2.winmd (NuGet Windows.Devices.Midi2 0.99.92-preview.11)")
+        endif()
+        find_program(TIMOX_CPPWINRT cppwinrt HINTS
+            "${CMAKE_WINDOWS_KITS_10_DIR}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
+            "$ENV{WindowsSdkVerBinPath}/x64")
+        if(NOT TIMOX_CPPWINRT)
+            message(FATAL_ERROR "cppwinrt.exe was not found in the Windows SDK; set TIMOX_CPPWINRT")
+        endif()
+        get_filename_component(cppwinrt_bin "${TIMOX_CPPWINRT}" DIRECTORY)
+        get_filename_component(midi_windows_sdk_root "${cppwinrt_bin}/../../.." ABSOLUTE)
+        find_path(TIMOX_CPPWINRT_HEADERS winrt/base.h HINTS
+            "${midi_windows_sdk_root}/Include/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/cppwinrt"
+            "$ENV{WindowsSdkDir}/Include/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/cppwinrt")
+        if(NOT TIMOX_CPPWINRT_HEADERS)
+            message(FATAL_ERROR "Windows SDK C++/WinRT headers are missing; set TIMOX_CPPWINRT_HEADERS")
+        endif()
+        set(midi2_projection "${CMAKE_BINARY_DIR}/generated/midi2-cppwinrt")
+        add_custom_command(OUTPUT "${midi2_projection}/winrt/Windows.Devices.Midi2.h"
+            COMMAND "${TIMOX_CPPWINRT}" -input sdk -input "${TIMOX_MIDI2_WINMD}" -output "${midi2_projection}"
+            DEPENDS "${TIMOX_MIDI2_WINMD}"
+            COMMENT "Generating the C++/WinRT projection for Windows MIDI Services...")
+        add_custom_target(Midi2Projection DEPENDS "${midi2_projection}/winrt/Windows.Devices.Midi2.h")
+        add_dependencies(TimoxVirtualAsioEngine Midi2Projection)
+        set_source_files_properties(${SRC_DIR}/windows_midi_services_backend.cpp PROPERTIES
+            COMPILE_DEFINITIONS TIMOX_ENABLE_WINDOWS_MIDI_SERVICES=1
+            COMPILE_OPTIONS "/bigobj;/permissive-")
+        target_include_directories(TimoxVirtualAsioEngine BEFORE PRIVATE "${midi2_projection}" "${TIMOX_CPPWINRT_HEADERS}")
+        target_link_libraries(TimoxVirtualAsioEngine PRIVATE windowsapp)
     endif()
 
     add_executable(AsioBufferHealthTests tests/asio_buffer_health_tests.cpp)
@@ -293,6 +349,7 @@ if(WIN32)
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp
@@ -319,6 +376,7 @@ if(WIN32)
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp
@@ -341,12 +399,15 @@ if(WIN32)
     add_executable(ApplicationProfilesApiTests
         ${CMAKE_SOURCE_DIR}/tests/application_profiles_api_tests.cpp
         ${SRC_DIR}/control_api_server.cpp
+        ${SRC_DIR}/midi_patchbay.cpp
+        ${SRC_DIR}/midi_routing_graph.cpp
         ${SRC_DIR}/engine_diagnostics.cpp
         ${SRC_DIR}/audio_controller.cpp
         ${SRC_DIR}/audio_configuration_store.cpp
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp
@@ -413,6 +474,15 @@ else()
     message(FATAL_ERROR "Ce projet necessite Windows et Visual Studio")
 endif()
 
+add_custom_target(EngineBuildInfo ALL
+    COMMAND ${CMAKE_COMMAND}
+    "-DSOURCE_ROOT=${CMAKE_SOURCE_DIR}"
+    "-DENGINE_BINARY=$<TARGET_FILE:TimoxVirtualAsioEngine>"
+    "-DMIDI_ENABLED=${TIMOX_ENABLE_WINDOWS_MIDI_SERVICES}"
+    -P "${CMAKE_SOURCE_DIR}/cmake/WriteBuildInfo.cmake"
+    DEPENDS TimoxVirtualAsioEngine
+    VERBATIM
+)
 add_custom_command(TARGET TimoxVirtualAsioEngine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${CMAKE_SOURCE_DIR}/api/openapi-v1.json
