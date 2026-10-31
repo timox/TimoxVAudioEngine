@@ -1,5 +1,7 @@
 #include "midi_patchbay.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -19,6 +21,7 @@ public:
         std::vector<MidiEndpointInfo> endpoints;
         std::map<std::uint64_t, std::string> open;  // cookie -> endpoint id or "virtual:<name>"
         std::vector<std::pair<std::uint64_t, std::vector<std::uint32_t>>> sent;
+        std::vector<std::int64_t> sentAt;  // 0 = sent immediately
         std::set<std::string> failOpen;
         bool failVirtual = false;
         ReceiveHandler handler;
@@ -45,6 +48,12 @@ public:
     void Close(std::uint64_t cookie) noexcept override { state_.open.erase(cookie); }
     bool Send(std::uint64_t cookie, const std::uint32_t* words, std::size_t count) noexcept override {
         state_.sent.push_back({cookie, std::vector<std::uint32_t>(words, words + count)});
+        state_.sentAt.push_back(0);
+        return true;
+    }
+    bool SendAt(std::uint64_t cookie, const std::uint32_t* words, std::size_t count, std::int64_t at) noexcept override {
+        state_.sent.push_back({cookie, std::vector<std::uint32_t>(words, words + count)});
+        state_.sentAt.push_back(at);
         return true;
     }
 private:
@@ -376,6 +385,189 @@ bool testClockIsToldApartFromActivity() {
     return true;
 }
 
+// A card running 100 ppm fast against the host clock, published like the
+// ASIO callback does (256-frame buffers at 48 kHz).
+struct SimulatedCard {
+    AudioTimebase timebase;
+    double nominal = 48000.0;
+    double actual = 48000.0 * (1.0 + 100e-6);
+    std::int64_t startNs = 0;
+    std::uint64_t frames = 0;
+    void Begin(std::int64_t now) { timebase.Begin(nominal); startNs = now; frames = 0; }
+    // Publishes every buffer that has started by host time `now`.
+    void Advance(std::int64_t now) {
+        for (;;) {
+            const auto at = startNs + static_cast<std::int64_t>(static_cast<double>(frames) / actual * 1e9);
+            if (at > now) return;
+            timebase.Publish(frames, at);
+            frames += 256;
+        }
+    }
+    double TrueCardSeconds(std::int64_t hostNs) const { return static_cast<double>(hostNs - startNs) * 1e-9 * actual / nominal; }
+};
+
+bool testEngineClockFollowsTheSoundCard() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    card.Begin(gSteadyNs);
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("engine-clock.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[
+        {"id":"clock-to-synth","source":"midi:clock:engine","destination":"midi:port:1:usb-synth"},
+        {"id":"keys-to-multi","source":"midi:port:1:usb-keys","destination":"midi:port:1:usb-multi"}]})", configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    const auto synth = cookieOf(state, "usb-synth");
+
+    // Let the timebase measure the card for 5 s, then start at 120 BPM.
+    for (int ms = 0; ms < 5000; ++ms) { gSteadyNs += 1'000'000; card.Advance(gSteadyNs); if (ms % 2 == 0) patchbay.PumpClock(gSteadyNs); }
+    CHECK(patchbay.SetEngineClock(120.0, "start").success);
+    CHECK(state.sent.size() == 1 && state.sent[0].first == synth && state.sent[0].second[0] == 0x10FA0000u);
+    std::vector<std::int64_t> ticks;
+    for (int ms = 0; ms < 20000; ++ms) {
+        gSteadyNs += 1'000'000;
+        card.Advance(gSteadyNs);
+        if (ms % 2 == 0) {
+            const auto before = state.sent.size();
+            patchbay.PumpClock(gSteadyNs);
+            for (auto i = before; i < state.sent.size(); ++i) {
+                CHECK(state.sent[i].second[0] == 0x10F80000u);
+                // Scheduled ahead, within the 20 ms look-ahead.
+                // Scheduled ahead within the 20 ms look-ahead, or sent now when already due.
+                const auto at = state.sentAt[i] ? state.sentAt[i] : gSteadyNs;
+                CHECK(at >= gSteadyNs - 1'000'000 && at <= gSteadyNs + 21'000'000);
+                ticks.push_back(at);
+            }
+        }
+    }
+    // 20 s at 120 BPM = 960 ticks, on the card's clock, not Windows'.
+    CHECK(ticks.size() >= 958 && ticks.size() <= 962);
+    const double period = 60.0 / (120.0 * 24.0);
+    double worst = 0;
+    for (std::size_t i = 1; i < ticks.size(); ++i)
+        worst = std::max(worst, std::fabs(card.TrueCardSeconds(ticks[i]) - card.TrueCardSeconds(ticks[i - 1]) - period));
+    CHECK(worst < 20e-6);
+    // Over the run the clock matches the card within a few ppm; on the Windows
+    // clock it runs 100 ppm fast, exactly like the card.
+    const double cardSpan = card.TrueCardSeconds(ticks.back()) - card.TrueCardSeconds(ticks.front());
+    const double expected = period * static_cast<double>(ticks.size() - 1);
+    CHECK(std::fabs(cardSpan / expected - 1.0) < 5e-6);
+    const double hostSpan = static_cast<double>(ticks.back() - ticks.front()) * 1e-9;
+    CHECK(std::fabs((expected / hostSpan - 1.0) * 1e6 - 100.0) < 5.0);
+
+    // An incoming clock at exactly 120 BPM on the Windows clock is measured on
+    // the card timebase: against a card running 100 ppm fast it is
+    // 120 / 1.0001 = 119.988 BPM, the tempo the recorded audio will show.
+    const auto keys = cookieOf(state, "usb-keys");
+    const std::uint32_t keyTick = 0x10F80000u;
+    for (int i = 0; i < 48; ++i) {
+        gSteadyNs += 60'000'000'000LL / (120 * 24);
+        card.Advance(gSteadyNs);
+        patchbay.PumpClock(gSteadyNs);
+        state.handler(keys, &keyTick, 1);
+    }
+    const auto snapshot = patchbay.Snapshot();
+    const auto keysPort = findPort(snapshot, "midi:port:1:usb-keys");
+    CHECK(keysPort && std::fabs(keysPort->clockBpm - 119.99) < 0.006);
+    CHECK(snapshot.timebase.cardLocked && std::fabs(snapshot.timebase.driftPpm - 100.0) < 5.0);
+    CHECK(snapshot.engineClock.running && snapshot.engineClock.bpm == 120.0 && snapshot.engineClock.ticks >= ticks.size());
+    const auto clockPort = findPort(snapshot, "midi:clock:engine");
+    CHECK(clockPort && clockPort->clockRunning && clockPort->clockBpm == 120.0 && clockPort->transport == "start");
+
+    CHECK(patchbay.SetEngineClock(std::nullopt, "stop").success);
+    CHECK(state.sent.back().second[0] == 0x10FC0000u);
+    const auto stopped = state.sent.size();
+    gSteadyNs += 100'000'000;
+    patchbay.PumpClock(gSteadyNs);
+    CHECK(state.sent.size() == stopped);
+    CHECK(!patchbay.SetEngineClock(400.0, "").success);
+    CHECK(!patchbay.SetEngineClock(std::nullopt, "rewind").success);
+    // A clock cannot be sent to the engine clock.
+    configuration.routes[0].sourcePortId = "midi:port:1:usb-keys";
+    configuration.routes[0].destinationPortId = "midi:clock:engine";
+    CHECK(!MidiPatchbay::Validate(configuration, error));
+    return true;
+}
+
+bool testIncomingClockIsReclockedOnTheCardGrid() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    card.Begin(gSteadyNs);
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("reclock.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    for (int ms = 0; ms < 5000; ++ms) { gSteadyNs += 1'000'000; card.Advance(gSteadyNs); if (ms % 2 == 0) patchbay.PumpClock(gSteadyNs); }
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[{"id":"daw","name":"Timox DAW"}],"routes":[
+        {"id":"keys-to-daw","source":"midi:port:1:usb-keys","destination":"midi:virtual:daw","reclock":true},
+        {"id":"keys-to-multi","source":"midi:port:1:usb-keys","destination":"midi:port:1:usb-multi"}]})", configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    const auto keys = cookieOf(state, "usb-keys");
+    const auto dawOut = cookieOf(state, "virtual:Timox DAW Out");
+    const auto multi = cookieOf(state, "usb-multi");
+
+    // A keyboard clock at exactly 120 BPM on the Windows clock, with ±1.5 ms
+    // of USB and scheduling jitter on each tick.
+    const std::uint32_t tick = 0x10F80000u;
+    const std::int64_t period = 60'000'000'000LL / (120 * 24);
+    const std::int64_t start = gSteadyNs;
+    std::vector<std::int64_t> arrivals, outputs;
+    for (int i = 0; i < 192; ++i) {
+        const std::int64_t jitter = (static_cast<std::int64_t>((i * 7919) % 31) - 15) * 100'000;
+        gSteadyNs = start + i * period + jitter;
+        card.Advance(gSteadyNs);
+        patchbay.PumpClock(gSteadyNs);
+        const auto before = state.sent.size();
+        state.handler(keys, &tick, 1);
+        arrivals.push_back(gSteadyNs);
+        for (auto j = before; j < state.sent.size(); ++j)
+            if (state.sent[j].first == dawOut) outputs.push_back(state.sentAt[j] ? state.sentAt[j] : gSteadyNs);
+    }
+    // One tick out for each tick in; the plain route still forwards raw ticks.
+    CHECK(outputs.size() == arrivals.size());
+    std::size_t raw = 0;
+    for (const auto& message : state.sent) raw += message.first == multi;
+    CHECK(raw == arrivals.size());
+    // After the first ticks the output is regular: jitter drops from ±1.5 ms
+    // to a few microseconds, with a few milliseconds of delay at most.
+    double worstOut = 0, worstIn = 0, worstDelay = 0;
+    for (std::size_t i = 16; i < outputs.size(); ++i) {
+        worstOut = std::max(worstOut, std::fabs(card.TrueCardSeconds(outputs[i]) - card.TrueCardSeconds(outputs[i - 1]) -
+            card.TrueCardSeconds(start + period) + card.TrueCardSeconds(start)));
+        worstIn = std::max(worstIn, std::fabs(static_cast<double>(arrivals[i] - arrivals[i - 1] - period)) * 1e-9);
+        worstDelay = std::max(worstDelay, static_cast<double>(outputs[i] - arrivals[i]) * 1e-9);
+        CHECK(outputs[i] >= arrivals[i]);
+    }
+    CHECK(worstIn > 1e-3);
+    CHECK(worstOut < 0.3e-3);
+    CHECK(worstDelay < 5e-3);
+
+    // Despite ±1.5 ms jitter the measured tempo stays within 0.2 BPM.
+    const auto snapshot = patchbay.Snapshot();
+    const auto keysPort = findPort(snapshot, "midi:port:1:usb-keys");
+    CHECK(keysPort && keysPort->clockRunning && std::fabs(keysPort->clockBpm - 120.0) < 0.2);
+    CHECK(snapshot.routes[0].reclocked == arrivals.size());
+
+    // Start resets the history: the next ticks are forwarded at once.
+    const std::uint32_t startMessage = 0x10FA0000u;
+    state.handler(keys, &startMessage, 1);
+    gSteadyNs += period;
+    const auto before = state.sent.size();
+    state.handler(keys, &tick, 1);
+    for (auto j = before; j < state.sent.size(); ++j)
+        if (state.sent[j].first == dawOut) CHECK(state.sentAt[j] == 0);
+    return true;
+}
+
 int main() {
     bool ok = true;
     ok &= testApplyRoutesAndPersists();
@@ -383,6 +575,8 @@ int main() {
     ok &= testFailuresKeepPreviousConfiguration();
     ok &= testInAndOutAreSwitchedIndependently();
     ok &= testClockIsToldApartFromActivity();
+    ok &= testEngineClockFollowsTheSoundCard();
+    ok &= testIncomingClockIsReclockedOnTheCardGrid();
     ok &= testValidation();
     if (!ok) return 1;
     std::puts("MidiPatchbayTests passed");

@@ -145,6 +145,9 @@ int main() {
                     {{"id", "to-synth"}, {"source", "midi:virtual:bitwig"}, {"destination", "midi:port:2:usb"}},
                     {{"id", "to-gone"}, {"source", "midi:virtual:bitwig"}, {"destination", "midi:port:1:gone"}}})}}},
             {"ports", Json::array({
+                {{"id", "midi:clock:engine"}, {"name", "Engine clock"}, {"kind", "engineClock"}, {"source", true}, {"destination", false},
+                 {"online", true}, {"open", true}, {"received", 0}, {"sent", 0}, {"error", nullptr},
+                 {"clock", {{"ticks", 10}, {"running", true}, {"bpm", 120.0}, {"echoSuspected", false}, {"transport", "start"}}}},
                 {{"id", "midi:virtual:bitwig"}, {"name", "Bitwig"}, {"kind", "virtual"}, {"source", true}, {"destination", false},
                  {"online", true}, {"open", true}, {"inputEndpointId", "loop-in"}, {"outputEndpointId", nullptr},
                  {"received", 5}, {"sent", 0}, {"lastReceivedUnixMs", 1000}, {"lastSentUnixMs", 0}, {"error", nullptr},
@@ -157,6 +160,8 @@ int main() {
                 {{"id", "midi:port:1:gone"}, {"name", ""}, {"kind", "port"}, {"endpointId", "gone"}, {"endpointName", nullptr},
                  {"group", 1}, {"source", false}, {"destination", false}, {"online", false}, {"open", false},
                  {"received", 0}, {"sent", 0}, {"lastReceivedUnixMs", 0}, {"lastSentUnixMs", 0}, {"error", nullptr}}})},
+            {"timebase", {{"reference", "soundCard"}, {"driftPpm", 12.5}}},
+            {"engineClock", {{"bpm", 120.0}, {"running", true}, {"ticks", 10}, {"transport", "start"}}},
             {"routes", Json::array({{{"id", "to-synth"}, {"active", true}, {"forwarded", 4}, {"filtered", 1}},
                 {{"id", "to-gone"}, {"active", false}, {"forwarded", 0}, {"filtered", 0}}})}};
         auto midiExtras = extras; midiExtras["midi"] = midi;
@@ -185,12 +190,19 @@ int main() {
         check(goneLink["state"] == "configured" && goneLink["applied"].is_null() && goneLink["destinationNodeId"] == "midi-device:gone",
             "inactive MIDI route stays configured intent");
         const auto& midiObservations = midiModel["engine"]["observations"]["midi"];
-        check(midiObservations["ports"][0]["received"] == 5 && midiObservations["ports"][0]["lastSentUnixMs"].is_null() &&
-              midiObservations["ports"][0]["nodeId"] == "midi-application:bitwig", "port traffic is attributed to its node");
-        check(midiObservations["clockSources"].size() == 1 && midiObservations["clockSources"][0]["nodeId"] == "midi-application:bitwig" &&
-              midiObservations["clockSources"][0]["bpm"] == 120.0, "the port receiving running clock is reported as its source");
-        check(midiObservations["ports"][0]["clock"]["ticks"] == 4 && midiObservations["ports"][0]["activity"]["messages"] == 1,
+        check(midiObservations["ports"][1]["received"] == 5 && midiObservations["ports"][1]["lastSentUnixMs"].is_null() &&
+              midiObservations["ports"][1]["nodeId"] == "midi-application:bitwig", "port traffic is attributed to its node");
+        check(midiObservations["clockSources"].size() == 2 && midiObservations["clockSources"][0]["nodeId"] == "midi-engine-clock" &&
+              midiObservations["clockSources"][1]["nodeId"] == "midi-application:bitwig" &&
+              midiObservations["clockSources"][1]["bpm"] == 120.0, "ports receiving running clock, and the engine clock, are sources");
+        check(midiObservations["ports"][1]["clock"]["ticks"] == 4 && midiObservations["ports"][1]["activity"]["messages"] == 1,
             "clock ticks are reported apart from activity");
+        check(midiObservations["timebase"]["driftPpm"] == 12.5 && midiObservations["engineClock"]["running"] == true,
+            "the sound card timebase and engine clock are observed");
+        Json engineClockNode;
+        for (const auto& node : midiModel["nodes"]) if (node["id"] == "midi-engine-clock") engineClockNode = node;
+        check(engineClockNode["state"] == "running" && engineClockNode["adherentId"] == "engine:midi-clock",
+            "the engine clock is a node owned by the engine");
         check(midiObservations["links"][0]["linkId"] == "midi:to-synth" && midiObservations["links"][0]["forwarded"] == 4,
             "link traffic is observed by the engine");
         check(midiModel["engine"]["configuration"]["midi"]["routes"].size() == 2 &&

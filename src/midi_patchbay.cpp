@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -88,7 +89,7 @@ bool decodeOptionalNumber(const Json& value, std::optional<std::uint8_t>& result
 
 bool decodeRoute(const Json& item, MidiRoute& route, std::string& error) {
     static const std::set<std::string> allowed{"id", "source", "destination", "enabled",
-        "channels", "messages", "outputChannel", "transpose"};
+        "channels", "messages", "outputChannel", "transpose", "reclock"};
     if (!item.is_object()) { error = "Each MIDI route must be an object"; return false; }
     for (const auto& entry : item.items())
         if (!allowed.count(entry.key())) { error = "Unknown MIDI route field " + entry.key(); return false; }
@@ -120,6 +121,10 @@ bool decodeRoute(const Json& item, MidiRoute& route, std::string& error) {
     }
     if (item.contains("outputChannel") && !decodeOptionalNumber(item["outputChannel"], route.outputChannel, "outputChannel", error))
         return false;
+    if (item.contains("reclock")) {
+        if (!item["reclock"].is_boolean()) { error = "reclock must be a boolean"; return false; }
+        route.reclock = item["reclock"].get<bool>();
+    }
     if (item.contains("transpose")) {
         if (!item["transpose"].is_number_integer() || item["transpose"].get<std::int64_t>() < -127 ||
             item["transpose"].get<std::int64_t>() > 127) {
@@ -139,7 +144,7 @@ Json encodeRoute(const MidiRoute& route) {
         {"enabled", route.enabled},
         {"channels", encodeMask(route.channelMask)}, {"messages", std::move(messages)},
         {"outputChannel", route.outputChannel ? Json(*route.outputChannel + 1) : Json(nullptr)},
-        {"transpose", route.transpose}};
+        {"transpose", route.transpose}, {"reclock", route.reclock}};
 }
 
 std::int64_t nowUnixMs() noexcept {
@@ -171,7 +176,29 @@ struct MidiPatchbay::PortCounters {
     std::atomic<std::uint64_t> clockTicks{0};
     std::atomic<std::int64_t> lastClockUnixMs{0};
     std::atomic<std::int64_t> lastClockSteadyNs{0};
-    std::atomic<std::int64_t> clockIntervalNs{0};  // smoothed; 0 = unknown
+    // Last tick arrivals in sound card seconds; the tempo is a linear fit over
+    // them (two beats), which removes most arrival jitter.
+    static constexpr std::size_t kTempoHistory = 48;
+    std::array<std::atomic<double>, kTempoHistory> tickCardSeconds{};
+    std::atomic<std::uint64_t> tickRun{0};  // ticks since the clock (re)started
+
+    // Reader side (any thread): tempo from the recorded ticks, 0 if unknown.
+    double MeasuredBpm() const noexcept {
+        const auto run = tickRun.load(std::memory_order_acquire);
+        const auto n = static_cast<std::size_t>(std::min<std::uint64_t>(run, kTempoHistory));
+        if (n < 3) return 0;
+        const auto first = run - n;
+        const double origin = tickCardSeconds[first % kTempoHistory].load(std::memory_order_relaxed);
+        double sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            const double x = static_cast<double>(i);
+            const double y = tickCardSeconds[(first + i) % kTempoHistory].load(std::memory_order_relaxed) - origin;
+            sx += x; sy += y; sxx += x * x; sxy += x * y;
+        }
+        const double denominator = static_cast<double>(n) * sxx - sx * sx;
+        const double period = denominator > 0 ? (static_cast<double>(n) * sxy - sx * sy) / denominator : 0;
+        return period > 0 ? 60.0 / (24.0 * period) : 0;  // 24 ticks per quarter note
+    }
     std::atomic<std::int64_t> lastClockSentSteadyNs{0};
     std::atomic<int> transport{TransportNone};
     std::atomic<std::int64_t> transportUnixMs{0};
@@ -180,7 +207,9 @@ struct MidiPatchbay::PortCounters {
 
     // One port's messages arrive in order on one receive path, so relaxed
     // atomics are enough; a rare race only skews one tempo sample.
-    void Observe(std::uint32_t word0, std::int64_t steadyNs, std::int64_t unixMs) noexcept {
+    // cardSeconds: arrival time on the sound card timebase, so the measured
+    // tempo is the tempo the audio hears.
+    void Observe(std::uint32_t word0, std::int64_t steadyNs, std::int64_t unixMs, double cardSeconds) noexcept {
         received.fetch_add(1, std::memory_order_relaxed);
         lastReceivedUnixMs.store(unixMs, std::memory_order_relaxed);
         const auto status = midi_ump::Type(word0) == 0x1 ? static_cast<int>((word0 >> 16) & 0xFF) : 0;
@@ -188,13 +217,10 @@ struct MidiPatchbay::PortCounters {
             clockTicks.fetch_add(1, std::memory_order_relaxed);
             lastClockUnixMs.store(unixMs, std::memory_order_relaxed);
             const auto previous = lastClockSteadyNs.exchange(steadyNs, std::memory_order_relaxed);
-            const auto delta = steadyNs - previous;
-            if (previous == 0 || delta <= 0 || delta > kClockTimeoutNs) {
-                clockIntervalNs.store(0, std::memory_order_relaxed);  // (re)starting: tempo unknown
-            } else {
-                const auto smoothed = clockIntervalNs.load(std::memory_order_relaxed);
-                clockIntervalNs.store(smoothed == 0 ? delta : smoothed + (delta - smoothed) / 8, std::memory_order_relaxed);
-            }
+            auto run = tickRun.load(std::memory_order_relaxed);
+            if (previous == 0 || steadyNs - previous > kClockTimeoutNs) run = 0;  // (re)starting: tempo unknown
+            tickCardSeconds[run % kTempoHistory].store(cardSeconds, std::memory_order_relaxed);
+            tickRun.store(run + 1, std::memory_order_release);
             return;
         }
         if (status == 0xFE) {
@@ -212,6 +238,65 @@ struct MidiPatchbay::PortCounters {
     }
 };
 
+// Re-emits an incoming clock on a regular grid in sound card time. A linear
+// fit over the last ticks predicts where each tick belongs; the tick is sent
+// at that point (plus a small margin) instead of when it happened to arrive.
+// One tick out for each tick in: the tempo and the beat position of the source
+// are kept, only Windows and transport jitter is removed.
+struct MidiPatchbay::Reclocker {
+    static constexpr std::size_t kHistory = 48;      // two beats
+    static constexpr std::size_t kMinimumHistory = 8;
+    static constexpr double kMarginSeconds = 0.002;  // scheduling margin
+    static constexpr double kGapSeconds = 1.0;       // longer pause: the clock restarted
+
+    std::mutex mutex;
+    std::array<double, kHistory> arrivals{};
+    std::uint64_t count = 0;
+    double lastArrival = -1;
+    double lastOutput = -1;
+    std::atomic<std::uint64_t> emitted{0};
+
+    void Reset() noexcept {
+        std::lock_guard<std::mutex> lock(mutex);
+        count = 0;
+        lastArrival = lastOutput = -1;
+    }
+
+    // arrival and result in card seconds.
+    double OnTick(double arrival) noexcept {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (lastArrival >= 0 && (arrival - lastArrival > kGapSeconds || arrival < lastArrival)) {
+            count = 0;
+            lastOutput = -1;
+        }
+        double output = arrival;
+        const auto n = static_cast<std::size_t>(std::min<std::uint64_t>(count, kHistory));
+        if (n >= kMinimumHistory) {
+            const auto first = count - n;
+            const double origin = arrivals[first % kHistory];
+            double sx = 0, sy = 0, sxx = 0, sxy = 0;
+            for (std::size_t i = 0; i < n; ++i) {
+                const double x = static_cast<double>(i), y = arrivals[(first + i) % kHistory] - origin;
+                sx += x; sy += y; sxx += x * x; sxy += x * y;
+            }
+            const double denominator = n * sxx - sx * sx;
+            const double period = denominator > 0 ? (n * sxy - sx * sy) / denominator : 0;
+            const double intercept = (sy - period * sx) / static_cast<double>(n);
+            if (period > 0) {
+                const double predicted = origin + intercept + period * static_cast<double>(n);
+                output = std::max(arrival, predicted + kMarginSeconds);
+                if (lastOutput >= 0) output = std::max(output, lastOutput + period / 2);
+            }
+        }
+        arrivals[count % kHistory] = arrival;
+        ++count;
+        lastArrival = arrival;
+        lastOutput = output;
+        emitted.fetch_add(1, std::memory_order_relaxed);
+        return output;
+    }
+};
+
 namespace {
 template <class Counters>
 struct PortTarget {
@@ -225,16 +310,20 @@ struct PortTarget {
 template <class Counters>
 class BackendSink final : public MidiOutputSink {
 public:
+    // atHostNs: 0 sends now, otherwise schedules for that host time.
     BackendSink(MidiBackend& backend, const std::vector<PortTarget<Counters>>& targets,
-                std::int64_t steadyNs, std::int64_t unixMs)
-        : backend_(backend), targets_(targets), steadyNs_(steadyNs), unixMs_(unixMs) {}
+                std::int64_t steadyNs, std::int64_t unixMs, std::int64_t atHostNs = 0)
+        : backend_(backend), targets_(targets), steadyNs_(steadyNs), unixMs_(unixMs), atHostNs_(atHostNs) {}
     void Send(std::size_t destinationIndex, const std::uint32_t* words, std::size_t count) noexcept override {
         if (destinationIndex >= targets_.size() || !targets_[destinationIndex].destination || count == 0 || count > 4)
             return;
         std::uint32_t message[4];
         for (std::size_t i = 0; i < count; ++i) message[i] = words[i];
         message[0] = midi_ump::WithGroup(message[0], targets_[destinationIndex].group);
-        if (backend_.Send(targets_[destinationIndex].cookie, message, count) && targets_[destinationIndex].counters) {
+        const auto cookie = targets_[destinationIndex].cookie;
+        const bool sent = atHostNs_ > 0 ? backend_.SendAt(cookie, message, count, atHostNs_)
+                                        : backend_.Send(cookie, message, count);
+        if (sent && targets_[destinationIndex].counters) {
             targets_[destinationIndex].counters->sent.fetch_add(1, std::memory_order_relaxed);
             targets_[destinationIndex].counters->lastSentUnixMs.store(unixMs_, std::memory_order_relaxed);
             // Remembered to tell a real clock source from clock the engine
@@ -248,6 +337,7 @@ private:
     const std::vector<PortTarget<Counters>>& targets_;
     std::int64_t steadyNs_;
     std::int64_t unixMs_;
+    std::int64_t atHostNs_;
 };
 
 std::uint64_t sourceKey(std::uint64_t cookie, std::uint8_t group) {
@@ -279,7 +369,8 @@ bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, s
     }
     if (!body.is_object()) { error = "MIDI configuration must be an object"; return false; }
     for (const auto& entry : body.items())
-        if (entry.key() != "version" && entry.key() != "virtualPorts" && entry.key() != "routes") {
+        if (entry.key() != "version" && entry.key() != "virtualPorts" && entry.key() != "routes" &&
+            entry.key() != "engineClock") {
             error = "Unknown MIDI configuration field " + entry.key();
             return false;
         }
@@ -310,6 +401,14 @@ bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, s
         if (!decodeRoute(item, route, error)) return false;
         decoded.routes.push_back(std::move(route));
     }
+    if (body.contains("engineClock")) {
+        const auto& clock = body["engineClock"];
+        if (!clock.is_object() || clock.size() != 1 || !clock.contains("bpm") || !clock["bpm"].is_number()) {
+            error = "engineClock requires only a numeric bpm";
+            return false;
+        }
+        decoded.engineClockBpm = clock["bpm"].get<double>();
+    }
     configuration = std::move(decoded);
     return true;
 }
@@ -320,7 +419,8 @@ std::string Encode(const MidiPatchbayConfiguration& configuration) {
         ports.push_back({{"id", port.id}, {"name", port.name}, {"input", port.input}, {"output", port.output}});
     Json routes = Json::array();
     for (const auto& route : configuration.routes) routes.push_back(encodeRoute(route));
-    return Json{{"version", 1}, {"virtualPorts", std::move(ports)}, {"routes", std::move(routes)}}.dump(2);
+    return Json{{"version", 1}, {"virtualPorts", std::move(ports)}, {"routes", std::move(routes)},
+        {"engineClock", {{"bpm", configuration.engineClockBpm}}}}.dump(2);
 }
 }
 
@@ -330,6 +430,9 @@ struct MidiPatchbay::Runtime {
     std::vector<PortTarget<PortCounters>> targets;                  // by port index
     std::vector<std::shared_ptr<PortCounters>> counters;            // by port index
     std::vector<std::string> routeIds;
+    std::size_t engineClockIndex = 0;
+    struct ReclockTarget { std::size_t destination; std::shared_ptr<Reclocker> reclocker; };
+    std::vector<std::vector<ReclockTarget>> reclocks;               // by source port index
 };
 
 bool MidiPatchbay::ParsePortId(const std::string& portId, std::uint8_t& group, std::string& endpointId) {
@@ -369,6 +472,7 @@ MidiPatchbay::~MidiPatchbay() { Stop(); }
 void MidiPatchbay::SetTimeSourcesForTesting(TimeSource steadyNs, TimeSource unixMs) noexcept {
     steadyNs_ = steadyNs;
     unixMs_ = unixMs;
+    clockThreadEnabled_ = false;
 }
 
 bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std::string& error) {
@@ -399,10 +503,19 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
             return false;
         }
     }
+    if (!(configuration.engineClockBpm >= 20.0 && configuration.engineClockBpm <= 300.0)) {
+        error = "The engine clock tempo must be between 20 and 300 BPM";
+        return false;
+    }
     for (const auto& route : configuration.routes) {
         if (!MidiRoutingGraph::ValidateRoute(route, error)) return false;
         if (!routeIds.insert(route.id).second) { error = "Duplicate MIDI route id " + route.id; return false; }
+        if (route.destinationPortId == kEngineClockPort) {
+            error = "MIDI route " + route.id + " cannot send to the engine clock";
+            return false;
+        }
         for (const auto* portId : {&route.sourcePortId, &route.destinationPortId}) {
+            if (*portId == kEngineClockPort) continue;
             if (startsWith(*portId, kVirtualPrefix)) {
                 if (!virtualIds.count(portId->substr(std::char_traits<char>::length(kVirtualPrefix)))) {
                     error = "MIDI route " + route.id + " references undefined virtual port " + *portId;
@@ -412,7 +525,7 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
                 std::uint8_t group = 0;
                 std::string endpointId;
                 if (!ParsePortId(*portId, group, endpointId)) {
-                    error = "MIDI route " + route.id + " port ids must be midi:virtual:<id> or midi:port:<1-16>:<endpoint id>";
+                    error = "MIDI route " + route.id + " port ids must be midi:virtual:<id>, midi:port:<1-16>:<endpoint id> or midi:clock:engine";
                     return false;
                 }
             }
@@ -443,10 +556,32 @@ MidiApplyResult MidiPatchbay::Start() {
     }
     auto result = ApplyLocked(loaded);
     if (!result.success) configuration_ = loaded;  // keep it visible so it can be corrected
+    if (clockThreadEnabled_ && !clockThread_.joinable()) {
+        { std::lock_guard<std::mutex> wakeLock(clockThreadMutex_); clockThreadStop_ = false; }
+        clockThread_ = std::thread([this] { ClockThread(); });
+    }
     return result;
 }
 
+void MidiPatchbay::ClockThread() {
+    // 2 ms wake-ups with a 20 ms look-ahead: ticks are scheduled ahead with a
+    // timestamp, so their timing does not depend on when this thread wakes.
+    std::unique_lock<std::mutex> lock(clockThreadMutex_);
+    while (!clockThreadStop_) {
+        lock.unlock();
+        PumpClock(steadyNs_());
+        lock.lock();
+        clockThreadWake_.wait_for(lock, std::chrono::milliseconds(2), [this] { return clockThreadStop_; });
+    }
+}
+
 void MidiPatchbay::Stop() noexcept {
+    if (clockThread_.joinable()) {
+        { std::lock_guard<std::mutex> wakeLock(clockThreadMutex_); clockThreadStop_ = true; }
+        clockThreadWake_.notify_all();
+        clockThread_.join();
+    }
+    { std::lock_guard<std::mutex> clockLock(clockMutex_); clockRunning_ = false; }
     std::lock_guard<std::mutex> lock(controlMutex_);
     {
         std::lock_guard<std::mutex> runtimeLock(runtimeMutex_);
@@ -493,6 +628,7 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     std::map<std::string, const MidiVirtualPortConfig*> virtualPorts;
     for (const auto& port : configuration.virtualPorts) virtualPorts[kVirtualPrefix + port.id] = &port;
     const auto usable = [&](const std::string& portId, bool asSource) {
+        if (portId == kEngineClockPort) return asSource;
         const auto application = virtualPorts.find(portId);
         if (application != virtualPorts.end()) return asSource ? application->second->input : application->second->output;
         const auto found = present.find(portId);
@@ -508,7 +644,8 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
             route.enabled = false;
         if (!route.enabled) continue;
         for (const auto* portId : {&route.sourcePortId, &route.destinationPortId})
-            if (!startsWith(*portId, kVirtualPrefix)) wantedEndpoints.insert(present.at(*portId).endpointId);
+            if (!startsWith(*portId, kVirtualPrefix) && *portId != kEngineClockPort)
+                wantedEndpoints.insert(present.at(*portId).endpointId);
     }
 
     std::map<std::string, OpenConnection> next;
@@ -558,6 +695,10 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
 
     auto runtime = std::make_shared<Runtime>();
     std::vector<std::string> ports;
+    // The engine clock is a source only; nothing is received from it.
+    runtime->engineClockIndex = ports.size();
+    runtime->targets.push_back({0, 0, false, nullptr});
+    ports.push_back(kEngineClockPort);
     for (const auto& port : configuration.virtualPorts) {
         // A MIDI 1.0 loopback carries one port; accept whatever group it uses.
         if (port.input) {
@@ -592,6 +733,23 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         return {false, error};
     }
     for (const auto& route : configuration.routes) runtime->routeIds.push_back(route.id);
+    // Reclocked routes: their clock ticks are re-emitted on the card grid.
+    runtime->reclocks.resize(ports.size());
+    const auto indexOf = [&](const std::string& portId) {
+        return static_cast<std::size_t>(std::find(ports.begin(), ports.end(), portId) - ports.begin());
+    };
+    std::set<std::string> reclockIds;
+    for (std::size_t i = 0; i < routes.size(); ++i) {
+        const auto& route = routes[i];
+        if (!route.enabled || !route.reclock || !(route.messages & midi_ump::SystemRealtime) ||
+            route.sourcePortId == kEngineClockPort) continue;  // the engine clock is already on the card grid
+        auto& reclocker = reclockers_[route.id];
+        if (!reclocker) reclocker = std::make_shared<Reclocker>();
+        runtime->reclocks[indexOf(route.sourcePortId)].push_back({indexOf(route.destinationPortId), reclocker});
+        reclockIds.insert(route.id);
+    }
+    for (auto it = reclockers_.begin(); it != reclockers_.end();)
+        it = reclockIds.count(it->first) ? std::next(it) : reclockers_.erase(it);
 
     {
         std::lock_guard<std::mutex> runtimeLock(runtimeMutex_);
@@ -604,6 +762,7 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     connections_ = std::move(next);
     endpointErrors_ = std::move(errors);
     configuration_ = configuration;
+    { std::lock_guard<std::mutex> clockLock(clockMutex_); clockBpm_ = configuration.engineClockBpm; }
     return {true, {}};
 }
 
@@ -628,11 +787,89 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
                          std::size_t count) noexcept {
     const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
     if (source == runtime.sourceIndices.end()) return;
-    // Every message from a port is observed, routed or not.
-    const auto steady = steadyNs_(), unix = unixMs_();
-    runtime.counters[source->second]->Observe(words[0], steady, unix);
-    BackendSink<PortCounters> sink(*backend_, runtime.targets, steady, unix);
+    // Every message from a port is observed, routed or not, on the card timebase.
+    const auto steady = steadyNs_(), wall = unixMs_();
+    const auto mapping = timebase_->Current();
+    const double card = mapping.CardSeconds(steady);
+    runtime.counters[source->second]->Observe(words[0], steady, wall, card);
+    BackendSink<PortCounters> sink(*backend_, runtime.targets, steady, wall);
     runtime.graph->Process(source->second, words, count, sink);
+
+    const auto& reclocks = runtime.reclocks[source->second];
+    if (reclocks.empty() || midi_ump::Type(words[0]) != 0x1) return;
+    const auto status = (words[0] >> 16) & 0xFF;
+    if (status == 0xFA || status == 0xFB || status == 0xFC) {
+        for (const auto& target : reclocks) target.reclocker->Reset();
+        return;
+    }
+    if (status != 0xF8) return;
+    for (const auto& target : reclocks) {
+        const auto at = mapping.HostNs(target.reclocker->OnTick(card));
+        BackendSink<PortCounters> timed(*backend_, runtime.targets, steady, wall, at > steady ? at : 0);
+        timed.Send(target.destination, words, 1);
+    }
+}
+
+void MidiPatchbay::EmitEngineClock(const Runtime& runtime, std::uint32_t word, std::int64_t atHostNs) noexcept {
+    BackendSink<PortCounters> sink(*backend_, runtime.targets, steadyNs_(), unixMs_(), atHostNs);
+    runtime.graph->Process(runtime.engineClockIndex, &word, 1, sink);
+}
+
+void MidiPatchbay::PumpClock(std::int64_t hostNs) {
+    constexpr std::int64_t kLookaheadNs = 20'000'000;
+    const auto mapping = timebase_->Update();
+    std::shared_ptr<const Runtime> runtime;
+    {
+        std::lock_guard<std::mutex> lock(runtimeMutex_);
+        runtime = runtime_;
+    }
+    std::lock_guard<std::mutex> clockLock(clockMutex_);
+    if (!clockRunning_ || !runtime || !backend_) return;
+    const double now = mapping.CardSeconds(hostNs);
+    const double horizon = mapping.CardSeconds(hostNs + kLookaheadNs);
+    const double period = 60.0 / (clockBpm_ * 24.0);  // 24 ticks per quarter note, in card seconds
+    if (nextTickCardSeconds_ < now - 0.05) nextTickCardSeconds_ = now;  // resume after a stall or a card restart
+    while (nextTickCardSeconds_ <= horizon) {
+        const auto at = mapping.HostNs(nextTickCardSeconds_);
+        EmitEngineClock(*runtime, 0x10F80000u, at > hostNs ? at : 0);
+        ++clockTicks_;
+        nextTickCardSeconds_ += period;
+    }
+}
+
+MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const std::string& transport) {
+    if (bpm && !(*bpm >= 20.0 && *bpm <= 300.0)) return {false, "The engine clock tempo must be between 20 and 300 BPM"};
+    if (!transport.empty() && transport != "start" && transport != "stop" && transport != "continue")
+        return {false, "transport must be start, stop or continue"};
+    std::lock_guard<std::mutex> lock(controlMutex_);
+    if (!backend_) return {false, unavailableReason_};
+    if (bpm) {
+        auto next = configuration_;
+        next.engineClockBpm = *bpm;
+        std::string error;
+        if (!Save(next, error)) return {false, "The tempo could not be saved: " + error};
+        configuration_ = next;
+    }
+    std::shared_ptr<const Runtime> runtime;
+    {
+        std::lock_guard<std::mutex> runtimeLock(runtimeMutex_);
+        runtime = runtime_;
+    }
+    const auto steady = steadyNs_();
+    {
+        std::lock_guard<std::mutex> clockLock(clockMutex_);
+        if (bpm) clockBpm_ = *bpm;
+        if (!transport.empty() && runtime) {
+            const std::uint32_t word = transport == "start" ? 0x10FA0000u : transport == "continue" ? 0x10FB0000u : 0x10FC0000u;
+            EmitEngineClock(*runtime, word, 0);
+            clockTransport_ = transport;
+            clockRunning_ = transport != "stop";
+            // The first tick follows start/continue by 1 ms, on the card grid.
+            if (clockRunning_) nextTickCardSeconds_ = timebase_->Current().CardSeconds(steady) + 0.001;
+        }
+    }
+    clockThreadWake_.notify_all();
+    return {true, {}};
 }
 
 bool MidiPatchbay::Save(const MidiPatchbayConfiguration& configuration, std::string& error) const {
@@ -665,6 +902,15 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
     snapshot.error = backend_ ? enumerationError_ : unavailableReason_;
     snapshot.configuration = configuration_;
 
+    if (backend_) {
+        MidiPortStatus clock;
+        clock.id = kEngineClockPort;
+        clock.name = "Engine clock";
+        clock.kind = "engineClock";
+        clock.source = true;
+        clock.online = clock.open = true;
+        snapshot.ports.push_back(std::move(clock));
+    }
     for (const auto& port : configuration_.virtualPorts) {
         MidiPortStatus status;
         status.id = kVirtualPrefix + port.id;
@@ -728,10 +974,8 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.lastClockUnixMs = c.lastClockUnixMs.load(std::memory_order_relaxed);
         const auto lastTick = c.lastClockSteadyNs.load(std::memory_order_relaxed);
         status.clockRunning = lastTick != 0 && now - lastTick <= kClockTimeoutNs;
-        const auto interval = c.clockIntervalNs.load(std::memory_order_relaxed);
-        // 24 ticks per quarter note.
-        if (status.clockRunning && interval > 0)
-            status.clockBpm = std::round(60e9 / (24.0 * static_cast<double>(interval)) * 10.0) / 10.0;
+        // Measured in sound card time.
+        if (status.clockRunning) status.clockBpm = std::round(c.MeasuredBpm() * 100.0) / 100.0;
         const auto lastClockSent = c.lastClockSentSteadyNs.load(std::memory_order_relaxed);
         status.clockEchoSuspected = status.clockRunning && lastClockSent != 0 && now - lastClockSent <= kClockTimeoutNs;
         switch (c.transport.load(std::memory_order_relaxed)) {
@@ -743,6 +987,22 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.transportUnixMs = c.transportUnixMs.load(std::memory_order_relaxed);
         status.activeSensing = c.activeSensing.load(std::memory_order_relaxed);
         status.lastActiveSensingUnixMs = c.lastActiveSensingUnixMs.load(std::memory_order_relaxed);
+    }
+
+    const auto mapping = timebase_->Current();
+    snapshot.timebase = {mapping.cardLocked, mapping.nominalRate, mapping.measuredRate,
+        mapping.spanSeconds > 0 ? mapping.driftPpm : 0, mapping.spanSeconds};
+    {
+        std::lock_guard<std::mutex> clockLock(clockMutex_);
+        snapshot.engineClock = {clockBpm_, clockRunning_, clockTicks_, clockTransport_};
+    }
+    if (backend_) {
+        // The engine clock port reports the clock it generates, like a received clock.
+        auto& clock = snapshot.ports.front();
+        clock.clockTicks = snapshot.engineClock.ticks;
+        clock.clockRunning = snapshot.engineClock.running;
+        clock.clockBpm = snapshot.engineClock.running ? snapshot.engineClock.bpm : 0;
+        clock.transport = snapshot.engineClock.transport;
     }
 
     std::shared_ptr<const Runtime> runtime;
@@ -758,6 +1018,8 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             status.forwarded = runtime->graph->Forwarded(i);
             status.filtered = runtime->graph->Filtered(i);
         }
+        const auto reclocker = reclockers_.find(status.id);
+        if (reclocker != reclockers_.end()) status.reclocked = reclocker->second->emitted.load(std::memory_order_relaxed);
         snapshot.routes.push_back(std::move(status));
     }
     return snapshot;

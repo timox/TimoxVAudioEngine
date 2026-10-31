@@ -266,28 +266,21 @@ public:
     }
 
     bool Send(std::uint64_t cookie, const std::uint32_t* words, std::size_t count) noexcept override {
-        std::shared_ptr<Connection> connection;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            const auto found = connections_.find(cookie);
-            if (found == connections_.end() || found->second->receiveOnly) return false;
-            connection = found->second;
-        }
-        try {
-            const auto now = MidiClock::TimestampConstantSendImmediately();
-            const auto& target = connection->connection;
-            MidiSendMessageResults result{};
-            switch (count) {
-            case 1: result = target.SendSingleMessageWords(now, words[0]); break;
-            case 2: result = target.SendSingleMessageWords(now, words[0], words[1]); break;
-            case 3: result = target.SendSingleMessageWords(now, words[0], words[1], words[2]); break;
-            case 4: result = target.SendSingleMessageWords(now, words[0], words[1], words[2], words[3]); break;
-            default: return false;
-            }
-            return MidiEndpointConnection::SendMessageSucceeded(result);
-        } catch (...) {
-            return false;
-        }
+        return SendWithTimestamp(cookie, words, count, MidiClock::TimestampConstantSendImmediately());
+    }
+
+    // hostNs is std::chrono::steady_clock time. On Windows both steady_clock
+    // and MIDI timestamps count QueryPerformanceCounter ticks, so the
+    // conversion is exact; Windows MIDI Services sends the message at that tick.
+    bool SendAt(std::uint64_t cookie, const std::uint32_t* words, std::size_t count, std::int64_t hostNs) noexcept override {
+        LARGE_INTEGER frequency{}, now{};
+        if (hostNs <= 0 || !QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&now))
+            return Send(cookie, words, count);
+        const auto ticksPerSecond = static_cast<std::uint64_t>(frequency.QuadPart);
+        const auto ns = static_cast<std::uint64_t>(hostNs);
+        const auto ticks = (ns / 1'000'000'000ull) * ticksPerSecond + (ns % 1'000'000'000ull) * ticksPerSecond / 1'000'000'000ull;
+        if (ticks <= static_cast<std::uint64_t>(now.QuadPart)) return Send(cookie, words, count);
+        return SendWithTimestamp(cookie, words, count, ticks);
     }
 
 private:
@@ -345,6 +338,31 @@ private:
             ports.push_back({g, utf8(name), groups[g].source, groups[g].destination});
         }
         return ports;
+    }
+
+    bool SendWithTimestamp(std::uint64_t cookie, const std::uint32_t* words, std::size_t count,
+                           std::uint64_t timestamp) noexcept {
+        std::shared_ptr<Connection> connection;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = connections_.find(cookie);
+            if (found == connections_.end() || found->second->receiveOnly) return false;
+            connection = found->second;
+        }
+        try {
+            const auto& target = connection->connection;
+            MidiSendMessageResults result{};
+            switch (count) {
+            case 1: result = target.SendSingleMessageWords(timestamp, words[0]); break;
+            case 2: result = target.SendSingleMessageWords(timestamp, words[0], words[1]); break;
+            case 3: result = target.SendSingleMessageWords(timestamp, words[0], words[1], words[2]); break;
+            case 4: result = target.SendSingleMessageWords(timestamp, words[0], words[1], words[2], words[3]); break;
+            default: return false;
+            }
+            return MidiEndpointConnection::SendMessageSucceeded(result);
+        } catch (...) {
+            return false;
+        }
     }
 
     struct Connection {

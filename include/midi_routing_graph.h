@@ -19,6 +19,9 @@ struct MidiRoute {
     std::uint32_t messages = midi_ump::AllCategories;
     std::optional<std::uint8_t> outputChannel;  // 0-based
     int transpose = 0;                          // semitones, -127..127
+    // Timing clock (F8) is not forwarded as received: the patchbay re-emits it
+    // on a regular grid timed by the sound card (see MidiPatchbay).
+    bool reclock = false;
 };
 
 class MidiOutputSink {
@@ -66,6 +69,7 @@ private:
         std::uint32_t messages;
         int outputChannel;  // -1 = unchanged
         int transpose;
+        bool reclock;
     };
 
     explicit MidiRoutingGraph(std::size_t portCount, std::size_t routeCount);

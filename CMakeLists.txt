@@ -15,9 +15,13 @@ add_test(NAME SupervisionApiTests COMMAND SupervisionApiTests)
 add_executable(MidiRoutingGraphTests tests/midi_routing_graph_tests.cpp src/midi_routing_graph.cpp)
 target_include_directories(MidiRoutingGraphTests PRIVATE include)
 add_test(NAME MidiRoutingGraphTests COMMAND MidiRoutingGraphTests)
-add_executable(MidiPatchbayTests tests/midi_patchbay_tests.cpp src/midi_patchbay.cpp src/midi_routing_graph.cpp)
+add_executable(MidiPatchbayTests tests/midi_patchbay_tests.cpp src/midi_patchbay.cpp src/midi_routing_graph.cpp
+    src/audio_timebase.cpp)
 target_include_directories(MidiPatchbayTests PRIVATE include vendor)
 add_test(NAME MidiPatchbayTests COMMAND MidiPatchbayTests)
+add_executable(AudioTimebaseTests tests/audio_timebase_tests.cpp src/audio_timebase.cpp)
+target_include_directories(AudioTimebaseTests PRIVATE include)
+add_test(NAME AudioTimebaseTests COMMAND AudioTimebaseTests)
 include(cmake/PwarClient.cmake)
 string(LENGTH "${TIMOX_PWAR_CLIENT_SHA256}" pwar_hash_length)
 if(NOT pwar_hash_length EQUAL 64 OR NOT TIMOX_PWAR_CLIENT_SHA256 MATCHES "^[0-9A-F]+$")
@@ -56,6 +60,7 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/vendor/timoxvasio/src/audio_transport.cpp
     ${CMAKE_SOURCE_DIR}/vendor/timoxvasio/src/audio_transport_status_reader.cpp
     ${SRC_DIR}/physical_asio_host.cpp
+    ${SRC_DIR}/audio_timebase.cpp
     ${SRC_DIR}/vasio_client_manager.cpp
     ${SRC_DIR}/asio_sample_conversion.cpp
     ${SRC_DIR}/audio_routing_runtime.cpp
@@ -331,6 +336,7 @@ if(WIN32)
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp
@@ -357,6 +363,7 @@ if(WIN32)
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp
@@ -387,6 +394,7 @@ if(WIN32)
         ${SRC_DIR}/application_profile_store.cpp
         ${SRC_DIR}/application_profile_store_write.cpp
         ${SRC_DIR}/physical_asio_host.cpp
+        ${SRC_DIR}/audio_timebase.cpp
         ${SRC_DIR}/asio_sample_conversion.cpp
         ${SRC_DIR}/audio_routing_runtime.cpp
         ${SRC_DIR}/routing_graph.cpp

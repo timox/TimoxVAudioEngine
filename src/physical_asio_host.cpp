@@ -1,4 +1,5 @@
 #include "physical_asio_host.h"
+#include "audio_timebase.h"
 #include "asio_error.h"
 #include "asio_sample_conversion.h"
 
@@ -133,6 +134,7 @@ struct PhysicalAsioHost::Session {
     std::uint64_t timingFrequency = 0;
     std::uint64_t timingPeriodTicks = 0;
     std::uint64_t previousCallbackStart = 0; // Physical callback thread only.
+    std::uint64_t framesPlayed = 0; // Physical callback thread only; card timebase.
     std::atomic<std::uint64_t> timingCallbacks{0};
     std::atomic<std::uint64_t> timingDelayedStarts{0};
     std::atomic<std::uint64_t> timingOverruns{0};
@@ -152,6 +154,14 @@ struct PhysicalAsioHost::Session {
         previousCallbackStart = startTick;
         const auto index = static_cast<std::size_t>(bufferIndex);
         const auto frames = bufferFrames;
+        // Card timebase for MIDI: frames played so far at this host time. Same
+        // conversion as std::chrono::steady_clock so MIDI code can compare.
+        if (timingFrequency) {
+            const auto hostNs = static_cast<std::int64_t>((startTick / timingFrequency) * 1'000'000'000ull +
+                (startTick % timingFrequency) * 1'000'000'000ull / timingFrequency);
+            AudioTimebase::Shared().Publish(framesPlayed, hostNs);
+        }
+        framesPlayed += frames;
         const auto inputCount = inputChannels.size();
         const auto outputCount = outputChannels.size();
         std::fill(inputPointers.begin(), inputPointers.end(), nullptr);
@@ -528,6 +538,8 @@ bool PhysicalAsioHost::start(std::uint32_t bufferFrames,
     session.timingPeriodTicks = static_cast<std::uint64_t>(
         static_cast<long double>(session.timingFrequency) * bufferFrames / currentRate);
     session.previousCallbackStart = 0;
+    session.framesPlayed = 0;
+    AudioTimebase::Shared().Begin(currentRate);
     session.process = callback;
     session.processContext = context;
     session.inputSamples.assign(routedInputChannels.size() * bufferFrames, 0.0f);
@@ -603,6 +615,7 @@ bool PhysicalAsioHost::start(std::uint32_t bufferFrames,
 
 void PhysicalAsioHost::stop() noexcept {
     if (!session_ || !session_->driver) return;
+    AudioTimebase::Shared().End();
     auto& session = *session_;
     if (session.started) {
         session.driver->stop();

@@ -522,6 +522,71 @@
           }
         }
       }
+    },
+    "/api/v1/midi/clock": {
+      "put": {
+        "operationId": "setMidiEngineClock",
+        "summary": "Set the engine MIDI clock tempo and transport",
+        "description": "The engine clock (port midi:clock:engine) counts sound card frames: each tick is scheduled at its card time converted to Windows time with the measured card frequency, so it never drifts from the audio. bpm is saved; transport sends start (FA), continue (FB) or stop (FC) to every port routed from the engine clock and starts or stops the ticks. Without a running sound card the Windows clock is used.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "bpm": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 300
+                  },
+                  "transport": {
+                    "enum": [
+                      "start",
+                      "stop",
+                      "continue"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MidiPatchbay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_MIDI_CLOCK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MIDI_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

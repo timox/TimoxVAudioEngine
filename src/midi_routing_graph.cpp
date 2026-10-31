@@ -80,7 +80,7 @@ std::unique_ptr<MidiRoutingGraph> MidiRoutingGraph::Create(const std::vector<std
         graph->bySource_[source->second].push_back({i, destination->second,
             route.channelMask, route.messages,
             route.outputChannel ? static_cast<int>(*route.outputChannel) : -1,
-            route.transpose});
+            route.transpose, route.reclock});
     }
     return graph;
 }
@@ -107,8 +107,10 @@ void MidiRoutingGraph::ProcessMessage(std::size_t sourceIndex, const std::uint32
     const bool channelVoice = midi_ump::IsChannelVoice(word0);
     const bool hasNote = midi_ump::CarriesNoteNumber(word0);
 
+    const bool clockTick = midi_ump::Type(word0) == 0x1 && ((word0 >> 16) & 0xFF) == 0xF8;
     std::array<std::uint32_t, 4> output{};
     for (const auto& route : routes) {
+        if (clockTick && route.reclock) continue;  // re-emitted by the patchbay on the card grid
         bool pass = (route.messages & category) != 0;
         if (pass && channelVoice) pass = (route.channelMask >> midi_ump::Channel(word0)) & 1u;
         std::uint32_t first = word0;

@@ -51,6 +51,7 @@ inline Json midiTime(const Json& port, const char* key) {
     return port.contains(key) && port[key].is_number_integer() && port[key].get<std::int64_t>() > 0 ? port[key] : Json(nullptr);
 }
 inline std::pair<std::string, std::string> midiOwner(const Json& port) {
+    if (port.value("kind", std::string{}) == "engineClock") return {"midi-engine-clock", "engine:midi-clock"};
     if (port.value("kind", std::string{}) == "virtual") {
         const auto id = port["id"].get<std::string>().substr(std::string("midi:virtual:").size());
         return {midiApplicationNode(id), midiApplicationAdherent(id)};
@@ -85,7 +86,8 @@ inline nlohmann::json SupervisionMidiObservations(const nlohmann::json& midi) {
         links.push_back({{"linkId", "midi:" + route["id"].get<std::string>()}, {"active", field(route, "active")},
             {"forwarded", field(route, "forwarded")}, {"filtered", field(route, "filtered")}});
     return {{"available", field(midi, "available")}, {"backend", field(midi, "backend")}, {"error", field(midi, "error")},
-        {"ports", std::move(ports)}, {"links", std::move(links)}, {"clockSources", std::move(clockSources)}};
+        {"ports", std::move(ports)}, {"links", std::move(links)}, {"clockSources", std::move(clockSources)},
+        {"timebase", field(midi, "timebase")}, {"engineClock", field(midi, "engineClock")}};
 }
 inline nlohmann::json SupervisionMeter(nlohmann::json meter, const nlohmann::json& devices) {
     using namespace supervision;
@@ -219,7 +221,16 @@ inline nlohmann::json SupervisionSnapshot(const nlohmann::json& state, const nlo
         std::map<std::string, Json> deviceNames, deviceStates;
         for (const auto& port : midi.value("ports", Json::array())) {
             const auto kind = port.value("kind", std::string{});
-            if (kind == "virtual") {
+            if (kind == "engineClock") {
+                // The engine generates this clock by counting sound card frames.
+                addNode("engine:midi-clock", "engine", "Engine MIDI clock", {{"scope", "engineClock"}},
+                    {{"processing", nullptr}, {"midi", {{"protocol", "midi1"}, {"input", true}, {"output", false}}}},
+                    {{"id", "midi-engine-clock"}, {"kind", "midiEngineClock"}, {"resourceId", "engine"},
+                     {"state", field(midi, "engineClock").value("running", false) ? "running" : "stopped"},
+                     {"ports", {{"sources", Json::array({{{"id", port["id"]}, {"name", "Engine clock"}, {"direction", "input"},
+                         {"medium", "midi"}, {"endpointId", nullptr}}})}, {"sinks", Json::array()}}},
+                     {"configuration", nullptr}, {"effectiveInfo", nullptr}});
+            } else if (kind == "virtual") {
                 const auto id = port["id"].get<std::string>().substr(std::string("midi:virtual:").size());
                 const auto config = virtualConfig.count(id) ? virtualConfig.at(id) : Json(nullptr);
                 const auto name = port.value("name", std::string{});

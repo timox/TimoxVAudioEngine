@@ -1095,14 +1095,22 @@ struct ControlApiServer::Impl {
         Json routes = Json::array();
         for (const auto& route : snapshot.routes)
             routes.push_back({{"id", route.id}, {"active", route.active},
-                {"forwarded", route.forwarded}, {"filtered", route.filtered}});
+                {"forwarded", route.forwarded}, {"filtered", route.filtered}, {"reclocked", route.reclocked}});
         auto configuration = Json::parse(midi_patchbay_json::Encode(snapshot.configuration));
         configuration.erase("version");
         return Json{{"available", snapshot.available},
             {"backend", snapshot.backend.empty() ? Json(nullptr) : Json(snapshot.backend)},
             {"error", snapshot.error.empty() ? Json(nullptr) : Json(snapshot.error)},
             {"configuration", std::move(configuration)}, {"ports", std::move(ports)},
-            {"routes", std::move(routes)}};
+            {"routes", std::move(routes)},
+            {"timebase", {{"reference", snapshot.timebase.cardLocked ? "soundCard" : "windows"},
+                {"nominalSampleRate", snapshot.timebase.cardLocked ? Json(snapshot.timebase.nominalRate) : Json(nullptr)},
+                {"measuredSampleRate", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.measuredRate) : Json(nullptr)},
+                {"driftPpm", snapshot.timebase.spanSeconds > 0 ? Json(snapshot.timebase.driftPpm) : Json(nullptr)},
+                {"measuredOverSeconds", snapshot.timebase.spanSeconds}}},
+            {"engineClock", {{"bpm", snapshot.engineClock.bpm}, {"running", snapshot.engineClock.running},
+                {"ticks", snapshot.engineClock.ticks},
+                {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)}}}};
     }
 
     void configureMidiRoutes() {
@@ -1115,6 +1123,42 @@ struct ControlApiServer::Impl {
                 return;
             }
             midi->Refresh();
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+        server.Put("/api/v1/midi/clock", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            std::optional<double> bpm;
+            std::string transport;
+            try {
+                const auto body = Json::parse(request.body);
+                bool valid = body.is_object() && !body.empty() && body.size() <= 2;
+                if (valid) for (const auto& entry : body.items()) {
+                    if (entry.key() == "bpm" && entry.value().is_number()) bpm = entry.value().get<double>();
+                    else if (entry.key() == "transport" && entry.value().is_string()) transport = entry.value().get<std::string>();
+                    else valid = false;
+                }
+                if (!valid) throw std::invalid_argument("shape");
+            } catch (const std::exception&) {
+                response.status = 400;
+                response.set_content(Json{{"code", "INVALID_MIDI_CLOCK"},
+                    {"message", "Expected bpm (20 to 300) and/or transport (start, stop, continue)"}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto applied = midi->SetEngineClock(bpm, transport);
+            if (!applied.success) {
+                const bool unavailable = !midi->Snapshot().available;
+                response.status = unavailable ? 503 : 400;
+                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : "INVALID_MIDI_CLOCK"},
+                    {"message", applied.error}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
             response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
         });
         server.Put("/api/v1/midi/configuration", [this](const httplib::Request& request, httplib::Response& response) {
@@ -1297,6 +1341,7 @@ struct ControlApiServer::Impl {
         server.Options("/api/v1/diagnostics", optionsHandler);
         server.Options("/api/v1/midi", optionsHandler);
         server.Options("/api/v1/midi/configuration", optionsHandler);
+        server.Options("/api/v1/midi/clock", optionsHandler);
         server.set_pre_request_handler([](const httplib::Request& request, httplib::Response& response) {
             const auto origin = request.get_header_value("Origin");
             if (!validOrigin(origin)) {

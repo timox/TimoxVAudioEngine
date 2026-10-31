@@ -65,4 +65,13 @@ public:
 
     // words is one UMP message whose group already selects the MIDI 1.0 port.
     virtual bool Send(std::uint64_t cookie, const std::uint32_t* words, std::size_t count) noexcept = 0;
+
+    // Sends at a host time (std::chrono::steady_clock, ns). Windows MIDI
+    // Services holds messages with a future timestamp and sends them on time;
+    // this is how clock ticks follow the sound card instead of thread wake-ups.
+    // A time in the past sends immediately.
+    virtual bool SendAt(std::uint64_t cookie, const std::uint32_t* words, std::size_t count,
+                        std::int64_t /*hostNs*/) noexcept {
+        return Send(cookie, words, count);
+    }
 };

@@ -62,6 +62,17 @@ One misleading case remains: the engine forwards clock from port A to applicatio
 
 The topology appears in `supervision` (`GET /api/v1/state`); counters appear in `engine.observations.midi` and in the `supervision.observations` WebSocket event (about every 500 ms). See [the supervision API](SUPERVISION_API.md). Limit: a loopback does not reveal which process opens it. The adherent is the configured application port, not a proven process.
 
+## MIDI clock locked to the sound card
+
+The sound card has its own real frequency, slightly different from its nominal value (48,000 Hz) and from the Windows clock: a few tens of ppm, about 0.1 s per hour. A MIDI clock timed by Windows therefore slowly drifts from the audio. The engine relies on the card instead:
+
+- **Timebase.** At each buffer, the ASIO callback publishes how many frames the card has played and the matching Windows time. A linear fit over about 30 s gives the card's real frequency as seen by Windows (`timebase.measuredSampleRate`) and its drift in ppm (`timebase.driftPpm`). The measurement is available after about 2 s. Without a running physical card the reference is the Windows clock (`reference: "windows"`).
+- **Engine clock** (`midi:clock:engine`). The engine generates clock by counting card frames: each tick (24 per quarter note) falls at its card time, converted to Windows time with the measured frequency. It is sent ahead with that timestamp and Windows MIDI Services emits it on time, so the clock follows the card and never drifts from the audio. Route it like any source. `PUT /api/v1/midi/clock` sets the tempo (`bpm`, saved) and transport (`start`, `stop`, `continue`, sent to destinations).
+- **Reclocked incoming clock** (`reclock: true` on a route). Ticks received from an application or device are no longer forwarded as they arrive. The patchbay re-emits them on a regular grid in card time: a fit over the last 48 ticks (two beats) predicts where each tick belongs; it is sent at that time plus a 2 ms margin. Exactly one tick goes out per tick in: the source tempo and beat position are kept, only jitter (USB, Windows) disappears. Start, stop and continue pass through and reset the grid.
+- **Tempo measurement.** The tempo shown for a port is measured in card time, by a fit over the last 48 ticks: it is the tempo the audio recording will show.
+
+An incoming clock that truly drifts from the card (a drum machine with its own crystal) cannot be "corrected" without losing sync with it. Reclocking follows it and removes jitter. For a clock strictly locked to the audio, make the engine the master (engine clock) and let the device follow.
+
 ## API
 
 - `GET /api/v1/midi` re-reads the MIDI 1.0 port list and reopens routed ports that came back (device plugged in again). It then returns ports, configuration and, per route, `active`, `forwarded` and `filtered`.
