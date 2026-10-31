@@ -115,9 +115,9 @@
       "target": "CMakeLists.txt",
       "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
       "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
-      "targetSha256": "fd4a3456c8c8d5c860c54626706f88edb16bde162800b2be0544ee62e3178e97",
+      "targetSha256": "624333db11b81669f24b7f271c028e387c6f4f303123a4c2dc650ae1f1b1eee4",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
     },
     {
       "source": "docs/API_QUICKSTART.en.md",
@@ -601,8 +601,8 @@
       "sha256": null,
       "sourceSha256": null,
       "status": "generated",
-      "targetSha256": "8bab55cdb07ad569647c8f042b7333a6bd091663fe34c9784fd08ad5eb3a855a",
-      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31"
+      "targetSha256": "f33375c276ab633ba2b96e4a04b96acfb0a38d58a5cb30425aa64d3e6736a444",
+      "transformation": "MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI patchbay restricted to MIDI 1.0 ports, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
     },
     {
       "source": "src/application_profile_store_write.cpp",
@@ -730,8 +730,9 @@
       "target": "src/engine_version.rc",
       "sha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
       "sourceSha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
-      "targetSha256": "23557ccfa716cb85ee19eb8ce9554e354420f98220c471d771b05fa7b2eb4eb9",
-      "status": "unchanged"
+      "targetSha256": "92cfa1e5d560b399d9624fe1b1c85a91630f99bbe4511bafd0ec19256399cd20",
+      "status": "unchanged",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
     },
     {
       "source": "src/main.cpp",
@@ -1451,6 +1452,51 @@
       "targetSha256": "2681aa6275f926c86ba9b877e1f0cac13cdc42b629f95c0317b233b49f231ba4",
       "status": "generated",
       "transformation": "MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Reference clock naming for MIDI timing, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "RELEASE.md",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "8a29d87c809dbc612fd3b4cec5660c0b04218679c91a845e5372d3fd62471a44",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "cmake/EngineVersion.cmake",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "78de5b1a802542b4fba57835de1920a51ace7519c2cff2190bc222a37cee2344",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "cmake/WriteBuildInfo.cmake",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "722f0f2f2a9de575ea4e5b619ae7e39475242fb3049ce5a05aa7a68a3a3899e5",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "cmake/engine_version.h.in",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "f08bef55a5e8139b744384f0572888fe3fc1adf4be8a2bbc1069023dfa178299",
+      "transformation": "; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": "tests/build_metadata_tests.cjs",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "396bf8da00c7c2313ee96bd6f813bc3a3df146e0d1455b630c1848d07deb07c4",
+      "transformation": "; Independent component versions and build provenance, 2026-10-31"
     }
   ],
   "owner": "TimoxVAudioEngine",

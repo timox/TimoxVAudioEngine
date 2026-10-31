@@ -1,5 +1,9 @@
 # TimoxVAudioEngine
 
+Current development candidate: **1.3.0-alpha.1**, API **1.1**; the ASIO driver
+dependency remains **1.2.7**. See [RELEASE.md](RELEASE.md) for split ownership,
+MIDI build requirements and binary provenance. This is not a published release.
+
 Windows audio engine for the Timox suite: physical ASIO hosting, software clocks,
 routing, WASAPI bridges, configuration persistence and technical HTTP/WebSocket
 API. The executable remains `TimoxVirtualAsioEngine.exe`.

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(TimoxVAudioEngine)
+include(cmake/EngineVersion.cmake)
+configure_file(cmake/engine_version.h.in generated/engine_version.h @ONLY)
 
 if(WIN32)
     enable_language(RC)
@@ -94,6 +96,7 @@ if(WIN32)
     )
 
     add_executable(TimoxVirtualAsioEngine ${SOURCES})
+    target_include_directories(TimoxVirtualAsioEngine PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
     if(MSVC)
         target_compile_options(TimoxVirtualAsioEngine PRIVATE /EHsc)
     endif()
@@ -463,6 +466,15 @@ else()
     message(FATAL_ERROR "Ce projet necessite Windows et Visual Studio")
 endif()
 
+add_custom_target(EngineBuildInfo ALL
+    COMMAND ${CMAKE_COMMAND}
+    "-DSOURCE_ROOT=${CMAKE_SOURCE_DIR}"
+    "-DENGINE_BINARY=$<TARGET_FILE:TimoxVirtualAsioEngine>"
+    "-DMIDI_ENABLED=${TIMOX_ENABLE_WINDOWS_MIDI_SERVICES}"
+    -P "${CMAKE_SOURCE_DIR}/cmake/WriteBuildInfo.cmake"
+    DEPENDS TimoxVirtualAsioEngine
+    VERBATIM
+)
 add_custom_command(TARGET TimoxVirtualAsioEngine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${CMAKE_SOURCE_DIR}/api/openapi-v1.json
