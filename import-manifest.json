@@ -115,9 +115,9 @@
       "target": "CMakeLists.txt",
       "sha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
       "sourceSha256": "47a6f9a427b52a23291f32ac2193b4020ea5019f4d12a24d558b8cad453a3d28",
-      "targetSha256": "624333db11b81669f24b7f271c028e387c6f4f303123a4c2dc650ae1f1b1eee4",
+      "targetSha256": "3aef4120c5e31a57ecade05d94101cdf7fd66131907967424755aa5ebd3aebb2",
       "status": "modified",
-      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31"
+      "transformation": "Supervision API and GUI corrections after extraction, 2026-10-26; MIDI patchbay over Windows MIDI Services, 2026-10-31; MIDI clock locked to the sound card, 2026-10-31; MIDI timebase follows the graph master clock, 2026-10-31; Independent component versions, release assembly provenance and MIDI tempo preservation, 2026-10-31; Independent component versions and build provenance, 2026-10-31; Verified SDK and Windows CI build, 2026-10-31"
     },
     {
       "source": "docs/API_QUICKSTART.en.md",
@@ -1497,6 +1497,15 @@
       "status": "generated",
       "targetSha256": "396bf8da00c7c2313ee96bd6f813bc3a3df146e0d1455b630c1848d07deb07c4",
       "transformation": "; Independent component versions and build provenance, 2026-10-31"
+    },
+    {
+      "source": null,
+      "target": ".github/workflows/windows-engine.yml",
+      "sourceSha256": null,
+      "sha256": null,
+      "status": "generated",
+      "targetSha256": "11d0bc1f12e335d9c456d0cbb2883b7d0a442b44fde53757a2d0902c2c6b7922",
+      "transformation": "; Verified SDK and Windows CI build, 2026-10-31"
     }
   ],
   "owner": "TimoxVAudioEngine",

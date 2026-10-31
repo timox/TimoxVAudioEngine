@@ -211,6 +211,14 @@ if(WIN32)
         if(NOT TIMOX_CPPWINRT)
             message(FATAL_ERROR "cppwinrt.exe was not found in the Windows SDK; set TIMOX_CPPWINRT")
         endif()
+        get_filename_component(cppwinrt_bin "${TIMOX_CPPWINRT}" DIRECTORY)
+        get_filename_component(midi_windows_sdk_root "${cppwinrt_bin}/../../.." ABSOLUTE)
+        find_path(TIMOX_CPPWINRT_HEADERS winrt/base.h HINTS
+            "${midi_windows_sdk_root}/Include/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/cppwinrt"
+            "$ENV{WindowsSdkDir}/Include/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/cppwinrt")
+        if(NOT TIMOX_CPPWINRT_HEADERS)
+            message(FATAL_ERROR "Windows SDK C++/WinRT headers are missing; set TIMOX_CPPWINRT_HEADERS")
+        endif()
         set(midi2_projection "${CMAKE_BINARY_DIR}/generated/midi2-cppwinrt")
         add_custom_command(OUTPUT "${midi2_projection}/winrt/Windows.Devices.Midi2.h"
             COMMAND "${TIMOX_CPPWINRT}" -input sdk -input "${TIMOX_MIDI2_WINMD}" -output "${midi2_projection}"
@@ -221,7 +229,7 @@ if(WIN32)
         set_source_files_properties(${SRC_DIR}/windows_midi_services_backend.cpp PROPERTIES
             COMPILE_DEFINITIONS TIMOX_ENABLE_WINDOWS_MIDI_SERVICES=1
             COMPILE_OPTIONS "/bigobj;/permissive-")
-        target_include_directories(TimoxVirtualAsioEngine BEFORE PRIVATE "${midi2_projection}")
+        target_include_directories(TimoxVirtualAsioEngine BEFORE PRIVATE "${midi2_projection}" "${TIMOX_CPPWINRT_HEADERS}")
         target_link_libraries(TimoxVirtualAsioEngine PRIVATE windowsapp)
     endif()
 
