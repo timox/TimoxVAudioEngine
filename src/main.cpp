@@ -7,6 +7,8 @@
 #include "native_audio_installed_transport_win32.h"
 #include "audio_configuration_store.h"
 #include "application_profile_store.h"
+#include "midi_patchbay.h"
+#include "windows_midi_services_backend.h"
 
 #include <windows.h>
 #if defined(VASIO_ENABLE_CRASH_DUMP)
@@ -14,6 +16,7 @@
 #endif
 
 #include <cstdio>
+#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -121,9 +124,20 @@ int wmain(int argc, wchar_t** argv) {
         std::fprintf(stderr, "Impossible de démarrer le contrôleur audio.\n");
         return 1;
     }
+    // MIDI is optional: without Windows MIDI Services the engine runs audio only.
+    std::string midiUnavailable;
+    auto midiBackend = CreateWindowsMidiServicesBackend(midiUnavailable);
+    const auto audioConfigurationPath = AudioConfigurationStore::DefaultPath();
+    MidiPatchbay midi(std::move(midiBackend), audioConfigurationPath.empty() ? std::filesystem::path{} :
+        std::filesystem::path(audioConfigurationPath).parent_path() / L"midi-patchbay.json", midiUnavailable);
+    const auto midiStarted = midi.Start();
+    diagnostics.Write(midiStarted.success ? EngineDiagnostics::Level::Info : EngineDiagnostics::Level::Error, "midi",
+        midiStarted.success ? "MIDI patchbay started" : "MIDI patchbay unavailable: " + midiStarted.error);
+
     ControlApiServer api(clients, controller, diagnostics, [] {
         if (gStopEvent) SetEvent(gStopEvent);
     });
+    api.AttachMidiPatchbay(&midi);
     std::uint16_t port = 0;
     std::string apiError;
     if (!api.Start(52525, port, apiError)) {
@@ -150,6 +164,7 @@ int wmain(int argc, wchar_t** argv) {
     WaitForSingleObject(gStopEvent, INFINITE);
     SetConsoleCtrlHandler(consoleControlHandler, FALSE);
     api.Stop();
+    midi.Stop();
     controller.Stop();
     clients.Stop();
     diagnostics.Write(EngineDiagnostics::Level::Info, "engine", "Engine process stopped");

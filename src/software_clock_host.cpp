@@ -1,5 +1,6 @@
 
 #include "software_clock_host.h"
+#include "audio_timebase.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -107,6 +108,14 @@ struct SoftwareClockHost::Session {
             // Whole-quantum delays, excluding ordinary sub-quantum timer jitter.
             if (begin.QuadPart - schedule.deadline() >= period)
                 delayedStarts.fetch_add(1, std::memory_order_relaxed);
+            // Reference clock timebase for MIDI: this block's ideal position and deadline,
+            // not the wake-up time, so MIDI follows the graph's own schedule.
+            {
+                const auto due = static_cast<std::uint64_t>(schedule.deadline());
+                const auto ticksPerSecond = static_cast<std::uint64_t>(frequency);
+                AudioTimebase::Shared().Publish(schedule.index() * frames, static_cast<std::int64_t>(
+                    (due / ticksPerSecond) * 1'000'000'000ull + (due % ticksPerSecond) * 1'000'000'000ull / ticksPerSecond));
+            }
             callback(nullptr, nullptr, frames, context);
             QueryPerformanceCounter(&end);
             callbacks.fetch_add(1, std::memory_order_relaxed);
@@ -192,6 +201,7 @@ bool SoftwareClockHost::start(std::uint32_t frames, const std::vector<std::uint3
     s.timer = CreateWaitableTimerExW(nullptr, nullptr, highResolution, TIMER_ALL_ACCESS);
     if (!s.timer) s.timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
     if (!s.timer) return handleFailure();
+    AudioTimebase::Shared().Begin(s.rate, AudioTimebaseSource::Software);
     try { s.worker = std::thread([&s] { s.run(); }); }
     catch (const std::system_error& e) {
         error = std::string("Software clock thread creation failed: ") + e.what();
@@ -208,7 +218,7 @@ bool SoftwareClockHost::start(std::uint32_t frames, const std::vector<std::uint3
 void SoftwareClockHost::stop() noexcept {
     if (!session_) return;
     auto& s = *session_;
-    if (s.worker.joinable()) { SetEvent(s.stopEvent); s.worker.join(); }
+    if (s.worker.joinable()) { SetEvent(s.stopEvent); s.worker.join(); AudioTimebase::Shared().End(); }
     s.releaseHandles();
 }
 void SoftwareClockHost::close() noexcept { stop(); session_.reset(); }

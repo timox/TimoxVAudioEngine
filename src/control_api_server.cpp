@@ -11,6 +11,7 @@
 #include "engine_diagnostics.h"
 #include "pwar_configuration_store.h"
 #include "pwar_client_supervisor.h"
+#include "midi_patchbay.h"
 
 #include <windows.h>
 #include <winternl.h>
@@ -464,6 +465,7 @@ struct ControlApiServer::Impl {
     std::mutex correlationMutex;
     std::optional<CorrelationSelection> correlationSelection;
     mutable ProcessCpuMonitor processCpu;
+    MidiPatchbay* midi = nullptr;
 
     Impl(VasioClientManager& manager, AudioController& audioController, EngineDiagnostics& engineDiagnostics,
          std::function<void()> requestStop)
@@ -710,7 +712,8 @@ struct ControlApiServer::Impl {
         result["supervision"] = SupervisionSnapshot(result, meters,
             {{"windowsAudioApplications", windowsAudioApplicationsJson(state)},
              {"windowsAudioApplicationInventoryError", state.wasapiProcessInventoryError.empty() ? Json(nullptr) : Json(state.wasapiProcessInventoryError)},
-             {"pwarClient", pwarClient.Snapshot()}}, supervisionReadTime());
+             {"pwarClient", pwarClient.Snapshot()},
+             {"midi", midi ? midiSnapshotJson(midi->Snapshot()) : Json(nullptr)}}, supervisionReadTime());
         return result;
     }
 
@@ -1065,6 +1068,142 @@ struct ControlApiServer::Impl {
         });
     }
 
+    static Json midiSnapshotJson(const MidiPatchbaySnapshot& snapshot) {
+        Json ports = Json::array();
+        for (const auto& port : snapshot.ports)
+            ports.push_back({{"id", port.id}, {"name", port.name}, {"kind", port.kind},
+                {"endpointId", port.endpointId.empty() ? Json(nullptr) : Json(port.endpointId)},
+                {"endpointName", port.endpointName.empty() ? Json(nullptr) : Json(port.endpointName)},
+                {"group", port.group}, {"source", port.source}, {"destination", port.destination},
+                {"online", port.online}, {"open", port.open},
+                {"received", port.received}, {"sent", port.sent},
+                {"lastReceivedUnixMs", port.lastReceivedUnixMs > 0 ? Json(port.lastReceivedUnixMs) : Json(nullptr)},
+                {"lastSentUnixMs", port.lastSentUnixMs > 0 ? Json(port.lastSentUnixMs) : Json(nullptr)},
+                {"activity", {{"messages", port.activity},
+                    {"lastUnixMs", port.lastActivityUnixMs > 0 ? Json(port.lastActivityUnixMs) : Json(nullptr)}}},
+                {"clock", {{"ticks", port.clockTicks}, {"running", port.clockRunning},
+                    {"bpm", port.clockBpm > 0 ? Json(port.clockBpm) : Json(nullptr)},
+                    {"lastTickUnixMs", port.lastClockUnixMs > 0 ? Json(port.lastClockUnixMs) : Json(nullptr)},
+                    {"echoSuspected", port.clockEchoSuspected},
+                    {"transport", port.transport.empty() ? Json(nullptr) : Json(port.transport)},
+                    {"transportUnixMs", port.transportUnixMs > 0 ? Json(port.transportUnixMs) : Json(nullptr)}}},
+                {"activeSensing", {{"messages", port.activeSensing},
+                    {"lastUnixMs", port.lastActiveSensingUnixMs > 0 ? Json(port.lastActiveSensingUnixMs) : Json(nullptr)}}},
+                {"inputEndpointId", port.inputEndpointId.empty() ? Json(nullptr) : Json(port.inputEndpointId)},
+                {"outputEndpointId", port.outputEndpointId.empty() ? Json(nullptr) : Json(port.outputEndpointId)},
+                {"error", port.error.empty() ? Json(nullptr) : Json(port.error)}});
+        Json routes = Json::array();
+        for (const auto& route : snapshot.routes)
+            routes.push_back({{"id", route.id}, {"active", route.active},
+                {"forwarded", route.forwarded}, {"filtered", route.filtered}, {"reclocked", route.reclocked}});
+        auto configuration = Json::parse(midi_patchbay_json::Encode(snapshot.configuration));
+        configuration.erase("version");
+        return Json{{"available", snapshot.available},
+            {"backend", snapshot.backend.empty() ? Json(nullptr) : Json(snapshot.backend)},
+            {"error", snapshot.error.empty() ? Json(nullptr) : Json(snapshot.error)},
+            {"configuration", std::move(configuration)}, {"ports", std::move(ports)},
+            {"routes", std::move(routes)},
+            {"referenceClock", {{"source", snapshot.referenceClock.source},
+                {"nominalSampleRate", snapshot.referenceClock.running ? Json(snapshot.referenceClock.nominalRate) : Json(nullptr)},
+                {"measuredSampleRate", snapshot.referenceClock.spanSeconds > 0 ? Json(snapshot.referenceClock.measuredRate) : Json(nullptr)},
+                {"driftPpm", snapshot.referenceClock.spanSeconds > 0 ? Json(snapshot.referenceClock.driftPpm) : Json(nullptr)},
+                {"measuredOverSeconds", snapshot.referenceClock.spanSeconds}}},
+            {"engineClock", {{"bpm", snapshot.engineClock.bpm}, {"running", snapshot.engineClock.running},
+                {"waitingForReferenceClock", snapshot.engineClock.waitingForReferenceClock},
+                {"ticks", snapshot.engineClock.ticks},
+                {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)}}}};
+    }
+
+    void configureMidiRoutes() {
+        server.Get("/api/v1/midi", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            midi->Refresh();
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+        server.Put("/api/v1/midi/clock", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            std::optional<double> bpm;
+            std::string transport;
+            try {
+                const auto body = Json::parse(request.body);
+                bool valid = body.is_object() && !body.empty() && body.size() <= 2;
+                if (valid) for (const auto& entry : body.items()) {
+                    if (entry.key() == "bpm" && entry.value().is_number()) bpm = entry.value().get<double>();
+                    else if (entry.key() == "transport" && entry.value().is_string()) transport = entry.value().get<std::string>();
+                    else valid = false;
+                }
+                if (!valid) throw std::invalid_argument("shape");
+            } catch (const std::exception&) {
+                response.status = 400;
+                response.set_content(Json{{"code", "INVALID_MIDI_CLOCK"},
+                    {"message", "Expected bpm (20 to 300) and/or transport (start, stop, continue)"}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto applied = midi->SetEngineClock(bpm, transport);
+            if (!applied.success) {
+                const auto state = midi->Snapshot();
+                const bool unavailable = !state.available;
+                const bool noReference = !unavailable && !state.referenceClock.running &&
+                    (transport == "start" || transport == "continue");
+                response.status = unavailable ? 503 : noReference ? 409 : 400;
+                response.set_content(Json{{"code", unavailable ? "MIDI_UNAVAILABLE" : noReference ? "NO_REFERENCE_CLOCK" : "INVALID_MIDI_CLOCK"},
+                    {"message", applied.error}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+        server.Put("/api/v1/midi/configuration", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"},
+                    {"message", "The MIDI patchbay is not running in this engine"}}.dump(), "application/json; charset=utf-8");
+                return;
+            }
+            MidiPatchbayConfiguration configuration;
+            std::string error;
+            if (!midi_patchbay_json::Decode(request.body, configuration, error) ||
+                !MidiPatchbay::Validate(configuration, error)) {
+                response.status = 400;
+                response.set_content(Json{{"code", "INVALID_MIDI_CONFIGURATION"}, {"message", error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto before = midi->Snapshot();
+            if (!before.available) {
+                response.status = 503;
+                response.set_content(Json{{"code", "MIDI_UNAVAILABLE"}, {"message", before.error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            const auto applied = midi->Apply(configuration);
+            if (!applied.success) {
+                diagnostics.Write(EngineDiagnostics::Level::Error, "midi", applied.error);
+                response.status = 500;
+                response.set_content(Json{{"code", "MIDI_CONFIGURATION_FAILED"}, {"message", applied.error}}.dump(),
+                    "application/json; charset=utf-8");
+                return;
+            }
+            diagnostics.Write(EngineDiagnostics::Level::Info, "midi", "MIDI patchbay applied with " +
+                std::to_string(configuration.virtualPorts.size()) + " virtual ports and " +
+                std::to_string(configuration.routes.size()) + " routes");
+            response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+    }
+
     void configureRoutes() {
         if (configured) return;
         configured = true;
@@ -1190,6 +1329,7 @@ struct ControlApiServer::Impl {
             }
         });
         configureApplicationProfileRoutes();
+        configureMidiRoutes();
         const auto optionsHandler = [](const httplib::Request& request, httplib::Response& response) {
             setCors(request, response);
             response.set_header("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
@@ -1203,6 +1343,9 @@ struct ControlApiServer::Impl {
         server.Options("/api/v1/application-profiles", optionsHandler);
         server.Options("/api/v1/pwar", optionsHandler);
         server.Options("/api/v1/diagnostics", optionsHandler);
+        server.Options("/api/v1/midi", optionsHandler);
+        server.Options("/api/v1/midi/configuration", optionsHandler);
+        server.Options("/api/v1/midi/clock", optionsHandler);
         server.set_pre_request_handler([](const httplib::Request& request, httplib::Response& response) {
             const auto origin = request.get_header_value("Origin");
             if (!validOrigin(origin)) {
@@ -1257,7 +1400,8 @@ struct ControlApiServer::Impl {
                     const auto observedDevices = driversJson();
                     if (!websocket.send(Json{{"event", "supervision.observations"},
                         {"payload", {{"owner", "engine"}, {"readAtUnixMs", supervisionReadTime()},
-                            {"clients", SupervisionClientObservations(observedDevices)}}}}.dump())) return false;
+                            {"clients", SupervisionClientObservations(observedDevices)},
+                            {"midi", midi ? SupervisionMidiObservations(midiSnapshotJson(midi->Snapshot())) : Json(nullptr)}}}}.dump())) return false;
                     return sendAudioMeters(observedDevices);
                 };
                 while (websocket.is_open()) {
@@ -1397,6 +1541,10 @@ ControlApiServer::ControlApiServer(VasioClientManager& clients, AudioController&
     std::function<void()> stopRequest)
     : impl_(std::make_unique<Impl>(clients, controller, diagnostics, std::move(stopRequest))) {}
 ControlApiServer::~ControlApiServer() = default;
+
+void ControlApiServer::AttachMidiPatchbay(MidiPatchbay* patchbay) noexcept {
+    impl_->midi = patchbay;
+}
 
 bool ControlApiServer::Start(std::uint16_t requestedPort, std::uint16_t& boundPort, std::string& error) {
     return impl_->Start(requestedPort, boundPort, error);

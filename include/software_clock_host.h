@@ -11,6 +11,7 @@ public:
         double sampleRate, std::uint32_t frames) noexcept;
     std::int64_t deadline() const noexcept;
     std::uint64_t advancePast(std::int64_t now) noexcept;
+    std::uint64_t index() const noexcept { return index_; }
 private:
     std::int64_t origin_;
     long double ticksPerBlockNumerator_;

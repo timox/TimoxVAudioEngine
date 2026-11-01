@@ -37,6 +37,58 @@ inline nlohmann::json SupervisionClientObservations(const nlohmann::json& device
         }
     return result;
 }
+namespace supervision {
+// MIDI 1.0 patchbay projection. midi is the GET /api/v1/midi document.
+// An application port is the engine's dedicated loopback pair for one
+// application: it makes that application's traffic observable, but the
+// loopback does not reveal which process opened it, so no process identity is
+// claimed. Device ports are grouped per Windows MIDI Services endpoint.
+inline std::string midiApplicationAdherent(const std::string& id) { return "midi:application:" + id; }
+inline std::string midiApplicationNode(const std::string& id) { return "midi-application:" + id; }
+inline std::string midiDeviceAdherent(const std::string& endpointId) { return "device:midi:" + endpointId; }
+inline std::string midiDeviceNode(const std::string& endpointId) { return "midi-device:" + endpointId; }
+inline Json midiTime(const Json& port, const char* key) {
+    return port.contains(key) && port[key].is_number_integer() && port[key].get<std::int64_t>() > 0 ? port[key] : Json(nullptr);
+}
+inline std::pair<std::string, std::string> midiOwner(const Json& port) {
+    if (port.value("kind", std::string{}) == "engineClock") return {"midi-engine-clock", "engine:midi-clock"};
+    if (port.value("kind", std::string{}) == "virtual") {
+        const auto id = port["id"].get<std::string>().substr(std::string("midi:virtual:").size());
+        return {midiApplicationNode(id), midiApplicationAdherent(id)};
+    }
+    const auto endpoint = port.value("endpointId", std::string{});
+    return {midiDeviceNode(endpoint), midiDeviceAdherent(endpoint)};
+}
+}
+// Traffic counters per MIDI port and per MIDI link, attributed to nodes.
+inline nlohmann::json SupervisionMidiObservations(const nlohmann::json& midi) {
+    using namespace supervision;
+    if (!midi.is_object()) return nullptr;
+    Json ports = Json::array(), links = Json::array(), clockSources = Json::array();
+    for (const auto& port : midi.value("ports", Json::array())) {
+        const auto owner = midiOwner(port);
+        ports.push_back({{"portId", port["id"]}, {"nodeId", owner.first}, {"adherentId", owner.second},
+            {"online", field(port, "online")}, {"open", field(port, "open")},
+            {"received", port.value("received", 0)}, {"sent", port.value("sent", 0)},
+            {"lastReceivedUnixMs", midiTime(port, "lastReceivedUnixMs")}, {"lastSentUnixMs", midiTime(port, "lastSentUnixMs")},
+            {"activity", field(port, "activity")}, {"clock", field(port, "clock")}, {"activeSensing", field(port, "activeSensing")},
+            {"error", field(port, "error")}});
+        // A clock source is a port where ticks arrive: each application has its
+        // own In loopback, so the emitter is that application. Clock the engine
+        // itself forwards to the port and that comes back is only an echo.
+        const auto clock = field(port, "clock");
+        if (clock.is_object() && clock.value("running", false))
+            clockSources.push_back({{"portId", port["id"]}, {"nodeId", owner.first}, {"adherentId", owner.second},
+                {"bpm", field(clock, "bpm")}, {"transport", field(clock, "transport")},
+                {"echoSuspected", clock.value("echoSuspected", false)}});
+    }
+    for (const auto& route : midi.value("routes", Json::array()))
+        links.push_back({{"linkId", "midi:" + route["id"].get<std::string>()}, {"active", field(route, "active")},
+            {"forwarded", field(route, "forwarded")}, {"filtered", field(route, "filtered")}});
+    return {{"available", field(midi, "available")}, {"backend", field(midi, "backend")}, {"error", field(midi, "error")},
+        {"ports", std::move(ports)}, {"links", std::move(links)}, {"clockSources", std::move(clockSources)},
+        {"referenceClock", field(midi, "referenceClock")}, {"engineClock", field(midi, "engineClock")}};
+}
 inline nlohmann::json SupervisionMeter(nlohmann::json meter, const nlohmann::json& devices) {
     using namespace supervision;
     const auto endpoint = meter.value("endpointId", std::string{});
@@ -161,6 +213,62 @@ inline nlohmann::json SupervisionSnapshot(const nlohmann::json& state, const nlo
             bridgeObservations.back()["adherentId"] = aid;
         }
     }
+    const auto midi = field(extras, "midi");
+    if (midi.is_object()) {
+        std::map<std::string, Json> virtualConfig;
+        for (const auto& port : field(midi, "configuration").value("virtualPorts", Json::array())) virtualConfig[port["id"]] = port;
+        std::map<std::string, std::pair<Json, Json>> devicePorts;  // endpointId -> sources, sinks
+        std::map<std::string, Json> deviceNames, deviceStates;
+        for (const auto& port : midi.value("ports", Json::array())) {
+            const auto kind = port.value("kind", std::string{});
+            if (kind == "engineClock") {
+                // The engine generates this clock by counting sound card frames.
+                addNode("engine:midi-clock", "engine", "Engine MIDI clock", {{"scope", "engineClock"}},
+                    {{"processing", nullptr}, {"midi", {{"protocol", "midi1"}, {"input", true}, {"output", false}}}},
+                    {{"id", "midi-engine-clock"}, {"kind", "midiEngineClock"}, {"resourceId", "engine"},
+                     {"state", field(midi, "engineClock").value("running", false) ? "running" : "stopped"},
+                     {"ports", {{"sources", Json::array({{{"id", port["id"]}, {"name", "Engine clock"}, {"direction", "input"},
+                         {"medium", "midi"}, {"endpointId", nullptr}}})}, {"sinks", Json::array()}}},
+                     {"configuration", nullptr}, {"effectiveInfo", nullptr}});
+            } else if (kind == "virtual") {
+                const auto id = port["id"].get<std::string>().substr(std::string("midi:virtual:").size());
+                const auto config = virtualConfig.count(id) ? virtualConfig.at(id) : Json(nullptr);
+                const auto name = port.value("name", std::string{});
+                Json ports{{"sources", Json::array()}, {"sinks", Json::array()}};
+                if (port.value("source", false)) ports["sources"].push_back({{"id", port["id"]}, {"name", name + " In"},
+                    {"direction", "input"}, {"medium", "midi"}, {"endpointId", field(port, "inputEndpointId")}});
+                if (port.value("destination", false)) ports["sinks"].push_back({{"id", port["id"]}, {"name", name + " Out"},
+                    {"direction", "output"}, {"medium", "midi"}, {"endpointId", field(port, "outputEndpointId")}});
+                addNode(midiApplicationAdherent(id), "application", name,
+                    {{"scope", "midiApplicationPort"}, {"portId", port["id"]}},
+                    {{"processing", nullptr}, {"midi", {{"protocol", "midi1"}, {"input", port.value("source", false)},
+                        {"output", port.value("destination", false)}}}},
+                    {{"id", midiApplicationNode(id)}, {"kind", "midiApplicationPort"}, {"resourceId", id},
+                     {"state", port.value("open", false) ? "open" : "unavailable"}, {"ports", ports}, {"configuration", config},
+                     {"effectiveInfo", {{"inputEndpointId", field(port, "inputEndpointId")}, {"outputEndpointId", field(port, "outputEndpointId")}}}});
+            } else if (kind == "port") {
+                const auto endpoint = port.value("endpointId", std::string{});
+                auto& entry = devicePorts[endpoint];
+                if (entry.first.is_null()) { entry.first = Json::array(); entry.second = Json::array(); }
+                const Json projected{{"id", port["id"]}, {"name", field(port, "name")}, {"group", field(port, "group")}, {"medium", "midi"}};
+                if (port.value("source", false)) { auto p = projected; p["direction"] = "input"; entry.first.push_back(p); }
+                if (port.value("destination", false)) { auto p = projected; p["direction"] = "output"; entry.second.push_back(p); }
+                if (!port.value("source", false) && !port.value("destination", false)) {
+                    // Routed but absent: keep it attributable without inventing a direction.
+                    auto p = projected; p["direction"] = nullptr; entry.first.push_back(p);
+                }
+                if (!deviceNames.count(endpoint) || deviceNames[endpoint].is_null()) deviceNames[endpoint] = field(port, "endpointName");
+                const auto state = !port.value("online", false) ? "offline" : port.value("open", false) ? "open" : "available";
+                if (!deviceStates.count(endpoint) || deviceStates[endpoint] != "open") deviceStates[endpoint] = state;
+            }
+        }
+        for (const auto& entry : devicePorts)
+            addNode(midiDeviceAdherent(entry.first), "device", deviceNames[entry.first].is_null() ? Json(entry.first) : deviceNames[entry.first],
+                {{"scope", "midiEndpoint"}, {"endpointId", entry.first}, {"hardwareIdentity", nullptr}},
+                {{"processing", nullptr}, {"midi", {{"protocol", "midi1"}}}},
+                {{"id", midiDeviceNode(entry.first)}, {"kind", "midiDevice"}, {"resourceId", entry.first}, {"state", deviceStates[entry.first]},
+                 {"ports", {{"sources", entry.second.first}, {"sinks", entry.second.second}}}, {"configuration", nullptr}, {"effectiveInfo", nullptr}});
+    }
     std::map<std::string, Json> requested, applied;
     for (const auto& route : state.value("configuredRoutes", Json::array())) requested[route["id"]] = route;
     for (const auto& route : state.value("routes", Json::array())) applied[route["id"]] = route;
@@ -176,6 +284,22 @@ inline nlohmann::json SupervisionSnapshot(const nlohmann::json& state, const nlo
         }
         links.push_back(std::move(link));
     }
+    if (midi.is_object()) {
+        std::map<std::string, Json> status;
+        for (const auto& route : midi.value("routes", Json::array())) status[route["id"]] = route;
+        for (const auto& route : field(midi, "configuration").value("routes", Json::array())) {
+            const auto id = route["id"].get<std::string>();
+            const bool active = status.count(id) && status.at(id).value("active", false);
+            Json link{{"id", "midi:" + id}, {"owner", "engine"}, {"medium", "midi"}, {"requested", route},
+                {"applied", active ? route : Json(nullptr)}, {"state", active ? "applied" : "configured"},
+                {"sourceEndpointId", route["source"]}, {"destinationEndpointId", route["destination"]}};
+            for (const auto& pair : {std::make_pair("source", "sourceNodeId"), std::make_pair("destination", "destinationNodeId")}) {
+                const auto found = endpointOwners.find(route.value(pair.first, std::string{}));
+                link[pair.second] = found == endpointOwners.end() ? Json(nullptr) : Json(found->second.first);
+            }
+            links.push_back(std::move(link));
+        }
+    }
     Json channelMeasurements = Json::array();
     for (auto meter : meters) {
         meter = SupervisionMeter(std::move(meter), state);
@@ -187,13 +311,15 @@ inline nlohmann::json SupervisionSnapshot(const nlohmann::json& state, const nlo
     auto projectedEngine = engine;
     projectedEngine["configuration"] = {{"revision", field(state, "configurationRevision")},
         {"configuredRoutes", state.value("configuredRoutes", Json::array())}, {"configuredWasapiBridges", state.value("configuredWasapiBridges", Json::array())},
-        {"nativeAudioEnabled", native.value("enabled", false)}};
+        {"nativeAudioEnabled", native.value("enabled", false)},
+        {"midi", midi.is_object() ? field(midi, "configuration") : Json(nullptr)}};
     projectedEngine["observations"] = {{"owner", "engine"}, {"readAtUnixMs", readAtUnixMs},
         {"bufferHealth", field(state, "bufferHealth")}, {"performanceMeasurements", field(state, "performanceMeasurements")},
         {"meters", channelMeasurements}, {"clients", SupervisionClientObservations(state)}, {"wasapiBridges", bridgeObservations},
-        {"nativeAudio", field(state, "nativeAudio")}, {"pwarClient", field(extras, "pwarClient")}};
+        {"nativeAudio", field(state, "nativeAudio")}, {"pwarClient", field(extras, "pwarClient")},
+        {"midi", SupervisionMidiObservations(midi)}};
     projectedEngine["channelPairs"] = state.value("stereoPairs", Json::array());
-    projectedEngine["resources"] = {{"applicationProfiles", "/api/v1/application-profiles"}, {"pwarSettings", "/api/v1/pwar"}, {"diagnostics", "/api/v1/diagnostics"}};
+    projectedEngine["resources"] = {{"applicationProfiles", "/api/v1/application-profiles"}, {"pwarSettings", "/api/v1/pwar"}, {"diagnostics", "/api/v1/diagnostics"}, {"midi", "/api/v1/midi"}};
     const auto cachedProcesses = field(extras, "windowsAudioApplications");
     const auto processInventoryError = field(extras, "windowsAudioApplicationInventoryError");
     const bool hasCachedProcesses = cachedProcesses.is_array() && !cachedProcesses.empty();

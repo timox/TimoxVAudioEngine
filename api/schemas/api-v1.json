@@ -8,6 +8,8 @@
     { "$ref": "#/definitions/wasapiInventory" },
     { "$ref": "#/definitions/applicationProfiles" },
     { "$ref": "#/definitions/applicationProfilesUpdate" },
+    { "$ref": "#/definitions/midiPatchbay" },
+    { "$ref": "#/definitions/midiConfiguration" },
     { "$ref": "#/definitions/applyCommand" },
     { "$ref": "#/definitions/engineStartCommand" },
     { "$ref": "#/definitions/engineStopCommand" },
@@ -19,6 +21,854 @@
     { "$ref": "#/definitions/event" }
   ],
   "definitions": {
+    "supervisionMidiObservations": {
+      "type": "object",
+      "required": [
+        "available",
+        "backend",
+        "error",
+        "ports",
+        "links",
+        "clockSources",
+        "referenceClock",
+        "engineClock"
+      ],
+      "additionalProperties": false,
+      "description": "MIDI traffic the engine observed. Every application port goes through an engine-owned loopback, so its traffic is observable; counters cover MIDI 1.0 messages since engine start and survive configuration changes.",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "portId",
+              "nodeId",
+              "adherentId",
+              "online",
+              "open",
+              "received",
+              "sent",
+              "lastReceivedUnixMs",
+              "lastSentUnixMs",
+              "error",
+              "activity",
+              "clock",
+              "activeSensing"
+            ],
+            "properties": {
+              "portId": {
+                "type": "string"
+              },
+              "nodeId": {
+                "type": "string"
+              },
+              "adherentId": {
+                "type": "string"
+              },
+              "online": {
+                "type": "boolean"
+              },
+              "open": {
+                "type": "boolean"
+              },
+              "received": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastReceivedUnixMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "lastSentUnixMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "activity": {
+                "type": "object",
+                "required": [
+                  "messages",
+                  "lastUnixMs"
+                ],
+                "additionalProperties": false,
+                "description": "Every MIDI 1.0 message from the port except timing clock (F8) and active sensing (FE).",
+                "properties": {
+                  "messages": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "clock": {
+                "type": "object",
+                "required": [
+                  "ticks",
+                  "running",
+                  "bpm",
+                  "lastTickUnixMs",
+                  "echoSuspected",
+                  "transport",
+                  "transportUnixMs"
+                ],
+                "additionalProperties": false,
+                "description": "Timing clock (F8) arriving from the port. running: a tick arrived less than 1 s ago. bpm: smoothed tempo at 24 ticks per quarter note, null until 2 ticks or when stopped. echoSuspected: the engine also sends clock to this port, so these ticks may be its own clock coming back (MIDI thru) rather than a real source. transport: last start (FA), continue (FB) or stop (FC).",
+                "properties": {
+                  "ticks": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "running": {
+                    "type": "boolean"
+                  },
+                  "bpm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "lastTickUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "echoSuspected": {
+                    "type": "boolean"
+                  },
+                  "transport": {
+                    "enum": [
+                      "start",
+                      "continue",
+                      "stop",
+                      null
+                    ]
+                  },
+                  "transportUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "activeSensing": {
+                "type": "object",
+                "required": [
+                  "messages",
+                  "lastUnixMs"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "messages": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUnixMs": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "linkId",
+              "active",
+              "forwarded",
+              "filtered"
+            ],
+            "properties": {
+              "linkId": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "forwarded": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "filtered": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "clockSources": {
+          "type": "array",
+          "description": "Ports where timing clock is currently arriving. Each application sends through its own In loopback, so the port identifies the emitting application or device. Entries with echoSuspected are likely the engine's own clock coming back.",
+          "items": {
+            "type": "object",
+            "required": [
+              "portId",
+              "nodeId",
+              "adherentId",
+              "bpm",
+              "transport",
+              "echoSuspected"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "portId": {
+                "type": "string"
+              },
+              "nodeId": {
+                "type": "string"
+              },
+              "adherentId": {
+                "type": "string"
+              },
+              "bpm": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transport": {
+                "enum": [
+                  "start",
+                  "continue",
+                  "stop",
+                  null
+                ]
+              },
+              "echoSuspected": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "referenceClock": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/midiReferenceClock"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "engineClock": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/midiEngineClock"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "midiReferenceClock": {
+      "type": "object",
+      "required": [
+        "source",
+        "nominalSampleRate",
+        "measuredSampleRate",
+        "driftPpm",
+        "measuredOverSeconds"
+      ],
+      "additionalProperties": false,
+      "description": "Reference clock for MIDI timing: the clock that paces the audio graph (engine.clockSource), independent of MIDI clock master/slave roles. asio: the physical driver's sample position; software: the engine's software clock schedule; none: not running, so the engine clock waits and reclock routes pass ticks through. Its sample position is fitted against the Windows performance counter over about 30 s only to convert sample times into send timestamps; MIDI timing never follows Windows timers.",
+      "properties": {
+        "source": {
+          "enum": [
+            "asio",
+            "software",
+            "none"
+          ]
+        },
+        "nominalSampleRate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "measuredSampleRate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Reference clock frames per second of Windows performance-counter time; null until measured (about 2 s)."
+        },
+        "driftPpm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Reference clock versus the Windows performance counter."
+        },
+        "measuredOverSeconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "midiEngineClock": {
+      "type": "object",
+      "required": [
+        "bpm",
+        "running",
+        "ticks",
+        "transport",
+        "waitingForReferenceClock"
+      ],
+      "additionalProperties": false,
+      "description": "Clock generated by the engine by counting reference clock samples: it never drifts from the audio and never falls back to Windows timers.",
+      "properties": {
+        "bpm": {
+          "type": "number"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "ticks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transport": {
+          "enum": [
+            "start",
+            "stop",
+            "continue",
+            null
+          ]
+        },
+        "waitingForReferenceClock": {
+          "type": "boolean",
+          "description": "Started, but the reference clock is not running: no tick is sent until it runs again."
+        }
+      }
+    },
+    "midiVirtualPort": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "Application port: a dedicated MIDI 1.0 \"<name> In\" port (the application sends to the patchbay) and \"<name> Out\" port (the patchbay sends to the application). Each direction is its own Windows MIDI Services Basic MIDI 1.0 Loopback and can be turned on or off without touching the other; at least one is required. No MIDI 2.0 port is created. API port id: midi:virtual:<id>.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,24}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24,
+          "pattern": "^[ -~]*[!-~]$",
+          "description": "Base name; applications see \"<name> In\" and \"<name> Out\"."
+        },
+        "input": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create \"<name> In\"; the port can then be a route source."
+        },
+        "output": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create \"<name> Out\"; the port can then be a route destination."
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "input": {
+              "const": true
+            }
+          }
+        },
+        {
+          "properties": {
+            "output": {
+              "const": true
+            }
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "input"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "output"
+            ]
+          }
+        }
+      ]
+    },
+    "midiRoute": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "destination"
+      ],
+      "additionalProperties": false,
+      "description": "Directed link between two MIDI 1.0 ports. Port ids are midi:virtual:<id> or midi:port:<group 1-16>:<Windows MIDI Services endpoint device id of a native MIDI 1.0 device>; each group of an endpoint is one MIDI 1.0 port, as MIDI 1.0 applications see it. Channels are 1-based. Only MIDI 1.0 devices are offered and only MIDI 1.0 messages are routed; MIDI 2.0 endpoints and messages are ignored. midi:clock:engine is the engine-generated clock and can only be a source.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,24}|port:([1-9]|1[0-6]):.+|clock:engine)$"
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^midi:(virtual:[a-z0-9-]{1,24}|port:([1-9]|1[0-6]):.+)$"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "description": "Accepted source channels for channel voice messages; default all."
+        },
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "notes",
+              "polyPressure",
+              "controlChange",
+              "programChange",
+              "channelPressure",
+              "pitchBend",
+              "systemRealtime",
+              "systemCommon",
+              "sysex"
+            ]
+          },
+          "description": "Accepted message categories; default all."
+        },
+        "outputChannel": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transpose": {
+          "type": "integer",
+          "minimum": -127,
+          "maximum": 127,
+          "default": 0,
+          "description": "Semitones applied to note numbers; notes moved out of 0..127 are dropped."
+        },
+        "reclock": {
+          "type": "boolean",
+          "default": false,
+          "description": "Re-emit the source's timing clock (F8) on a regular grid in reference clock samples instead of forwarding each tick as it arrives. One tick out per tick in: the source tempo and beat position are kept, arrival jitter is removed. Without a running reference clock, ticks pass through. Ignored when the source is midi:clock:engine."
+        }
+      }
+    },
+    "midiConfiguration": {
+      "type": "object",
+      "required": [
+        "virtualPorts",
+        "routes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "virtualPorts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/midiVirtualPort"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/definitions/midiRoute"
+          }
+        },
+        "engineClock": {
+          "type": "object",
+          "required": [
+            "bpm"
+          ],
+          "additionalProperties": false,
+          "description": "Saved tempo of the engine clock. Transport is not saved: the clock starts stopped.",
+          "properties": {
+            "bpm": {
+              "type": "number",
+              "minimum": 20,
+              "maximum": 300,
+              "default": 120
+            }
+          }
+        }
+      }
+    },
+    "midiPort": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "endpointId",
+        "endpointName",
+        "group",
+        "source",
+        "destination",
+        "online",
+        "open",
+        "error",
+        "inputEndpointId",
+        "outputEndpointId",
+        "received",
+        "sent",
+        "lastReceivedUnixMs",
+        "lastSentUnixMs",
+        "activity",
+        "clock",
+        "activeSensing"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "MIDI 1.0 port name as Windows shows it to MIDI 1.0 applications."
+        },
+        "kind": {
+          "enum": [
+            "virtual",
+            "port",
+            "engineClock"
+          ],
+          "description": "engineClock: midi:clock:engine, the clock the engine generates from the sound card; its clock object reports that clock."
+        },
+        "endpointId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "endpointName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "group": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "description": "UMP group carrying this MIDI 1.0 port; 1 for virtual ports."
+        },
+        "source": {
+          "type": "boolean",
+          "description": "MIDI In: usable as a route source (virtual ports: input enabled)."
+        },
+        "destination": {
+          "type": "boolean",
+          "description": "MIDI Out: usable as a route destination (virtual ports: output enabled)."
+        },
+        "online": {
+          "type": "boolean",
+          "description": "Port present, or virtual port created."
+        },
+        "open": {
+          "type": "boolean",
+          "description": "The engine holds a connection to the port's endpoint; it opens an endpoint only when an enabled route uses one of its ports."
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inputEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Virtual ports: endpoint of \"<name> In\", or null when input is off."
+        },
+        "outputEndpointId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Virtual ports: endpoint of \"<name> Out\", or null when output is off."
+        },
+        "received": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "MIDI 1.0 messages that arrived from the port since engine start, routed or not."
+        },
+        "sent": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "MIDI 1.0 messages the engine delivered to the port since engine start."
+        },
+        "lastReceivedUnixMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lastSentUnixMs": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "activity": {
+          "type": "object",
+          "required": [
+            "messages",
+            "lastUnixMs"
+          ],
+          "additionalProperties": false,
+          "description": "Every MIDI 1.0 message from the port except timing clock (F8) and active sensing (FE).",
+          "properties": {
+            "messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "clock": {
+          "type": "object",
+          "required": [
+            "ticks",
+            "running",
+            "bpm",
+            "lastTickUnixMs",
+            "echoSuspected",
+            "transport",
+            "transportUnixMs"
+          ],
+          "additionalProperties": false,
+          "description": "Timing clock (F8) arriving from the port. running: a tick arrived less than 1 s ago. bpm: smoothed tempo at 24 ticks per quarter note, null until 2 ticks or when stopped. echoSuspected: the engine also sends clock to this port, so these ticks may be its own clock coming back (MIDI thru) rather than a real source. transport: last start (FA), continue (FB) or stop (FC).",
+          "properties": {
+            "ticks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "running": {
+              "type": "boolean"
+            },
+            "bpm": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lastTickUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "echoSuspected": {
+              "type": "boolean"
+            },
+            "transport": {
+              "enum": [
+                "start",
+                "continue",
+                "stop",
+                null
+              ]
+            },
+            "transportUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "activeSensing": {
+          "type": "object",
+          "required": [
+            "messages",
+            "lastUnixMs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastUnixMs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "midiRouteStatus": {
+      "type": "object",
+      "required": [
+        "id",
+        "active",
+        "forwarded",
+        "filtered",
+        "reclocked"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Enabled, both ports present and open, source can send and destination can receive."
+        },
+        "forwarded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filtered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reclocked": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Clock ticks re-emitted on the sound card grid (reclock routes)."
+        }
+      }
+    },
+    "midiPatchbay": {
+      "type": "object",
+      "required": [
+        "available",
+        "backend",
+        "error",
+        "configuration",
+        "ports",
+        "routes",
+        "referenceClock",
+        "engineClock"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "configuration": {
+          "$ref": "#/definitions/midiConfiguration"
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/midiPort"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/midiRouteStatus"
+          }
+        },
+        "referenceClock": {
+          "$ref": "#/definitions/midiReferenceClock"
+        },
+        "engineClock": {
+          "$ref": "#/definitions/midiEngineClock"
+        }
+      }
+    },
     "supervisionClient": {
       "type": "object",
       "properties": {
@@ -173,6 +1023,16 @@
           "items": {
             "$ref": "#/definitions/supervisionClient"
           }
+        },
+        "midi": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/supervisionMidiObservations"
+            }
+          ]
         }
       },
       "required": [
@@ -260,7 +1120,10 @@
             "processInstance",
             "runtimePid",
             "driverAccess",
-            "wasapiEndpoint"
+            "wasapiEndpoint",
+            "midiApplicationPort",
+            "midiEndpoint",
+            "engineClock"
           ]
         },
         "processId": {
@@ -280,6 +1143,9 @@
         },
         "hardwareIdentity": {
           "type": "null"
+        },
+        "portId": {
+          "type": "string"
         }
       },
       "required": [
@@ -294,7 +1160,30 @@
           "type": "null"
         },
         "midi": {
-          "type": "null"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "protocol"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "protocol": {
+                  "const": "midi1"
+                },
+                "input": {
+                  "type": "boolean"
+                },
+                "output": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ],
+          "description": "null for audio adherents. MIDI adherents are MIDI 1.0 only; application ports report which of In/Out are enabled."
         },
         "sampleRates": {
           "anyOf": [
@@ -348,8 +1237,11 @@
         "kind": {
           "enum": [
             "process",
-            "device"
-          ]
+            "device",
+            "application",
+            "engine"
+          ],
+          "description": "application: an engine-owned MIDI application port (no process identity is claimed). engine: the engine itself, owner of the generated MIDI clock."
         },
         "label": {
           "type": [
@@ -394,7 +1286,10 @@
             "asioClient",
             "asioDevice",
             "wasapiBridge",
-            "nativeDevice"
+            "nativeDevice",
+            "midiApplicationPort",
+            "midiDevice",
+            "midiEngineClock"
           ]
         },
         "resourceId": {
@@ -412,13 +1307,105 @@
             "sources": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/endpoint"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/endpoint"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "direction",
+                      "medium"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "direction": {
+                        "enum": [
+                          "input",
+                          "output",
+                          null
+                        ]
+                      },
+                      "medium": {
+                        "const": "midi"
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "endpointId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                ]
               }
             },
             "sinks": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/endpoint"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/endpoint"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "direction",
+                      "medium"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "direction": {
+                        "enum": [
+                          "input",
+                          "output",
+                          null
+                        ]
+                      },
+                      "medium": {
+                        "const": "midi"
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "endpointId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                ]
               }
             }
           },
@@ -432,6 +1419,9 @@
           "anyOf": [
             {
               "$ref": "#/definitions/wasapiBridgeConfiguration"
+            },
+            {
+              "$ref": "#/definitions/midiVirtualPort"
             },
             {
               "type": "null"
@@ -533,6 +1523,28 @@
               "additionalProperties": false
             },
             {
+              "type": "object",
+              "required": [
+                "inputEndpointId",
+                "outputEndpointId"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "inputEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "outputEndpointId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            {
               "type": "null"
             }
           ]
@@ -565,6 +1577,9 @@
               "$ref": "#/definitions/route"
             },
             {
+              "$ref": "#/definitions/midiRoute"
+            },
+            {
               "type": "null"
             }
           ]
@@ -573,6 +1588,9 @@
           "anyOf": [
             {
               "$ref": "#/definitions/route"
+            },
+            {
+              "$ref": "#/definitions/midiRoute"
             },
             {
               "type": "null"
@@ -608,6 +1626,12 @@
             "string",
             "null"
           ]
+        },
+        "medium": {
+          "enum": [
+            "midi"
+          ],
+          "description": "Present on MIDI links; absent on audio links."
         }
       },
       "required": [
@@ -777,6 +1801,16 @@
             },
             "nativeAudioEnabled": {
               "type": "boolean"
+            },
+            "midi": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/midiConfiguration"
+                }
+              ]
             }
           },
           "required": [
@@ -849,6 +1883,16 @@
                 "null"
               ],
               "description": "Existing supervised PWAR status payload; PID identifies only the current supervisor claim, not a proven process-instance merge."
+            },
+            "midi": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/supervisionMidiObservations"
+                }
+              ]
             }
           },
           "required": [
@@ -875,6 +1919,9 @@
             },
             "diagnostics": {
               "const": "/api/v1/diagnostics"
+            },
+            "midi": {
+              "const": "/api/v1/midi"
             }
           },
           "required": [

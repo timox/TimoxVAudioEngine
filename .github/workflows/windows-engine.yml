@@ -1,0 +1,82 @@
+name: Windows engine MIDI candidate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-engine:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Fetch and verify MIDI metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Join-Path $env:RUNNER_TEMP 'Windows.Devices.Midi2.0.99.92-preview.11.nupkg'
+          Invoke-WebRequest 'https://github.com/microsoft/MIDI/releases/download/inbox-preview-11/Windows.Devices.Midi2.0.99.92-preview.11.nupkg' -OutFile $package
+          $expected = '13afc6e6da2adac309ab8c174352f46f1c0ebe2d79e65475bd6274defb73df74'
+          if ((Get-FileHash $package -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'MIDI SDK checksum mismatch' }
+          $sdk = Join-Path $env:RUNNER_TEMP 'timox-midi-sdk'
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($package, $sdk)
+          "TIMOX_MIDI2_WINMD=$sdk/ref/native/Windows.Devices.Midi2.winmd" >> $env:GITHUB_ENV
+          $cppwinrt = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/cppwinrt.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $cppwinrt) { throw 'Windows SDK cppwinrt.exe is missing' }
+          "TIMOX_CPPWINRT=$($cppwinrt.FullName)" >> $env:GITHUB_ENV
+      - name: Configure MIDI-enabled engine
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $version = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+          $major = ([version]$version).Major
+          $generator = switch ($major) { 18 { 'Visual Studio 18 2026' } 17 { 'Visual Studio 17 2022' } default { throw "Unsupported Visual Studio version: $version" } }
+          cmake -S . -B build -G $generator -A x64 -DTIMOX_ENABLE_WINDOWS_MIDI_SERVICES=ON "-DTIMOX_MIDI2_WINMD=$env:TIMOX_MIDI2_WINMD" "-DTIMOX_CPPWINRT=$env:TIMOX_CPPWINRT"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build engine and isolated tests
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test and verify source provenance
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node verify-import.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/build_metadata_tests.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $receipt = Get-Content build/Release/engine-build.json -Raw | ConvertFrom-Json
+          if ($receipt.dirty -or -not $receipt.windowsMidiServices -or $receipt.revision -ne (git rev-parse HEAD)) { throw 'Engine receipt is not a clean MIDI-enabled build of HEAD' }
+          if ($receipt.binarySha256 -ne (Get-FileHash build/Release/TimoxVirtualAsioEngine.exe -Algorithm SHA256).Hash.ToLowerInvariant()) { throw 'Engine receipt hash mismatch' }
+      - name: Upload verified engine candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: TimoxVAudioEngine-1.3.0-alpha.1-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          path: |
+            build/Release/TimoxVirtualAsioEngine.exe
+            build/Release/engine-build.json
+            build/Release/openapi-v1.json
+            build/Release/schemas/
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-engine-diagnostics-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/Testing/Temporary/LastTest.log
