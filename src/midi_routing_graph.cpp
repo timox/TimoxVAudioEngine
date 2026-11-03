@@ -45,10 +45,12 @@ bool MidiRoutingGraph::ValidateRoute(const MidiRoute& route, std::string& error)
 MidiRoutingGraph::MidiRoutingGraph(std::size_t portCount, std::size_t routeCount)
     : portCount_(portCount), active_(routeCount, false), bySource_(portCount),
       forwarded_(new std::atomic<std::uint64_t>[routeCount == 0 ? 1 : routeCount]),
-      filtered_(new std::atomic<std::uint64_t>[routeCount == 0 ? 1 : routeCount]) {
+      filtered_(new std::atomic<std::uint64_t>[routeCount == 0 ? 1 : routeCount]),
+      channelForwarded_(new std::array<std::atomic<std::uint64_t>, 16>[routeCount == 0 ? 1 : routeCount]) {
     for (std::size_t i = 0; i < routeCount; ++i) {
         forwarded_[i].store(0, std::memory_order_relaxed);
         filtered_[i].store(0, std::memory_order_relaxed);
+        for (auto& count : channelForwarded_[i]) count.store(0, std::memory_order_relaxed);
     }
 }
 
@@ -131,6 +133,8 @@ void MidiRoutingGraph::ProcessMessage(std::size_t sourceIndex, const std::uint32
         for (std::size_t i = 1; i < count; ++i) output[i] = words[i];
         sink.Send(route.destinationIndex, output.data(), count);
         forwarded_[route.routeIndex].fetch_add(1, std::memory_order_relaxed);
+        if (channelVoice)
+            channelForwarded_[route.routeIndex][midi_ump::Channel(word0)].fetch_add(1, std::memory_order_relaxed);
     }
 }
 
@@ -144,4 +148,9 @@ std::uint64_t MidiRoutingGraph::Forwarded(std::size_t routeIndex) const noexcept
 
 std::uint64_t MidiRoutingGraph::Filtered(std::size_t routeIndex) const noexcept {
     return routeIndex < routeIds_.size() ? filtered_[routeIndex].load(std::memory_order_relaxed) : 0;
+}
+
+std::uint64_t MidiRoutingGraph::ChannelForwarded(std::size_t routeIndex, std::uint8_t channel) const noexcept {
+    return routeIndex < routeIds_.size() && channel < 16
+        ? channelForwarded_[routeIndex][channel].load(std::memory_order_relaxed) : 0;
 }

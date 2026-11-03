@@ -1056,6 +1056,21 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             status.active = runtime->graph->RouteActive(i);
             status.forwarded = runtime->graph->Forwarded(i);
             status.filtered = runtime->graph->Filtered(i);
+            std::uint64_t best = 0;
+            bool tie = false;
+            for (std::uint8_t channel = 0; channel < 16; ++channel) {
+                const auto count = runtime->graph->ChannelForwarded(i, channel);
+                if (count > best) {
+                    best = count;
+                    status.dominantChannel = channel;
+                    tie = false;
+                } else if (count > 0 && count == best) {
+                    tie = true;
+                }
+            }
+            status.dominantChannelMessages = best;
+            status.dominantChannelTie = tie;
+            if (tie) status.dominantChannel.reset();
         }
         const auto reclocker = reclockers_.find(status.id);
         if (reclocker != reclockers_.end()) status.reclocked = reclocker->second->emitted.load(std::memory_order_relaxed);

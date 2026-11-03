@@ -92,6 +92,9 @@ struct MidiRouteStatus {
     std::uint64_t forwarded = 0;
     std::uint64_t filtered = 0;
     std::uint64_t reclocked = 0;  // clock ticks re-emitted on the card grid
+    std::optional<std::uint8_t> dominantChannel; // 0-based source channel, null before traffic or on a tie
+    std::uint64_t dominantChannelMessages = 0;
+    bool dominantChannelTie = false;
 };
 
 // Reference clock used for MIDI timing: the clock that paces the audio graph.

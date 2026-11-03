@@ -875,6 +875,24 @@
           "type": "integer",
           "minimum": 0,
           "description": "Clock ticks re-emitted on the sound card grid (reclock routes)."
+        },
+        "dominantChannel": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 16,
+          "description": "1-based source MIDI channel carrying the most forwarded channel-voice messages; null before traffic or when channels tie."
+        },
+        "dominantChannelMessages": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Forwarded channel-voice messages counted on dominantChannel."
+        },
+        "dominantChannelTie": {
+          "type": "boolean",
+          "description": "True when two or more channels share the highest forwarded count; no dominant color is selected."
         }
       }
     },

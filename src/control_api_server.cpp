@@ -1104,7 +1104,9 @@ struct ControlApiServer::Impl {
         Json routes = Json::array();
         for (const auto& route : snapshot.routes)
             routes.push_back({{"id", route.id}, {"active", route.active},
-                {"forwarded", route.forwarded}, {"filtered", route.filtered}, {"reclocked", route.reclocked}});
+                {"forwarded", route.forwarded}, {"filtered", route.filtered}, {"reclocked", route.reclocked},
+                {"dominantChannel", route.dominantChannel ? Json(*route.dominantChannel + 1) : Json(nullptr)},
+                {"dominantChannelMessages", route.dominantChannelMessages}, {"dominantChannelTie", route.dominantChannelTie}});
         auto configuration = Json::parse(midi_patchbay_json::Encode(snapshot.configuration));
         configuration.erase("version");
         return Json{{"available", snapshot.available},

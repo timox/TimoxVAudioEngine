@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -60,6 +61,7 @@ public:
     bool RouteActive(std::size_t routeIndex) const noexcept;
     std::uint64_t Forwarded(std::size_t routeIndex) const noexcept;
     std::uint64_t Filtered(std::size_t routeIndex) const noexcept;
+    std::uint64_t ChannelForwarded(std::size_t routeIndex, std::uint8_t channel) const noexcept;
 
 private:
     struct CompiledRoute {
@@ -82,4 +84,5 @@ private:
     std::vector<std::vector<CompiledRoute>> bySource_;
     std::unique_ptr<std::atomic<std::uint64_t>[]> forwarded_;
     std::unique_ptr<std::atomic<std::uint64_t>[]> filtered_;
+    std::unique_ptr<std::array<std::atomic<std::uint64_t>, 16>[]> channelForwarded_;
 };

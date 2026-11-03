@@ -64,6 +64,7 @@ bool testChannelFilterRemapAndTranspose() {
     CHECK(sink.sent.size() == 1);
     CHECK(sink.sent[0].words[0] == midi1(0, 0x9, 9, 72, 100));
     CHECK(graph->Filtered(0) == 1);
+    CHECK(graph->ChannelForwarded(0, 0) == 1 && graph->ChannelForwarded(0, 1) == 0);
     // Transposed out of range: dropped for note on and note off alike.
     const std::uint32_t high[] = {midi1(0, 0x9, 0, 120, 1), midi1(0, 0x8, 0, 120, 0)};
     graph->Process(0, high, 2, sink);
