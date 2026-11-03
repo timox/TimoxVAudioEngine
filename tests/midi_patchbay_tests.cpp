@@ -334,6 +334,31 @@ const MidiPortStatus* findPort(const MidiPatchbaySnapshot& snapshot, const std::
     return nullptr;
 }
 
+bool testEndpointMetadataReachesSnapshot() {
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    state.endpoints[2].framework = "windows-midi-services";
+    state.endpoints[2].manufacturer = "ALLEN&HEATH LTD.";
+    state.endpoints[2].serialNumber = "53514F8F";
+    state.endpoints[2].vendorId = "0x22F0";
+    state.endpoints[2].productId = "0x002B";
+    state.endpoints[2].nativeDataFormat = "MIDI 1.0 Byte Format";
+    state.endpoints[2].supportsMultiClient = true;
+    state.endpoints[2].activeClients = 5;
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("endpoint-metadata.json"));
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    std::string error;
+    CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[
+        {"id":"multi-route","source":"midi:port:1:usb-multi","destination":"midi:port:2:usb-multi"}]})", configuration, error));
+    CHECK(patchbay.Apply(configuration).success);
+    const auto port = findPort(patchbay.Snapshot(), "midi:port:1:usb-multi");
+    CHECK(port && port->framework == "windows-midi-services" && port->endpointTransport == "KS");
+    CHECK(port->manufacturer == "ALLEN&HEATH LTD." && port->nativeDataFormat == "MIDI 1.0 Byte Format");
+    CHECK(port->supportsMultiClient && port->activeClients == 5);
+    return true;
+}
+
 bool testClockIsToldApartFromActivity() {
     FakeBackend::State state;
     state.endpoints = endpoints();
@@ -638,6 +663,7 @@ int main() {
     ok &= testIncomingClockIsReclockedOnTheCardGrid();
     ok &= testEngineClockNeverFallsBackToWindowsTime();
     ok &= testValidation();
+    ok &= testEndpointMetadataReachesSnapshot();
     if (!ok) return 1;
     std::puts("MidiPatchbayTests passed");
     return 0;

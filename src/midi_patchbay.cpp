@@ -957,6 +957,15 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             status.kind = "port";
             status.endpointId = endpoint.endpointId;
             status.endpointName = endpoint.name;
+            status.framework = endpoint.framework;
+            status.endpointTransport = endpoint.transport;
+            status.manufacturer = endpoint.manufacturer;
+            status.serialNumber = endpoint.serialNumber;
+            status.vendorId = endpoint.vendorId;
+            status.productId = endpoint.productId;
+            status.nativeDataFormat = endpoint.nativeDataFormat;
+            status.supportsMultiClient = endpoint.supportsMultiClient;
+            status.activeClients = endpoint.activeClients;
             status.group = port.group + 1;
             status.source = port.source;
             status.destination = port.destination;

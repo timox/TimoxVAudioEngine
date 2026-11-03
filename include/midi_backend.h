@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,14 @@ struct MidiEndpointInfo {
     std::string name;
     std::string transport;    // informational
     std::vector<Midi1PortInfo> ports;
+    std::string framework = "windows-midi-services";
+    std::string manufacturer;
+    std::string serialNumber;
+    std::string vendorId;
+    std::string productId;
+    std::string nativeDataFormat;
+    bool supportsMultiClient = false;
+    std::optional<std::uint32_t> activeClients;
 };
 
 // Platform MIDI access used by MidiPatchbay. Every connection is identified by

@@ -43,7 +43,8 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "MIDI backend: windows-midi-services means the modern Windows MIDI Services / Windows.Devices.Midi2 framework. The legacy Windows.Devices.Midi, WinMM and DirectMusic APIs are not used."
         },
         "error": {
           "type": [
@@ -626,6 +627,65 @@
             "string",
             "null"
           ]
+        },
+        "framework": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "MIDI framework that owns the endpoint. Native and loopback endpoints use Windows MIDI Services / Windows.Devices.Midi2; this is never the legacy Windows.Devices.Midi or WinMM API."
+        },
+        "transport": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Windows MIDI Services transport code, for example KS or LOOP."
+        },
+        "manufacturer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serialNumber": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "productId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nativeDataFormat": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supportsMultiClient": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Whether Windows MIDI Services reports that multiple client sessions can open this endpoint. Null means unavailable, not false."
+        },
+        "activeClients": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Number of active endpoint clients when session enumeration is available; null means not enumerated."
         },
         "group": {
           "type": "integer",

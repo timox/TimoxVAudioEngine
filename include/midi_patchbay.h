@@ -45,6 +45,15 @@ struct MidiPortStatus {
     std::string kind;              // "virtual" or "port"
     std::string endpointId;        // "port" only
     std::string endpointName;      // "port" only
+    std::string framework;         // modern Windows MIDI Services framework
+    std::string endpointTransport; // Windows MIDI Services transport code
+    std::string manufacturer;
+    std::string serialNumber;
+    std::string vendorId;
+    std::string productId;
+    std::string nativeDataFormat;
+    bool supportsMultiClient = false;
+    std::optional<std::uint32_t> activeClients;
     int group = 1;                 // 1-based UMP group carrying this MIDI 1.0 port
     bool source = false;           // usable as a route source (MIDI In)
     bool destination = false;      // usable as a route destination (MIDI Out)

@@ -24,6 +24,7 @@ std::unique_ptr<MidiBackend> CreateWindowsMidiServicesBackend(std::string& unava
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Devices.Midi2.h>
 #include <winrt/Windows.Devices.Midi2.Enumeration.h>
+#include <winrt/Windows.Devices.Midi2.Reporting.h>
 #include <winrt/Windows.Devices.Midi2.Transports.BasicLoopback.h>
 
 #include <condition_variable>
@@ -72,6 +73,20 @@ std::string describe(const winrt::hresult_error& error) {
     std::snprintf(code, sizeof(code), "0x%08X", static_cast<unsigned>(error.code().value));
     const auto message = utf8(error.message());
     return message.empty() ? std::string("Windows MIDI Services error ") + code : message + " (" + code + ")";
+}
+
+std::string hex16(std::uint16_t value) {
+    char text[7];
+    std::snprintf(text, sizeof(text), "0x%04X", value);
+    return text;
+}
+
+std::string nativeDataFormat(MidiEndpointNativeDataFormat format) {
+    switch (format) {
+    case MidiEndpointNativeDataFormat::Midi1ByteFormat: return "MIDI 1.0 Byte Format";
+    case MidiEndpointNativeDataFormat::UniversalMidiPacketFormat: return "Universal MIDI Packet Format";
+    default: return {};
+    }
 }
 
 // All control calls run on one MTA thread so WinRT objects are never created
@@ -169,7 +184,24 @@ public:
                     // MIDI 1.0 devices only: native UMP (MIDI 2.0) endpoints are skipped.
                     if (!MidiEndpointDeviceInformation::DeviceMatchesFilter(device,
                             MidiEndpointDeviceInformationFilters::StandardNativeMidi1ByteFormat)) continue;
-                    MidiEndpointInfo endpoint{utf8(id), utf8(device.Name()), "UMP", Midi1Ports(device)};
+                    const auto transport = device.GetTransportSuppliedInfo();
+                    MidiEndpointInfo endpoint{utf8(id), utf8(device.Name()),
+                        transport ? utf8(transport.TransportCode()) : std::string{}, Midi1Ports(device)};
+                    endpoint.framework = "windows-midi-services";
+                    if (transport) {
+                        endpoint.manufacturer = utf8(transport.ManufacturerName());
+                        endpoint.serialNumber = utf8(transport.SerialNumber());
+                        endpoint.vendorId = hex16(transport.VendorId());
+                        endpoint.productId = hex16(transport.ProductId());
+                        endpoint.nativeDataFormat = nativeDataFormat(transport.NativeDataFormat());
+                        endpoint.supportsMultiClient = transport.SupportsMultiClient();
+                    }
+                    try {
+         endpoint.activeClients = static_cast<std::uint32_t>(
+         winrt::Windows::Devices::Midi2::Reporting::MidiReporting::FindAllSessionsWithMatchingOpenUmpEndpoint(id, true).Size());
+                    } catch (...) {
+                        endpoint.activeClients = std::nullopt;
+                    }
                     if (!endpoint.ports.empty()) endpoints.push_back(std::move(endpoint));
                 }
                 ok = true;
