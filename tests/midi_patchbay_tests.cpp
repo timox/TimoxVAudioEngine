@@ -352,7 +352,8 @@ bool testEndpointMetadataReachesSnapshot() {
     CHECK(midi_patchbay_json::Decode(R"({"virtualPorts":[],"routes":[
         {"id":"multi-route","source":"midi:port:1:usb-multi","destination":"midi:port:2:usb-multi"}]})", configuration, error));
     CHECK(patchbay.Apply(configuration).success);
-    const auto port = findPort(patchbay.Snapshot(), "midi:port:1:usb-multi");
+    const auto snapshot = patchbay.Snapshot();
+    const auto port = findPort(snapshot, "midi:port:1:usb-multi");
     CHECK(port && port->framework == "windows-midi-services" && port->endpointTransport == "KS");
     CHECK(port->manufacturer == "ALLEN&HEATH LTD." && port->nativeDataFormat == "MIDI 1.0 Byte Format");
     CHECK(port->supportsMultiClient && port->activeClients == 5);
