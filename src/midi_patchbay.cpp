@@ -164,6 +164,26 @@ enum Transport : int { TransportNone = 0, TransportStart, TransportContinue, Tra
 bool isClockTick(std::uint32_t word0) noexcept {
     return midi_ump::Type(word0) == 0x1 && ((word0 >> 16) & 0xFF) == 0xF8;
 }
+
+MidiClockLearnBinding learnBinding(const std::string& portId, std::uint32_t word) {
+    const auto rawStatus = static_cast<std::uint8_t>((word >> 16) & 0xFF);
+    MidiClockLearnBinding result;
+    result.portId = portId;
+    result.status = midi_ump::IsChannelVoice(word) ? rawStatus & 0xF0 : rawStatus;
+    if (midi_ump::IsChannelVoice(word)) result.channel = rawStatus & 0x0F;
+    result.data1 = static_cast<std::uint8_t>((word >> 8) & 0xFF);
+    result.data2 = static_cast<std::uint8_t>(word & 0xFF);
+    return result;
+}
+
+bool matchesLearnBinding(const MidiClockLearnBinding& binding, std::uint32_t word) noexcept {
+    if (midi_ump::Type(word) != 0x1 && midi_ump::Type(word) != 0x2) return false;
+    const auto rawStatus = static_cast<std::uint8_t>((word >> 16) & 0xFF);
+    const auto status = midi_ump::IsChannelVoice(word) ? rawStatus & 0xF0 : rawStatus;
+    if (status != binding.status || (binding.channel && (*binding.channel != (rawStatus & 0x0F)))) return false;
+    if (static_cast<std::uint8_t>((word >> 8) & 0xFF) != binding.data1) return false;
+    return !binding.data2 || static_cast<std::uint8_t>(word & 0xFF) == *binding.data2;
+}
 }
 
 struct MidiPatchbay::PortCounters {
@@ -359,6 +379,27 @@ struct PresentPort {
 }
 
 namespace midi_patchbay_json {
+bool decodeLearnBinding(const Json& value, MidiClockLearnBinding& binding, std::string& error) {
+    if (!value.is_object() || !value.contains("port") || !value["port"].is_string() ||
+        !value.contains("status") || !value["status"].is_number_integer() ||
+        !value.contains("data1") || !value["data1"].is_number_integer()) {
+        error = "MIDI clock learn binding requires port, status and data1";
+        return false;
+    }
+    binding.portId = value["port"].get<std::string>();
+    binding.status = value["status"].get<std::uint8_t>();
+    binding.data1 = value["data1"].get<std::uint8_t>();
+    if (value.contains("channel") && !value["channel"].is_null()) binding.channel = value["channel"].get<std::uint8_t>();
+    if (value.contains("data2") && !value["data2"].is_null()) binding.data2 = value["data2"].get<std::uint8_t>();
+    return true;
+}
+
+Json encodeLearnBinding(const MidiClockLearnBinding& binding) {
+    return {{"port", binding.portId}, {"status", binding.status},
+        {"channel", binding.channel ? Json(*binding.channel) : Json(nullptr)}, {"data1", binding.data1},
+        {"data2", binding.data2 ? Json(*binding.data2) : Json(nullptr)}};
+}
+
 bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, std::string& error) {
     Json body;
     try {
@@ -403,11 +444,28 @@ bool Decode(const std::string& text, MidiPatchbayConfiguration& configuration, s
     }
     if (body.contains("engineClock")) {
         const auto& clock = body["engineClock"];
-        if (!clock.is_object() || clock.size() != 1 || !clock.contains("bpm") || !clock["bpm"].is_number()) {
-            error = "engineClock requires only a numeric bpm";
+        if (!clock.is_object() || !clock.contains("bpm") || !clock["bpm"].is_number()) {
+            error = "engineClock requires a numeric bpm";
             return false;
         }
         decoded.engineClockBpm = clock["bpm"].get<double>();
+        for (const auto& entry : clock.items()) {
+            if (entry.key() == "bpm") continue;
+            if (entry.key() == "mode" && entry.value().is_string()) decoded.engineClockMode = entry.value().get<std::string>();
+            else if (entry.key() == "source" && (entry.value().is_null() || entry.value().is_string()))
+                decoded.engineClockSource = entry.value().is_string() ? entry.value().get<std::string>() : std::string{};
+            else if (entry.key() == "learn" && entry.value().is_object()) {
+                for (const auto& signal : entry.value().items()) {
+                    if (signal.key() != "beat" && signal.key() != "start" && signal.key() != "stop" && signal.key() != "continue") {
+                        error = "engineClock learn slots must be beat, start, stop or continue"; return false;
+                    }
+                    MidiClockLearnBinding binding;
+                    if (!decodeLearnBinding(signal.value(), binding, error)) return false;
+                    decoded.engineClockLearn[signal.key()] = std::move(binding);
+                }
+            }
+            else { error = "engineClock accepts bpm, mode and source"; return false; }
+        }
     }
     configuration = std::move(decoded);
     return true;
@@ -419,8 +477,12 @@ std::string Encode(const MidiPatchbayConfiguration& configuration) {
         ports.push_back({{"id", port.id}, {"name", port.name}, {"input", port.input}, {"output", port.output}});
     Json routes = Json::array();
     for (const auto& route : configuration.routes) routes.push_back(encodeRoute(route));
+    Json learn = Json::object();
+    for (const auto& entry : configuration.engineClockLearn) learn[entry.first] = encodeLearnBinding(entry.second);
     return Json{{"version", 1}, {"virtualPorts", std::move(ports)}, {"routes", std::move(routes)},
-        {"engineClock", {{"bpm", configuration.engineClockBpm}}}}.dump(2);
+        {"engineClock", {{"bpm", configuration.engineClockBpm}, {"mode", configuration.engineClockMode},
+            {"source", configuration.engineClockSource.empty() ? Json(nullptr) : Json(configuration.engineClockSource)},
+            {"learn", std::move(learn)}}}}.dump(2);
 }
 }
 
@@ -430,6 +492,9 @@ struct MidiPatchbay::Runtime {
     std::vector<PortTarget<PortCounters>> targets;                  // by port index
     std::vector<std::shared_ptr<PortCounters>> counters;            // by port index
     std::vector<std::string> routeIds;
+    std::vector<std::string> portIds;
+    std::optional<std::size_t> externalClockIndex;
+    std::map<std::string, MidiClockLearnBinding> learnBindings;
     std::size_t engineClockIndex = 0;
     struct ReclockTarget { std::size_t destination; std::shared_ptr<Reclocker> reclocker; };
     std::vector<std::vector<ReclockTarget>> reclocks;               // by source port index
@@ -505,6 +570,28 @@ bool MidiPatchbay::Validate(const MidiPatchbayConfiguration& configuration, std:
     }
     if (!(configuration.engineClockBpm >= 20.0 && configuration.engineClockBpm <= 300.0)) {
         error = "The engine clock tempo must be between 20 and 300 BPM";
+        return false;
+    }
+    if (configuration.engineClockMode != "manual" && configuration.engineClockMode != "midi-clock" &&
+        configuration.engineClockMode != "midi-learn") {
+        error = "The engine clock mode must be manual, midi-clock or midi-learn";
+        return false;
+    }
+    if (configuration.engineClockMode == "midi-clock") {
+        std::uint8_t group = 0;
+        std::string endpoint;
+        if (!ParsePortId(configuration.engineClockSource, group, endpoint)) {
+            error = "The midi-clock engine mode requires a native MIDI source port";
+            return false;
+        }
+    } else if (configuration.engineClockMode == "manual" && !configuration.engineClockSource.empty()) {
+        error = "The manual engine clock cannot have an external MIDI source";
+        return false;
+    }
+    if (configuration.engineClockMode == "midi-learn" &&
+        (!configuration.engineClockLearn.count("beat") || !configuration.engineClockLearn.count("start") ||
+         !configuration.engineClockLearn.count("stop"))) {
+        error = "The MIDI Learn clock requires beat, start and stop signals";
         return false;
     }
     for (const auto& route : configuration.routes) {
@@ -647,6 +734,24 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
             if (!startsWith(*portId, kVirtualPrefix) && *portId != kEngineClockPort)
                 wantedEndpoints.insert(present.at(*portId).endpointId);
     }
+    if (configuration.engineClockMode == "midi-clock") {
+        const auto source = present.find(configuration.engineClockSource);
+        if (source == present.end() || !source->second.source) {
+            return {false, "The external MIDI clock source is not available"};
+        }
+        wantedEndpoints.insert(source->second.endpointId);
+    }
+    if (configuration.engineClockMode == "midi-learn") {
+        for (const auto& binding : configuration.engineClockLearn) {
+            const auto source = present.find(binding.second.portId);
+            if (source == present.end() || !source->second.source)
+                return {false, "The MIDI Learn source is not available"};
+            wantedEndpoints.insert(source->second.endpointId);
+        }
+    }
+    if (learningArmed_.load(std::memory_order_acquire))
+        for (const auto& entry : present)
+            if (entry.second.source) wantedEndpoints.insert(entry.second.endpointId);
 
     std::map<std::string, OpenConnection> next;
     std::vector<std::uint64_t> created;
@@ -733,6 +838,18 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         return {false, error};
     }
     for (const auto& route : configuration.routes) runtime->routeIds.push_back(route.id);
+    runtime->portIds = ports;
+    if (configuration.engineClockMode == "midi-clock") {
+        const auto source = std::find(ports.begin(), ports.end(), configuration.engineClockSource);
+        if (source != ports.end()) runtime->externalClockIndex = static_cast<std::size_t>(source - ports.begin());
+        else { rollback(); return {false, "The external MIDI clock source is not available"}; }
+    }
+    if (configuration.engineClockMode == "midi-learn") {
+        runtime->learnBindings = configuration.engineClockLearn;
+        const auto source = std::find(ports.begin(), ports.end(), configuration.engineClockLearn.at("beat").portId);
+        if (source != ports.end()) runtime->externalClockIndex = static_cast<std::size_t>(source - ports.begin());
+        else { rollback(); return {false, "The MIDI Learn beat source is not available"}; }
+    }
     // Reclocked routes: their clock ticks are re-emitted on the card grid.
     runtime->reclocks.resize(ports.size());
     const auto indexOf = [&](const std::string& portId) {
@@ -763,6 +880,11 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
     endpointErrors_ = std::move(errors);
     configuration_ = configuration;
     { std::lock_guard<std::mutex> clockLock(clockMutex_); clockBpm_ = configuration.engineClockBpm; }
+    if (configuration.engineClockMode != "midi-clock" && configuration.engineClockMode != "midi-learn") {
+        externalClockLastTickNs_.store(0, std::memory_order_relaxed);
+        externalClockBpm_.store(0, std::memory_order_relaxed);
+        externalClockRunning_.store(false, std::memory_order_relaxed);
+    }
     return {true, {}};
 }
 
@@ -791,7 +913,38 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
     const auto steady = steadyNs_(), wall = unixMs_();
     const auto mapping = timebase_->Current();
     const double card = mapping.CardSeconds(steady);
-    runtime.counters[source->second]->Observe(words[0], steady, wall, card);
+    auto& sourceCounters = runtime.counters[source->second];
+    sourceCounters->Observe(words[0], steady, wall, card);
+    if (learningArmed_.load(std::memory_order_relaxed) && source->second < runtime.portIds.size()) {
+        std::lock_guard<std::mutex> lock(learnMutex_);
+        if (!learningSlot_.empty() && !pendingLearn_)
+            pendingLearn_ = learnBinding(runtime.portIds[source->second], words[0]);
+    }
+    if (runtime.externalClockIndex && *runtime.externalClockIndex == source->second) {
+        const auto status = midi_ump::Type(words[0]) == 0x1 ? static_cast<int>((words[0] >> 16) & 0xFF) : 0;
+        const auto lastSent = sourceCounters->lastClockSentSteadyNs.load(std::memory_order_relaxed);
+        const bool echoed = lastSent > 0 && steady - lastSent <= 20'000'000;
+        const bool learned = !runtime.learnBindings.empty();
+        const bool beat = learned ? matchesLearnBinding(runtime.learnBindings.at("beat"), words[0]) : status == 0xF8;
+        const bool start = learned ? matchesLearnBinding(runtime.learnBindings.at("start"), words[0]) : status == 0xFA;
+        const bool stop = learned ? matchesLearnBinding(runtime.learnBindings.at("stop"), words[0]) : status == 0xFC;
+        const bool continueClock = learned && runtime.learnBindings.count("continue")
+            ? matchesLearnBinding(runtime.learnBindings.at("continue"), words[0]) : status == 0xFB;
+        if (!echoed && beat) {
+            const auto previous = externalClockPreviousTickNs_.exchange(steady, std::memory_order_relaxed);
+            externalClockLastTickNs_.store(steady, std::memory_order_relaxed);
+            const auto bpm = learned && previous > 0 ? 60'000'000'000.0 / static_cast<double>(steady - previous)
+                : sourceCounters->MeasuredBpm();
+            if (bpm >= 20.0 && bpm <= 300.0) externalClockBpm_.store(bpm, std::memory_order_relaxed);
+        } else if (!echoed && (start || continueClock || stop)) {
+            const bool running = !stop;
+            externalClockTransport_.store(start ? TransportStart : continueClock ? TransportContinue : TransportStop,
+                std::memory_order_relaxed);
+            externalClockRunning_.store(running, std::memory_order_relaxed);
+            const std::uint32_t emitted = start ? 0x10FA0000u : continueClock ? 0x10FB0000u : 0x10FC0000u;
+            EmitEngineClock(runtime, emitted, 0);
+        }
+    }
     BackendSink<PortCounters> sink(*backend_, runtime.targets, steady, wall);
     runtime.graph->Process(source->second, words, count, sink);
 
@@ -830,6 +983,20 @@ void MidiPatchbay::PumpClock(std::int64_t hostNs) {
         runtime = runtime_;
     }
     std::lock_guard<std::mutex> clockLock(clockMutex_);
+    if (!runtime || !backend_) return;
+    const bool external = runtime->externalClockIndex.has_value();
+    if (external) {
+        const auto last = externalClockLastTickNs_.load(std::memory_order_relaxed);
+        const bool timedOut = last == 0 || steadyNs_() - last > kClockTimeoutNs;
+        clockRunning_ = externalClockRunning_.load(std::memory_order_relaxed) && !timedOut;
+        const auto bpm = externalClockBpm_.load(std::memory_order_relaxed);
+        if (bpm >= 20.0 && bpm <= 300.0) clockBpm_ = bpm;
+        if (timedOut) clockWaiting_ = false;
+        const auto transport = externalClockTransport_.load(std::memory_order_relaxed);
+        if (transport == TransportStart) clockTransport_ = "start";
+        else if (transport == TransportContinue) clockTransport_ = "continue";
+        else if (transport == TransportStop) clockTransport_ = "stop";
+    }
     if (!clockRunning_ || !runtime || !backend_) return;
     // Ticks are only ever placed on the reference clock's samples. Without a
     // running reference clock it waits; Windows timers are never used instead.
@@ -851,7 +1018,8 @@ void MidiPatchbay::PumpClock(std::int64_t hostNs) {
     }
 }
 
-MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const std::string& transport) {
+MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const std::string& transport,
+                                             std::optional<std::string> source) {
     if (bpm && !(*bpm >= 20.0 && *bpm <= 300.0)) return {false, "The engine clock tempo must be between 20 and 300 BPM"};
     if (!transport.empty() && transport != "start" && transport != "stop" && transport != "continue")
         return {false, "transport must be start, stop or continue"};
@@ -859,6 +1027,29 @@ MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const st
         return {false, "No reference clock is running: start audio on an ASIO driver or on the software clock"};
     std::lock_guard<std::mutex> lock(controlMutex_);
     if (!backend_) return {false, unavailableReason_};
+    if (source && !source->empty() && !transport.empty())
+        return {false, "Select the external MIDI clock source before starting its transport"};
+    if (source) {
+        auto next = configuration_;
+        next.engineClockSource = *source;
+        next.engineClockMode = source->empty() ? "manual" : "midi-clock";
+        const auto applied = ApplyLocked(next);
+        if (!applied.success) return applied;
+        std::string error;
+        if (!Save(next, error)) return {false, "The clock source could not be saved: " + error};
+        externalClockLastTickNs_.store(0, std::memory_order_relaxed);
+        externalClockPreviousTickNs_.store(0, std::memory_order_relaxed);
+        externalClockBpm_.store(0, std::memory_order_relaxed);
+        externalClockRunning_.store(false, std::memory_order_relaxed);
+        {
+            std::lock_guard<std::mutex> clockLock(clockMutex_);
+            clockRunning_ = false;
+            clockTransport_ = "";
+        }
+        return {true, {}};
+    }
+    if (configuration_.engineClockMode == "midi-clock" && !transport.empty())
+        return {false, "The engine clock is controlled by the external MIDI clock source"};
     if (bpm) {
         auto next = configuration_;
         next.engineClockBpm = *bpm;
@@ -890,6 +1081,54 @@ MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const st
         }
     }
     clockThreadWake_.notify_all();
+    return {true, {}};
+}
+
+MidiApplyResult MidiPatchbay::BeginMidiClockLearn(const std::string& slot) {
+    if (slot != "beat" && slot != "start" && slot != "stop" && slot != "continue")
+        return {false, "MIDI Learn slot must be beat, start, stop or continue"};
+    {
+        std::lock_guard<std::mutex> lock(learnMutex_);
+        learningSlot_ = slot;
+        pendingLearn_.reset();
+        learningArmed_.store(true, std::memory_order_release);
+    }
+    std::lock_guard<std::mutex> controlLock(controlMutex_);
+    if (!backend_) return {false, unavailableReason_};
+    const auto applied = ApplyLocked(configuration_);
+    if (!applied.success) return applied;
+    return {true, {}};
+}
+
+MidiApplyResult MidiPatchbay::CommitMidiClockLearn(const std::string& slot) {
+    std::optional<MidiClockLearnBinding> captured;
+    {
+        std::lock_guard<std::mutex> lock(learnMutex_);
+        if (learningSlot_ != slot || !pendingLearn_) return {false, "No captured MIDI Learn signal is waiting"};
+        captured = pendingLearn_;
+    }
+    auto next = configuration_;
+    next.engineClockLearn[slot] = *captured;
+    if (next.engineClockLearn.count("beat") && next.engineClockLearn.count("start") && next.engineClockLearn.count("stop")) {
+        next.engineClockMode = "midi-learn";
+        next.engineClockSource.clear();
+    }
+    std::string error;
+    const auto applied = Apply(next, false);
+    if (!applied.success) return applied;
+    if (!Save(next, error)) return {false, "The MIDI Learn signal could not be saved: " + error};
+    std::lock_guard<std::mutex> lock(learnMutex_);
+    learningSlot_.clear();
+    pendingLearn_.reset();
+    learningArmed_.store(false, std::memory_order_release);
+    return {true, {}};
+}
+
+MidiApplyResult MidiPatchbay::CancelMidiClockLearn() {
+    std::lock_guard<std::mutex> lock(learnMutex_);
+    learningSlot_.clear();
+    pendingLearn_.reset();
+    learningArmed_.store(false, std::memory_order_release);
     return {true, {}};
 }
 
@@ -1034,6 +1273,17 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         snapshot.engineClock.waitingForReferenceClock = clockRunning_ && (clockWaiting_ || !mapping.referenceRunning);
         snapshot.engineClock.ticks = clockTicks_;
         snapshot.engineClock.transport = clockTransport_;
+    snapshot.engineClock.mode = configuration_.engineClockMode;
+    snapshot.engineClock.source = configuration_.engineClockSource;
+    snapshot.engineClock.locked = (configuration_.engineClockMode == "midi-clock" || configuration_.engineClockMode == "midi-learn") &&
+        externalClockBpm_.load(std::memory_order_relaxed) >= 20.0 &&
+        externalClockLastTickNs_.load(std::memory_order_relaxed) != 0;
+    snapshot.engineClock.learnedSignals = configuration_.engineClockLearn;
+    {
+        std::lock_guard<std::mutex> learnLock(learnMutex_);
+        snapshot.engineClock.learningSlot = learningSlot_;
+        if (pendingLearn_ && !learningSlot_.empty()) snapshot.engineClock.learnedSignals[learningSlot_] = *pendingLearn_;
+    }
     }
     if (backend_) {
         // The engine clock port reports the clock it generates, like a received clock.

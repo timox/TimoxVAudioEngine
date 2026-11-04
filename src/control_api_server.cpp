@@ -1122,7 +1122,15 @@ struct ControlApiServer::Impl {
             {"engineClock", {{"bpm", snapshot.engineClock.bpm}, {"running", snapshot.engineClock.running},
                 {"waitingForReferenceClock", snapshot.engineClock.waitingForReferenceClock},
                 {"ticks", snapshot.engineClock.ticks},
-                {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)}}}};
+                {"transport", snapshot.engineClock.transport.empty() ? Json(nullptr) : Json(snapshot.engineClock.transport)},
+                {"mode", snapshot.engineClock.mode},
+                {"source", snapshot.engineClock.source.empty() ? Json(nullptr) : Json(snapshot.engineClock.source)},
+                {"locked", snapshot.engineClock.locked},
+                {"learningSlot", snapshot.engineClock.learningSlot.empty() ? Json(nullptr) : Json(snapshot.engineClock.learningSlot)},
+                {"learnedSignals", [&] { Json result = Json::object(); for (const auto& item : snapshot.engineClock.learnedSignals)
+                    result[item.first] = {{"port", item.second.portId}, {"status", item.second.status},
+                        {"channel", item.second.channel ? Json(*item.second.channel) : Json(nullptr)},
+                        {"data1", item.second.data1}, {"data2", item.second.data2 ? Json(*item.second.data2) : Json(nullptr)}}; return result; }()}}}};
     }
 
     void configureMidiRoutes() {
@@ -1147,23 +1155,25 @@ struct ControlApiServer::Impl {
             }
             std::optional<double> bpm;
             std::string transport;
+            std::optional<std::string> source;
             try {
                 const auto body = Json::parse(request.body);
-                bool valid = body.is_object() && !body.empty() && body.size() <= 2;
+                bool valid = body.is_object() && !body.empty() && body.size() <= 3;
                 if (valid) for (const auto& entry : body.items()) {
                     if (entry.key() == "bpm" && entry.value().is_number()) bpm = entry.value().get<double>();
                     else if (entry.key() == "transport" && entry.value().is_string()) transport = entry.value().get<std::string>();
+                    else if (entry.key() == "source" && entry.value().is_string()) source = entry.value().get<std::string>();
                     else valid = false;
                 }
                 if (!valid) throw std::invalid_argument("shape");
             } catch (const std::exception&) {
                 response.status = 400;
                 response.set_content(Json{{"code", "INVALID_MIDI_CLOCK"},
-                    {"message", "Expected bpm (20 to 300) and/or transport (start, stop, continue)"}}.dump(),
+                    {"message", "Expected bpm (20 to 300), source, and/or transport (start, stop, continue)"}}.dump(),
                     "application/json; charset=utf-8");
                 return;
             }
-            const auto applied = midi->SetEngineClock(bpm, transport);
+            const auto applied = midi->SetEngineClock(bpm, transport, source);
             if (!applied.success) {
                 const auto state = midi->Snapshot();
                 const bool unavailable = !state.available;
@@ -1175,6 +1185,22 @@ struct ControlApiServer::Impl {
                 return;
             }
             response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+        });
+        server.Put("/api/v1/midi/clock/learn", [this](const httplib::Request& request, httplib::Response& response) {
+            setCors(request, response);
+            if (!midi) { response.status = 503; response.set_content(Json{{"code", "MIDI_UNAVAILABLE"}}.dump(), "application/json; charset=utf-8"); return; }
+            try {
+                const auto body = Json::parse(request.body);
+                if (!body.is_object() || !body.contains("slot") || !body["slot"].is_string()) throw std::invalid_argument("slot");
+                const auto slot = body["slot"].get<std::string>();
+                const auto action = body.value("action", "begin");
+                const auto result = action == "commit" ? midi->CommitMidiClockLearn(slot)
+                    : action == "cancel" ? midi->CancelMidiClockLearn() : midi->BeginMidiClockLearn(slot);
+                if (!result.success) { response.status = 400; response.set_content(Json{{"code", "INVALID_MIDI_LEARN"}, {"message", result.error}}.dump(), "application/json; charset=utf-8"); return; }
+                response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
+            } catch (const std::exception&) {
+                response.status = 400; response.set_content(Json{{"code", "INVALID_MIDI_LEARN"}, {"message", "Expected slot and optional action begin, commit or cancel"}}.dump(), "application/json; charset=utf-8");
+            }
         });
         server.Put("/api/v1/midi/configuration", [this](const httplib::Request& request, httplib::Response& response) {
             setCors(request, response);
@@ -1357,6 +1383,7 @@ struct ControlApiServer::Impl {
         server.Options("/api/v1/midi", optionsHandler);
         server.Options("/api/v1/midi/configuration", optionsHandler);
         server.Options("/api/v1/midi/clock", optionsHandler);
+        server.Options("/api/v1/midi/clock/learn", optionsHandler);
         server.set_pre_request_handler([](const httplib::Request& request, httplib::Response& response) {
             const auto origin = request.get_header_value("Origin");
             if (!validOrigin(origin)) {

@@ -520,6 +520,74 @@ bool testEngineClockFollowsTheSoundCard() {
     return true;
 }
 
+bool testEngineClockCanFollowExternalMidiClock() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    card.Begin(gSteadyNs);
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("external-engine-clock.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    MidiPatchbayConfiguration configuration;
+    configuration.engineClockMode = "midi-clock";
+    configuration.engineClockSource = "midi:port:1:usb-keys";
+    configuration.routes.push_back({"clock-to-synth", "midi:clock:engine", "midi:port:1:usb-synth"});
+    CHECK(patchbay.Apply(configuration).success);
+    const auto keys = cookieOf(state, "usb-keys");
+    const std::uint32_t start = 0x10FA0000u, tick = 0x10F80000u;
+    state.handler(keys, &start, 1);
+    for (int i = 0; i < 36; ++i) {
+        gSteadyNs += 20'833'333;
+        card.Advance(gSteadyNs);
+        state.handler(keys, &tick, 1);
+    }
+    patchbay.PumpClock(gSteadyNs);
+    const auto snapshot = patchbay.Snapshot();
+    CHECK(snapshot.engineClock.mode == "midi-clock" && snapshot.engineClock.source == "midi:port:1:usb-keys");
+    CHECK(snapshot.engineClock.running && snapshot.engineClock.locked);
+    CHECK(snapshot.engineClock.bpm > 119.0 && snapshot.engineClock.bpm < 121.0);
+    return true;
+}
+
+bool testMidiLearnCapturesMultipleClockSignals() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    card.Begin(gSteadyNs);
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("midi-learn-clock.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    CHECK(patchbay.BeginMidiClockLearn("beat").success);
+    auto keys = cookieOf(state, "usb-keys");
+    const std::uint32_t beat = 0x20923C64u, start = 0x10FA0000u, stop = 0x10FC0000u;
+    state.handler(keys, &beat, 1);
+    CHECK(patchbay.Snapshot().engineClock.learningSlot == "beat");
+    CHECK(patchbay.CommitMidiClockLearn("beat").success);
+    CHECK(patchbay.BeginMidiClockLearn("start").success);
+    state.handler(keys, &start, 1);
+    CHECK(patchbay.CommitMidiClockLearn("start").success);
+    CHECK(patchbay.BeginMidiClockLearn("stop").success);
+    state.handler(keys, &stop, 1);
+    CHECK(patchbay.CommitMidiClockLearn("stop").success);
+    auto snapshot = patchbay.Snapshot();
+    CHECK(snapshot.engineClock.mode == "midi-learn" && snapshot.engineClock.learnedSignals.size() == 3);
+    keys = cookieOf(state, "usb-keys");
+    state.handler(keys, &start, 1);
+    for (int i = 0; i < 3; ++i) {
+        gSteadyNs += 500'000'000;
+        card.Advance(gSteadyNs);
+        state.handler(keys, &beat, 1);
+    }
+    patchbay.PumpClock(gSteadyNs);
+    snapshot = patchbay.Snapshot();
+    CHECK(snapshot.engineClock.running && snapshot.engineClock.locked && snapshot.engineClock.bpm > 119.0 && snapshot.engineClock.bpm < 121.0);
+    return true;
+}
+
 bool testIncomingClockIsReclockedOnTheCardGrid() {
     gSteadyNs = 1'000'000'000;
     SimulatedCard card;
@@ -661,6 +729,8 @@ int main() {
     ok &= testInAndOutAreSwitchedIndependently();
     ok &= testClockIsToldApartFromActivity();
     ok &= testEngineClockFollowsTheSoundCard();
+    ok &= testEngineClockCanFollowExternalMidiClock();
+    ok &= testMidiLearnCapturesMultipleClockSignals();
     ok &= testIncomingClockIsReclockedOnTheCardGrid();
     ok &= testEngineClockNeverFallsBackToWindowsTime();
     ok &= testValidation();

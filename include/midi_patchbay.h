@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
@@ -33,10 +34,21 @@ struct MidiVirtualPortConfig {
     bool output = true;  // create "<name> Out"
 };
 
+struct MidiClockLearnBinding {
+    std::string portId;
+    std::uint8_t status = 0;
+    std::optional<std::uint8_t> channel;
+    std::uint8_t data1 = 0;
+    std::optional<std::uint8_t> data2;
+};
+
 struct MidiPatchbayConfiguration {
     std::vector<MidiVirtualPortConfig> virtualPorts;
     std::vector<MidiRoute> routes;
     double engineClockBpm = 120.0;  // 20..300; the clock starts stopped
+    std::string engineClockMode = "manual"; // manual or midi-clock
+    std::string engineClockSource;           // source MIDI port for midi-clock mode
+    std::map<std::string, MidiClockLearnBinding> engineClockLearn;
 };
 
 struct MidiPortStatus {
@@ -113,6 +125,11 @@ struct MidiEngineClockStatus {
     bool waitingForReferenceClock = false;  // running, but the reference clock stopped: no ticks
     std::uint64_t ticks = 0;
     std::string transport;     // last "start", "stop" or "continue"
+    std::string mode = "manual";
+    std::string source;
+    bool locked = false;
+    std::string learningSlot;
+    std::map<std::string, MidiClockLearnBinding> learnedSignals;
 };
 
 struct MidiPatchbaySnapshot {
@@ -171,7 +188,11 @@ public:
     // Engine clock: tempo (saved) and transport ("start", "stop", "continue",
     // or empty). Ticks are counted in reference clock samples, so the clock
     // follows its real frequency and never drifts from the audio.
-    MidiApplyResult SetEngineClock(std::optional<double> bpm, const std::string& transport);
+    MidiApplyResult SetEngineClock(std::optional<double> bpm, const std::string& transport,
+        std::optional<std::string> source = std::nullopt);
+    MidiApplyResult BeginMidiClockLearn(const std::string& slot);
+    MidiApplyResult CommitMidiClockLearn(const std::string& slot);
+    MidiApplyResult CancelMidiClockLearn();
 
     // One clock thread iteration: refreshes the reference timebase and schedules the
     // engine clock ticks due in the next few milliseconds. Called by the clock
@@ -239,6 +260,16 @@ private:
     std::mutex clockThreadMutex_;
     std::condition_variable clockThreadWake_;
     bool clockThreadStop_ = false;
+
+    std::atomic<std::int64_t> externalClockLastTickNs_{0};
+    std::atomic<std::int64_t> externalClockPreviousTickNs_{0};
+    std::atomic<double> externalClockBpm_{0};
+    std::atomic<bool> externalClockRunning_{false};
+    std::atomic<int> externalClockTransport_{0};
+    mutable std::mutex learnMutex_;
+    std::string learningSlot_;
+    std::optional<MidiClockLearnBinding> pendingLearn_;
+    std::atomic<bool> learningArmed_{false};
 
     mutable std::mutex runtimeMutex_;
     std::shared_ptr<const Runtime> runtime_;
