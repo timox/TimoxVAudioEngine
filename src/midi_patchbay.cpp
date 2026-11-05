@@ -899,8 +899,9 @@ void MidiPatchbay::OnReceive(std::uint64_t cookie, const std::uint32_t* words, s
     while (offset < count) {
         const auto length = midi_ump::WordCount(words[offset]);
         if (offset + length > count) return;
-        // MIDI 1.0 only: anything else (MIDI 2.0, utility, stream) is dropped.
-        if (midi_ump::Category(words[offset]) != 0) Route(*runtime, cookie, words + offset, length);
+        // MIDI Learn must see the raw packet; normal routing still drops non-MIDI-1.0 categories.
+        if (learningArmed_.load(std::memory_order_relaxed) || midi_ump::Category(words[offset]) != 0)
+            Route(*runtime, cookie, words + offset, length);
         offset += length;
     }
 }
@@ -909,6 +910,7 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
                          std::size_t count) noexcept {
     const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
     if (source == runtime.sourceIndices.end()) return;
+    if (midi_ump::Category(words[0]) == 0 && !learningArmed_.load(std::memory_order_relaxed)) return;
     // Every message from a port is observed, routed or not, on the card timebase.
     const auto steady = steadyNs_(), wall = unixMs_();
     const auto mapping = timebase_->Current();

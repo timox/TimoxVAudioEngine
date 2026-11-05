@@ -563,7 +563,8 @@ bool testMidiLearnCapturesMultipleClockSignals() {
     CHECK(patchbay.Start().success);
     CHECK(patchbay.BeginMidiClockLearn("beat").success);
     auto keys = cookieOf(state, "usb-keys");
-    const std::uint32_t beat = 0x20923C64u, start = 0x10FA0000u, stop = 0x10FC0000u;
+    // Mixxx Clock commonly emits a channel-16 CC (controller 0, value 127) as its beat signal.
+    const std::uint32_t beat = 0x20BF007Fu, start = 0x10FA0000u, stop = 0x10FC0000u;
     state.handler(keys, &beat, 1);
     CHECK(patchbay.Snapshot().engineClock.learningSlot == "beat");
     CHECK(patchbay.CommitMidiClockLearn("beat").success);
@@ -585,6 +586,25 @@ bool testMidiLearnCapturesMultipleClockSignals() {
     patchbay.PumpClock(gSteadyNs);
     snapshot = patchbay.Snapshot();
     CHECK(snapshot.engineClock.running && snapshot.engineClock.locked && snapshot.engineClock.bpm > 119.0 && snapshot.engineClock.bpm < 121.0);
+    return true;
+}
+
+bool testMidiLearnSeesPacketsBeforeRoutingCategoryFilter() {
+    gSteadyNs = 1'000'000'000;
+    SimulatedCard card;
+    card.Begin(gSteadyNs);
+    FakeBackend::State state;
+    state.endpoints = endpoints();
+    MidiPatchbay patchbay(std::make_unique<FakeBackend>(state), tempStore("midi-learn-raw.json"));
+    patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
+    patchbay.SetTimebaseForTesting(&card.timebase);
+    CHECK(patchbay.Start().success);
+    CHECK(patchbay.BeginMidiClockLearn("beat").success);
+    const auto keys = cookieOf(state, "usb-keys");
+    const std::uint32_t rawPacket = 0x00000000u;
+    state.handler(keys, &rawPacket, 1);
+    const auto learned = patchbay.Snapshot().engineClock.learnedSignals;
+    CHECK(learned.count("beat") == 1 && learned.at("beat").portId == "midi:port:1:usb-keys");
     return true;
 }
 
@@ -731,6 +751,7 @@ int main() {
     ok &= testEngineClockFollowsTheSoundCard();
     ok &= testEngineClockCanFollowExternalMidiClock();
     ok &= testMidiLearnCapturesMultipleClockSignals();
+    ok &= testMidiLearnSeesPacketsBeforeRoutingCategoryFilter();
     ok &= testIncomingClockIsReclockedOnTheCardGrid();
     ok &= testEngineClockNeverFallsBackToWindowsTime();
     ok &= testValidation();
