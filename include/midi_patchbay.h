@@ -191,7 +191,7 @@ public:
     // follows its real frequency and never drifts from the audio.
     MidiApplyResult SetEngineClock(std::optional<double> bpm, const std::string& transport,
         std::optional<std::string> source = std::nullopt);
-    MidiApplyResult BeginMidiClockLearn(const std::string& slot);
+    MidiApplyResult BeginMidiClockLearn(const std::string& slot, const std::string& portId);
     MidiApplyResult CommitMidiClockLearn(const std::string& slot);
     MidiApplyResult CancelMidiClockLearn();
 
@@ -269,6 +269,7 @@ private:
     std::atomic<int> externalClockTransport_{0};
     mutable std::mutex learnMutex_;
     std::string learningSlot_;
+    std::string learningPortId_;
     std::optional<MidiClockLearnBinding> pendingLearn_;
     std::atomic<bool> learningArmed_{false};
 

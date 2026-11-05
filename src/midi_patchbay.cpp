@@ -750,9 +750,12 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
             wantedEndpoints.insert(source->second.endpointId);
         }
     }
-    if (learningArmed_.load(std::memory_order_acquire))
-        for (const auto& entry : present)
-            if (entry.second.source) wantedEndpoints.insert(entry.second.endpointId);
+    if (learningArmed_.load(std::memory_order_acquire)) {
+        const auto source = present.find(learningPortId_);
+        if (source == present.end() || !source->second.source)
+            return {false, "The selected MIDI Learn source is not available"};
+        wantedEndpoints.insert(source->second.endpointId);
+    }
 
     std::map<std::string, OpenConnection> next;
     std::vector<std::uint64_t> created;
@@ -931,7 +934,7 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
     sourceCounters->Observe(words[0], steady, wall, card);
     if (learningArmed_.load(std::memory_order_relaxed) && sourceIndex < runtime.portIds.size()) {
         std::lock_guard<std::mutex> lock(learnMutex_);
-        if (!learningSlot_.empty() && !pendingLearn_)
+        if (runtime.portIds[sourceIndex] == learningPortId_ && !learningSlot_.empty() && !pendingLearn_)
             pendingLearn_ = learnBinding(runtime.portIds[sourceIndex], words[0]);
     }
     if (!mappedGroup) return; // Learn can identify a legacy endpoint even when its UMP group is misdeclared.
@@ -1099,12 +1102,14 @@ MidiApplyResult MidiPatchbay::SetEngineClock(std::optional<double> bpm, const st
     return {true, {}};
 }
 
-MidiApplyResult MidiPatchbay::BeginMidiClockLearn(const std::string& slot) {
+MidiApplyResult MidiPatchbay::BeginMidiClockLearn(const std::string& slot, const std::string& portId) {
     if (slot != "beat" && slot != "start" && slot != "stop" && slot != "continue")
         return {false, "MIDI Learn slot must be beat, start, stop or continue"};
+    if (portId.empty()) return {false, "MIDI Learn requires a source MIDI port"};
     {
         std::lock_guard<std::mutex> lock(learnMutex_);
         learningSlot_ = slot;
+        learningPortId_ = portId;
         pendingLearn_.reset();
         learningArmed_.store(true, std::memory_order_release);
     }
@@ -1149,6 +1154,7 @@ MidiApplyResult MidiPatchbay::CommitMidiClockLearn(const std::string& slot) {
     if (!Save(next, error)) return {false, "The MIDI Learn signal could not be saved: " + error};
     std::lock_guard<std::mutex> lock(learnMutex_);
     learningSlot_.clear();
+    learningPortId_.clear();
     pendingLearn_.reset();
     learningArmed_.store(false, std::memory_order_release);
     return {true, {}};
@@ -1157,6 +1163,7 @@ MidiApplyResult MidiPatchbay::CommitMidiClockLearn(const std::string& slot) {
 MidiApplyResult MidiPatchbay::CancelMidiClockLearn() {
     std::lock_guard<std::mutex> lock(learnMutex_);
     learningSlot_.clear();
+    learningPortId_.clear();
     pendingLearn_.reset();
     learningArmed_.store(false, std::memory_order_release);
     return {true, {}};

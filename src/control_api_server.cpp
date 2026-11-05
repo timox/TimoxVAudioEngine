@@ -1194,8 +1194,9 @@ struct ControlApiServer::Impl {
                 if (!body.is_object() || !body.contains("slot") || !body["slot"].is_string()) throw std::invalid_argument("slot");
                 const auto slot = body["slot"].get<std::string>();
                 const auto action = body.value("action", "begin");
+                const auto port = body.value("port", std::string{});
                 const auto result = action == "commit" ? midi->CommitMidiClockLearn(slot)
-                    : action == "cancel" ? midi->CancelMidiClockLearn() : midi->BeginMidiClockLearn(slot);
+                    : action == "cancel" ? midi->CancelMidiClockLearn() : midi->BeginMidiClockLearn(slot, port);
                 if (!result.success) { response.status = 400; response.set_content(Json{{"code", "INVALID_MIDI_LEARN"}, {"message", result.error}}.dump(), "application/json; charset=utf-8"); return; }
                 response.set_content(midiSnapshotJson(midi->Snapshot()).dump(), "application/json; charset=utf-8");
             } catch (const std::exception&) {

@@ -561,17 +561,17 @@ bool testMidiLearnCapturesMultipleClockSignals() {
     patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
     patchbay.SetTimebaseForTesting(&card.timebase);
     CHECK(patchbay.Start().success);
-    CHECK(patchbay.BeginMidiClockLearn("beat").success);
+    CHECK(patchbay.BeginMidiClockLearn("beat", "midi:port:1:usb-keys").success);
     auto keys = cookieOf(state, "usb-keys");
     // Mixxx Clock commonly emits a channel-16 CC (controller 0, value 127) as its beat signal.
     const std::uint32_t beat = 0x20BF007Fu, start = 0x10FA0000u, stop = 0x10FC0000u;
     state.handler(keys, &beat, 1);
     CHECK(patchbay.Snapshot().engineClock.learningSlot == "beat");
     CHECK(patchbay.CommitMidiClockLearn("beat").success);
-    CHECK(patchbay.BeginMidiClockLearn("start").success);
+    CHECK(patchbay.BeginMidiClockLearn("start", "midi:port:1:usb-keys").success);
     state.handler(keys, &start, 1);
     CHECK(patchbay.CommitMidiClockLearn("start").success);
-    CHECK(patchbay.BeginMidiClockLearn("stop").success);
+    CHECK(patchbay.BeginMidiClockLearn("stop", "midi:port:1:usb-keys").success);
     state.handler(keys, &stop, 1);
     CHECK(patchbay.CommitMidiClockLearn("stop").success);
     auto snapshot = patchbay.Snapshot();
@@ -599,7 +599,7 @@ bool testMidiLearnSeesPacketsBeforeRoutingCategoryFilter() {
     patchbay.SetTimeSourcesForTesting(fakeSteadyNs, fakeUnixMs);
     patchbay.SetTimebaseForTesting(&card.timebase);
     CHECK(patchbay.Start().success);
-    CHECK(patchbay.BeginMidiClockLearn("beat").success);
+    CHECK(patchbay.BeginMidiClockLearn("beat", "midi:port:1:usb-keys").success);
     const auto keys = cookieOf(state, "usb-keys");
     const std::uint32_t rawPacket = 0x22000000u; // UMP group 2, not necessarily declared by a legacy endpoint
     state.handler(keys, &rawPacket, 1);
