@@ -181,10 +181,12 @@ public:
                 for (const auto& device : MidiEndpointDeviceInformation::FindAll()) {
                     const std::wstring id{device.EndpointDeviceId()};
                     if (ownClients.count(id)) continue;  // our own virtual ports
-                    // MIDI 1.0 devices only: native UMP (MIDI 2.0) endpoints are skipped.
-                    if (!MidiEndpointDeviceInformation::DeviceMatchesFilter(device,
-                            MidiEndpointDeviceInformationFilters::StandardNativeMidi1ByteFormat)) continue;
                     const auto transport = device.GetTransportSuppliedInfo();
+                    // Basic MIDI 1.0 loopbacks are reported as UMP endpoints by Windows MIDI Services.
+                    const bool midi1 = MidiEndpointDeviceInformation::DeviceMatchesFilter(device,
+                            MidiEndpointDeviceInformationFilters::StandardNativeMidi1ByteFormat);
+                    const bool basicLoopback = transport && utf8(transport.TransportCode()) == "BLOOP";
+                    if (!midi1 && !basicLoopback) continue;
                     MidiEndpointInfo endpoint{utf8(id), utf8(device.Name()),
                         transport ? utf8(transport.TransportCode()) : std::string{}, Midi1Ports(device)};
                     endpoint.framework = "windows-midi-services";
