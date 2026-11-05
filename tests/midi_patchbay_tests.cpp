@@ -601,7 +601,7 @@ bool testMidiLearnSeesPacketsBeforeRoutingCategoryFilter() {
     CHECK(patchbay.Start().success);
     CHECK(patchbay.BeginMidiClockLearn("beat").success);
     const auto keys = cookieOf(state, "usb-keys");
-    const std::uint32_t rawPacket = 0x00000000u;
+    const std::uint32_t rawPacket = 0x22000000u; // UMP group 2, not necessarily declared by a legacy endpoint
     state.handler(keys, &rawPacket, 1);
     const auto learned = patchbay.Snapshot().engineClock.learnedSignals;
     CHECK(learned.count("beat") == 1 && learned.at("beat").portId == "midi:port:1:usb-keys");

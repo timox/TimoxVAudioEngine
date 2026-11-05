@@ -495,6 +495,7 @@ struct MidiPatchbay::Runtime {
     std::vector<std::string> portIds;
     std::optional<std::size_t> externalClockIndex;
     std::map<std::string, MidiClockLearnBinding> learnBindings;
+    std::unordered_map<std::uint64_t, std::size_t> sourceCookies;
     std::size_t engineClockIndex = 0;
     struct ReclockTarget { std::size_t destination; std::shared_ptr<Reclocker> reclocker; };
     std::vector<std::vector<ReclockTarget>> reclocks;               // by source port index
@@ -818,7 +819,10 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         const auto connection = next.find(endpointKey(entry.second.endpointId));
         if (connection == next.end()) continue;
         if (entry.second.source)
+        {
             runtime->sourceIndices.emplace(sourceKey(connection->second.cookie, entry.second.group), ports.size());
+            runtime->sourceCookies.emplace(connection->second.cookie, ports.size());
+        }
         runtime->targets.push_back({connection->second.cookie, entry.second.group, entry.second.destination, nullptr});
         ports.push_back(entry.first);
     }
@@ -909,20 +913,29 @@ void MidiPatchbay::OnReceive(std::uint64_t cookie, const std::uint32_t* words, s
 void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std::uint32_t* words,
                          std::size_t count) noexcept {
     const auto source = runtime.sourceIndices.find(sourceKey(cookie, midi_ump::Group(words[0])));
-    if (source == runtime.sourceIndices.end()) return;
+    std::size_t sourceIndex = 0;
+    const bool mappedGroup = source != runtime.sourceIndices.end();
+    if (mappedGroup) sourceIndex = source->second;
+    else {
+        if (!learningArmed_.load(std::memory_order_relaxed)) return;
+        const auto fallback = runtime.sourceCookies.find(cookie);
+        if (fallback == runtime.sourceCookies.end()) return;
+        sourceIndex = fallback->second;
+    }
     if (midi_ump::Category(words[0]) == 0 && !learningArmed_.load(std::memory_order_relaxed)) return;
     // Every message from a port is observed, routed or not, on the card timebase.
     const auto steady = steadyNs_(), wall = unixMs_();
     const auto mapping = timebase_->Current();
     const double card = mapping.CardSeconds(steady);
-    auto& sourceCounters = runtime.counters[source->second];
+    auto& sourceCounters = runtime.counters[sourceIndex];
     sourceCounters->Observe(words[0], steady, wall, card);
-    if (learningArmed_.load(std::memory_order_relaxed) && source->second < runtime.portIds.size()) {
+    if (learningArmed_.load(std::memory_order_relaxed) && sourceIndex < runtime.portIds.size()) {
         std::lock_guard<std::mutex> lock(learnMutex_);
         if (!learningSlot_.empty() && !pendingLearn_)
-            pendingLearn_ = learnBinding(runtime.portIds[source->second], words[0]);
+            pendingLearn_ = learnBinding(runtime.portIds[sourceIndex], words[0]);
     }
-    if (runtime.externalClockIndex && *runtime.externalClockIndex == source->second) {
+    if (!mappedGroup) return; // Learn can identify a legacy endpoint even when its UMP group is misdeclared.
+    if (runtime.externalClockIndex && *runtime.externalClockIndex == sourceIndex && mappedGroup) {
         const auto status = midi_ump::Type(words[0]) == 0x1 ? static_cast<int>((words[0] >> 16) & 0xFF) : 0;
         const auto lastSent = sourceCounters->lastClockSentSteadyNs.load(std::memory_order_relaxed);
         const bool echoed = lastSent > 0 && steady - lastSent <= 20'000'000;
@@ -948,9 +961,9 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
         }
     }
     BackendSink<PortCounters> sink(*backend_, runtime.targets, steady, wall);
-    runtime.graph->Process(source->second, words, count, sink);
+    runtime.graph->Process(sourceIndex, words, count, sink);
 
-    const auto& reclocks = runtime.reclocks[source->second];
+    const auto& reclocks = runtime.reclocks[sourceIndex];
     if (reclocks.empty() || midi_ump::Type(words[0]) != 0x1) return;
     if (!mapping.referenceRunning) {
         // No reference clock to reclock on: pass ticks through as they arrive.
