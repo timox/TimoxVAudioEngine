@@ -751,10 +751,15 @@ MidiApplyResult MidiPatchbay::ApplyLocked(const MidiPatchbayConfiguration& confi
         }
     }
     if (learningArmed_.load(std::memory_order_acquire)) {
-        const auto source = present.find(learningPortId_);
-        if (source == present.end() || !source->second.source)
-            return {false, "The selected MIDI Learn source is not available"};
-        wantedEndpoints.insert(source->second.endpointId);
+        const auto virtualSource = virtualPorts.find(learningPortId_);
+        if (virtualSource != virtualPorts.end()) {
+            if (!virtualSource->second->input) return {false, "The selected MIDI Learn port cannot receive messages"};
+        } else {
+            const auto source = present.find(learningPortId_);
+            if (source == present.end() || !source->second.source)
+                return {false, "The selected MIDI Learn source is not available"};
+            wantedEndpoints.insert(source->second.endpointId);
+        }
     }
 
     std::map<std::string, OpenConnection> next;
