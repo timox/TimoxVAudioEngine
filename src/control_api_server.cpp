@@ -1083,6 +1083,13 @@ struct ControlApiServer::Impl {
                 {"nativeDataFormat", port.nativeDataFormat.empty() ? Json(nullptr) : Json(port.nativeDataFormat)},
                 {"supportsMultiClient", port.kind == "port" && port.online ? Json(port.supportsMultiClient) : Json(nullptr)},
                 {"activeClients", port.activeClients ? Json(*port.activeClients) : Json(nullptr)},
+                {"clients", [&] {
+                    Json clients = Json::array();
+                    for (const auto& client : port.clients)
+                        clients.push_back({{"processId", client.processId},
+                            {"processName", client.processName}, {"sessionName", client.sessionName}});
+                    return clients;
+                }()},
                 {"group", port.group}, {"source", port.source}, {"destination", port.destination},
                 {"online", port.online}, {"open", port.open},
                 {"received", port.received}, {"sent", port.sent},

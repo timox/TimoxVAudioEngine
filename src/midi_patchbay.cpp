@@ -1247,6 +1247,7 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
             status.nativeDataFormat = endpoint.nativeDataFormat;
             status.supportsMultiClient = endpoint.supportsMultiClient;
             status.activeClients = endpoint.activeClients;
+            status.clients = endpoint.clients;
             status.group = port.group + 1;
             status.source = port.source;
             status.destination = port.destination;

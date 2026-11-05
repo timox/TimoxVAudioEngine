@@ -199,10 +199,14 @@ public:
                         endpoint.supportsMultiClient = transport.SupportsMultiClient();
                     }
                     try {
-         endpoint.activeClients = static_cast<std::uint32_t>(
-         winrt::Windows::Devices::Midi2::Reporting::MidiReporting::FindAllSessionsWithMatchingOpenUmpEndpoint(id, true).Size());
+                        const auto sessions = winrt::Windows::Devices::Midi2::Reporting::MidiReporting::FindAllSessionsWithMatchingOpenUmpEndpoint(id, true);
+                        endpoint.activeClients = static_cast<std::uint32_t>(sessions.Size());
+                        for (const auto& session : sessions) {
+                            endpoint.clients.push_back({session.ProcessId(), utf8(session.ProcessName()), utf8(session.SessionName())});
+                        }
                     } catch (...) {
                         endpoint.activeClients = std::nullopt;
+                        endpoint.clients.clear();
                     }
                     if (!endpoint.ports.empty()) endpoints.push_back(std::move(endpoint));
                 }

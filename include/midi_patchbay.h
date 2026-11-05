@@ -67,6 +67,7 @@ struct MidiPortStatus {
     std::string nativeDataFormat;
     bool supportsMultiClient = false;
     std::optional<std::uint32_t> activeClients;
+    std::vector<MidiEndpointClientInfo> clients;
     int group = 1;                 // 1-based UMP group carrying this MIDI 1.0 port
     bool source = false;           // usable as a route source (MIDI In)
     bool destination = false;      // usable as a route destination (MIDI Out)

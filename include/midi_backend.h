@@ -17,6 +17,12 @@ struct Midi1PortInfo {
     bool destination = false;  // the engine can send to it (MIDI Out)
 };
 
+struct MidiEndpointClientInfo {
+    std::uint64_t processId = 0;
+    std::string processName;
+    std::string sessionName;
+};
+
 struct MidiEndpointInfo {
     std::string endpointId;   // OS endpoint device id
     std::string name;
@@ -30,6 +36,7 @@ struct MidiEndpointInfo {
     std::string nativeDataFormat;
     bool supportsMultiClient = false;
     std::optional<std::uint32_t> activeClients;
+    std::vector<MidiEndpointClientInfo> clients;
 };
 
 // Platform MIDI access used by MidiPatchbay. Every connection is identified by
