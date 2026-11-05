@@ -1124,13 +1124,28 @@ MidiApplyResult MidiPatchbay::CommitMidiClockLearn(const std::string& slot) {
     }
     auto next = configuration_;
     next.engineClockLearn[slot] = *captured;
-    if (next.engineClockLearn.count("beat") && next.engineClockLearn.count("start") && next.engineClockLearn.count("stop")) {
-        next.engineClockMode = "midi-learn";
-        next.engineClockSource.clear();
+    const bool complete = next.engineClockLearn.count("beat") && next.engineClockLearn.count("start") && next.engineClockLearn.count("stop");
+    if (!complete) {
+        std::string error;
+        {
+            std::lock_guard<std::mutex> controlLock(controlMutex_);
+            configuration_ = next;
+            if (!Save(next, error)) return {false, "The MIDI Learn signal could not be saved: " + error};
+        }
+        std::lock_guard<std::mutex> lock(learnMutex_);
+        learningSlot_.clear();
+        pendingLearn_.reset();
+        return {true, {}};
     }
+    next.engineClockMode = "midi-learn";
+    next.engineClockSource.clear();
+    learningArmed_.store(false, std::memory_order_release);
     std::string error;
     const auto applied = Apply(next, false);
-    if (!applied.success) return applied;
+    if (!applied.success) {
+        learningArmed_.store(true, std::memory_order_release);
+        return applied;
+    }
     if (!Save(next, error)) return {false, "The MIDI Learn signal could not be saved: " + error};
     std::lock_guard<std::mutex> lock(learnMutex_);
     learningSlot_.clear();
