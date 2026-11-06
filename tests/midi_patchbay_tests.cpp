@@ -155,7 +155,8 @@ bool testApplyRoutesAndPersists() {
     // Traffic is observed per port: everything that arrives, routed or not,
     // and everything delivered.
     for (const auto& port : snapshot.ports) {
-        if (port.id == "midi:virtual:daw") CHECK(port.received == 2 && port.sent == 2 && port.lastSentUnixMs > 0);
+        if (port.id == "midi:virtual:daw") CHECK(port.received == 2 && port.sent == 2 && port.lastSentUnixMs > 0 &&
+            port.recentMessages.size() == 2 && port.recentMessages.front().words[0] == ch1);
         if (port.id == "midi:port:1:usb-keys") CHECK(port.received == 2 && port.sent == 0 && port.lastReceivedUnixMs > 0);
         if (port.id == "midi:port:1:usb-synth") CHECK(port.sent == 1 && port.received == 0);
     }

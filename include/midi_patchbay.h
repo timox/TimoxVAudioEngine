@@ -52,6 +52,12 @@ struct MidiPatchbayConfiguration {
     std::map<std::string, MidiClockLearnBinding> engineClockLearn;
 };
 
+struct MidiMessageSnapshot {
+    std::uint64_t sequence = 0;
+    std::int64_t unixMs = 0;
+    std::vector<std::uint32_t> words;
+};
+
 struct MidiPortStatus {
     std::string id;
     std::string name;
@@ -95,6 +101,7 @@ struct MidiPortStatus {
     std::int64_t transportUnixMs = 0;
     std::uint64_t activeSensing = 0;
     std::int64_t lastActiveSensingUnixMs = 0;
+    std::vector<MidiMessageSnapshot> recentMessages;
     std::string inputEndpointId;   // virtual ports: "<name> In", apps send here
     std::string outputEndpointId;  // virtual ports: "<name> Out", apps listen here
     std::string error;

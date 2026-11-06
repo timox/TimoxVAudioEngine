@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <deque>
 #include <set>
 #include <sstream>
 #include <system_error>
@@ -187,6 +188,10 @@ bool matchesLearnBinding(const MidiClockLearnBinding& binding, std::uint32_t wor
 }
 
 struct MidiPatchbay::PortCounters {
+    static constexpr std::size_t kRecentMessages = 64;
+    mutable std::mutex messagesMutex;
+    std::deque<MidiMessageSnapshot> messages;
+    std::uint64_t nextMessageSequence = 1;
     std::atomic<std::uint64_t> received{0};
     std::atomic<std::uint64_t> sent{0};
     std::atomic<std::int64_t> lastReceivedUnixMs{0};
@@ -229,7 +234,13 @@ struct MidiPatchbay::PortCounters {
     // atomics are enough; a rare race only skews one tempo sample.
     // cardSeconds: arrival time on the sound card timebase, so the measured
     // tempo is the tempo the audio hears.
-    void Observe(std::uint32_t word0, std::int64_t steadyNs, std::int64_t unixMs, double cardSeconds) noexcept {
+    void Observe(const std::uint32_t* words, std::size_t count, std::int64_t steadyNs, std::int64_t unixMs, double cardSeconds) noexcept {
+        {
+            std::lock_guard<std::mutex> lock(messagesMutex);
+            messages.push_back({nextMessageSequence++, unixMs, std::vector<std::uint32_t>(words, words + count)});
+            while (messages.size() > kRecentMessages) messages.pop_front();
+        }
+        const auto word0 = words[0];
         received.fetch_add(1, std::memory_order_relaxed);
         lastReceivedUnixMs.store(unixMs, std::memory_order_relaxed);
         const auto status = midi_ump::Type(word0) == 0x1 ? static_cast<int>((word0 >> 16) & 0xFF) : 0;
@@ -936,7 +947,7 @@ void MidiPatchbay::Route(const Runtime& runtime, std::uint64_t cookie, const std
     const auto mapping = timebase_->Current();
     const double card = mapping.CardSeconds(steady);
     auto& sourceCounters = runtime.counters[sourceIndex];
-    sourceCounters->Observe(words[0], steady, wall, card);
+    sourceCounters->Observe(words, count, steady, wall, card);
     if (learningArmed_.load(std::memory_order_relaxed) && sourceIndex < runtime.portIds.size()) {
         std::lock_guard<std::mutex> lock(learnMutex_);
         if (runtime.portIds[sourceIndex] == learningPortId_ && !learningSlot_.empty() && !pendingLearn_)
@@ -1299,6 +1310,10 @@ MidiPatchbaySnapshot MidiPatchbay::Snapshot() const {
         status.transportUnixMs = c.transportUnixMs.load(std::memory_order_relaxed);
         status.activeSensing = c.activeSensing.load(std::memory_order_relaxed);
         status.lastActiveSensingUnixMs = c.lastActiveSensingUnixMs.load(std::memory_order_relaxed);
+        {
+            std::lock_guard<std::mutex> lock(counters->second->messagesMutex);
+            status.recentMessages.assign(counters->second->messages.begin(), counters->second->messages.end());
+        }
     }
 
     const auto mapping = timebase_->Current();

@@ -1105,6 +1105,8 @@ struct ControlApiServer::Impl {
                     {"transportUnixMs", port.transportUnixMs > 0 ? Json(port.transportUnixMs) : Json(nullptr)}}},
                 {"activeSensing", {{"messages", port.activeSensing},
                     {"lastUnixMs", port.lastActiveSensingUnixMs > 0 ? Json(port.lastActiveSensingUnixMs) : Json(nullptr)}}},
+                {"recentMessages", [&] { Json messages = Json::array(); for (const auto& message : port.recentMessages)
+                    messages.push_back({{"sequence", message.sequence}, {"unixMs", message.unixMs}, {"words", message.words}}); return messages; }()},
                 {"inputEndpointId", port.inputEndpointId.empty() ? Json(nullptr) : Json(port.inputEndpointId)},
                 {"outputEndpointId", port.outputEndpointId.empty() ? Json(nullptr) : Json(port.outputEndpointId)},
                 {"error", port.error.empty() ? Json(nullptr) : Json(port.error)}});

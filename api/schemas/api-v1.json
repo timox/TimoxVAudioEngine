@@ -635,7 +635,8 @@
         "lastSentUnixMs",
         "activity",
         "clock",
-        "activeSensing"
+        "activeSensing",
+        "recentMessages"
       ],
       "properties": {
         "id": {
@@ -878,6 +879,20 @@
                 "integer",
                 "null"
               ]
+            }
+          }
+        },
+        "recentMessages": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["sequence", "unixMs", "words"],
+            "additionalProperties": false,
+            "properties": {
+              "sequence": { "type": "integer", "minimum": 1 },
+              "unixMs": { "type": "integer" },
+              "words": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }, "minItems": 1, "maxItems": 4 }
             }
           }
         }
